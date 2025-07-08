@@ -76,6 +76,7 @@ paths:
                 events:
                   type: array
                   description: Array of vote events to submit
+                  maxItems: 100
                   items:
                     $ref: '#/components/schemas/VoteEvent'
               required:

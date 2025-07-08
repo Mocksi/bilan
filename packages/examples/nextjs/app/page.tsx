@@ -28,7 +28,7 @@ export default function Example() {
   useEffect(() => {
     init({
       mode: 'server',
-      endpoint: process.env.NEXT_PUBLIC_API_ENDPOINT || 'http://localhost:3002',
+      endpoint: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001',
       userId: createUserId('demo-user'),
       debug: true
     }).then(refreshStats)
