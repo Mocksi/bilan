@@ -19,10 +19,12 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
           
-      - name: Upgrade npm
-        run: npm install -g npm@latest
+      - name: Upgrade npm and clear cache
+        run: |
+          npm install -g npm@9
+          npm cache clean --force
+          npm --version
           
       - name: Install dependencies
         run: npm ci
