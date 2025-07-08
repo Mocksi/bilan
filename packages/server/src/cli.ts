@@ -12,7 +12,6 @@ if (portEnv && (isNaN(port) || port < 1 || port > 65535)) {
 
 const config = {
   port,
-  host: process.env.HOST || '0.0.0.0',
   dbPath: process.env.DB_PATH || './bilan.db'
 }
 
@@ -21,7 +20,7 @@ const server = new BilanServer(config)
 // Start server with error handling
 server.start()
   .then(() => {
-    console.log(`Server started on ${config.host}:${config.port}`)
+    console.log(`Server started on port ${config.port}`)
   })
   .catch((error) => {
     console.error('Failed to start server:', error)

@@ -28,8 +28,17 @@ export class BilanDatabase {
       CREATE INDEX IF NOT EXISTS idx_events_user_id ON events(user_id);
       CREATE INDEX IF NOT EXISTS idx_events_prompt_id ON events(prompt_id);
       CREATE INDEX IF NOT EXISTS idx_events_timestamp ON events(timestamp);
-      CREATE INDEX IF NOT EXISTS idx_events_model_used ON events(model_used);
     `)
+  }
+
+  // Simple query method for direct SQL access
+  query(sql: string, params: any[] = []): any[] {
+    return this.db.prepare(sql).all(...params)
+  }
+
+  // Single row query
+  queryOne(sql: string, params: any[] = []): any {
+    return this.db.prepare(sql).get(...params)
   }
 
   insertEvent(event: VoteEvent): void {
@@ -53,103 +62,75 @@ export class BilanDatabase {
     )
   }
 
-  getEventsByUser(userId: string, limit: number = 1000): VoteEvent[] {
-    const stmt = this.db.prepare(`
-      SELECT * FROM events 
-      WHERE user_id = ? 
-      ORDER BY timestamp DESC 
-      LIMIT ?
-    `)
+  // Get events with simple filtering
+  getEvents(filters: { userId?: string; promptId?: string; limit?: number; offset?: number } = {}): VoteEvent[] {
+    const { userId, promptId, limit = 100, offset = 0 } = filters
     
-    const rows = stmt.all(userId, limit) as any[]
-    return rows.map(row => ({
+    let sql = 'SELECT * FROM events WHERE 1=1'
+    const params: any[] = []
+    
+    if (userId) {
+      sql += ' AND user_id = ?'
+      params.push(userId)
+    }
+    
+    if (promptId) {
+      sql += ' AND prompt_id = ?'
+      params.push(promptId)
+    }
+    
+    sql += ' ORDER BY timestamp DESC LIMIT ? OFFSET ?'
+    params.push(limit, offset)
+    
+    const rows = this.query(sql, params)
+    return rows.map(this.mapRowToEvent)
+  }
+
+  // Get total count
+  getEventsCount(filters: { userId?: string; promptId?: string } = {}): number {
+    const { userId, promptId } = filters
+    
+    let sql = 'SELECT COUNT(*) as count FROM events WHERE 1=1'
+    const params: any[] = []
+    
+    if (userId) {
+      sql += ' AND user_id = ?'
+      params.push(userId)
+    }
+    
+    if (promptId) {
+      sql += ' AND prompt_id = ?'
+      params.push(promptId)
+    }
+    
+    const result = this.queryOne(sql, params)
+    return result?.count || 0
+  }
+
+  private mapRowToEvent(row: any): VoteEvent {
+    let metadata = {}
+    try {
+      metadata = JSON.parse(row.metadata || '{}')
+    } catch (error) {
+      // Log the error in development but don't crash the application
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Failed to parse event metadata:', error)
+      }
+      metadata = {}
+    }
+
+    return {
       promptId: row.prompt_id,
       value: row.value,
       comment: row.comment,
       timestamp: row.timestamp,
       userId: row.user_id,
-      metadata: JSON.parse(row.metadata || '{}'),
+      metadata,
       promptText: row.prompt_text,
       aiOutput: row.ai_output,
       modelUsed: row.model_used,
       responseTime: row.response_time
-    }))
-  }
-
-  getEventsByPrompt(promptId: string, limit: number = 1000): VoteEvent[] {
-    const stmt = this.db.prepare(`
-      SELECT * FROM events 
-      WHERE prompt_id = ? 
-      ORDER BY timestamp DESC 
-      LIMIT ?
-    `)
-    
-    const rows = stmt.all(promptId, limit) as any[]
-    return rows.map(row => ({
-      promptId: row.prompt_id,
-      value: row.value,
-      comment: row.comment,
-      timestamp: row.timestamp,
-      userId: row.user_id,
-      metadata: JSON.parse(row.metadata || '{}'),
-      promptText: row.prompt_text,
-      aiOutput: row.ai_output,
-      modelUsed: row.model_used,
-      responseTime: row.response_time
-    }))
-  }
-
-  // New method for efficient filtering by both promptId and userId
-  getEventsByPromptAndUser(promptId: string, userId: string, limit: number = 1000): VoteEvent[] {
-    const stmt = this.db.prepare(`
-      SELECT * FROM events 
-      WHERE prompt_id = ? AND user_id = ? 
-      ORDER BY timestamp DESC 
-      LIMIT ?
-    `)
-    
-    const rows = stmt.all(promptId, userId, limit) as any[]
-    return rows.map(row => ({
-      promptId: row.prompt_id,
-      value: row.value,
-      comment: row.comment,
-      timestamp: row.timestamp,
-      userId: row.user_id,
-      metadata: JSON.parse(row.metadata || '{}'),
-      promptText: row.prompt_text,
-      aiOutput: row.ai_output,
-      modelUsed: row.model_used,
-      responseTime: row.response_time
-    }))
-  }
-
-  getAllEvents(limit: number = 100, offset: number = 0): VoteEvent[] {
-    const stmt = this.db.prepare(`
-      SELECT * FROM events 
-      ORDER BY timestamp DESC 
-      LIMIT ? OFFSET ?
-    `)
-    
-    const rows = stmt.all(limit, offset) as any[]
-    return rows.map(row => ({
-      promptId: row.prompt_id,
-      value: row.value,
-      comment: row.comment,
-      timestamp: row.timestamp,
-      userId: row.user_id,
-      metadata: JSON.parse(row.metadata || '{}'),
-      promptText: row.prompt_text,
-      aiOutput: row.ai_output,
-      modelUsed: row.model_used,
-      responseTime: row.response_time
-    }))
-  }
-
-  // New method to get total count of all events
-  getTotalEventsCount(): number {
-    const stmt = this.db.prepare('SELECT COUNT(*) as count FROM events')
-    const result = stmt.get() as { count: number }
-    return result.count
+    }
   }
 
   close(): void {

@@ -57,11 +57,11 @@ export default function Dashboard() {
       
       const data: EventsResponse = await response.json()
       setEvents(data.events || [])
-      logger.info('Events fetched successfully', { count: data.events?.length || 0 })
+      logger.log('Events fetched successfully', data.events?.length || 0)
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
       setError(`Failed to fetch events: ${errorMessage}`)
-      logger.error('Error fetching events', { error: errorMessage })
+      logger.error('Error fetching events', errorMessage)
     } finally {
       setLoading(false)
     }
@@ -78,7 +78,7 @@ export default function Dashboard() {
       
       const data: UserStats = await response.json()
       setUserStats(data)
-      logger.info('User stats fetched successfully', { userId, stats: data })
+      logger.log('User stats fetched', { userId, totalVotes: data.totalVotes })
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
       setError(`Failed to fetch user stats: ${errorMessage}`)

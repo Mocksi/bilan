@@ -1,0 +1,444 @@
+openapi: 3.0.3
+info:
+  title: Bilan Trust Analytics API
+  description: |
+    REST API for Bilan - Open Source Trust Analytics for AI Products
+    
+    Track user feedback on AI suggestions, calculate trust metrics, and get actionable insights.
+    Self-hostable with SQLite backend.
+    
+    ## Authentication
+    This API currently does not require authentication. Events are identified by userId.
+    
+    ## Rate Limiting
+    No rate limiting is currently implemented.
+    
+    ## Error Handling
+    All errors follow standard HTTP status codes with JSON error responses.
+  version: 0.3.0
+  contact:
+    name: Bilan Project
+    url: https://github.com/Mocksi/bilan
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:3001
+    description: Development server (default)
+  - url: https://api.bilan.example.com
+    description: Production server
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      description: Check if the API server is running and responsive
+      operationId: healthCheck
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]
+                  timestamp:
+                    type: string
+                    format: date-time
+                    description: ISO 8601 timestamp
+                required:
+                  - status
+                  - timestamp
+              example:
+                status: ok
+                timestamp: "2024-01-15T10:30:00.000Z"
+
+  /api/events:
+    post:
+      summary: Submit vote events
+      description: Submit one or more user feedback events for AI suggestions
+      operationId: submitEvents
+      tags:
+        - Events
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                events:
+                  type: array
+                  description: Array of vote events to submit
+                  items:
+                    $ref: '#/components/schemas/VoteEvent'
+              required:
+                - events
+            example:
+              events:
+                - promptId: "prompt-123"
+                  value: 1
+                  comment: "This suggestion was very helpful!"
+                  timestamp: 1705312200000
+                  userId: "user-456"
+                  promptText: "How do I center a div in CSS?"
+                  aiOutput: "Use flexbox with justify-content: center and align-items: center"
+                  modelUsed: "gpt-4"
+                  responseTime: 1.2
+      responses:
+        '200':
+          description: Events submitted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    enum: [true]
+                  count:
+                    type: integer
+                    description: Number of events processed
+                required:
+                  - success
+                  - count
+              example:
+                success: true
+                count: 1
+        '400':
+          description: Invalid request data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                missing_events:
+                  value:
+                    error: "Events must be an array"
+                missing_fields:
+                  value:
+                    error: "Missing required fields"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Internal server error"
+
+    get:
+      summary: Get all events
+      description: Retrieve all vote events with pagination support
+      operationId: getEvents
+      tags:
+        - Events
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of events to return
+          required: false
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 1000
+        - name: offset
+          in: query
+          description: Number of events to skip (for pagination)
+          required: false
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+      responses:
+        '200':
+          description: Events retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/VoteEvent'
+                  total:
+                    type: integer
+                    description: Total number of events in the database
+                required:
+                  - events
+                  - total
+              example:
+                events:
+                  - promptId: "prompt-123"
+                    value: 1
+                    comment: "Very helpful!"
+                    timestamp: 1705312200000
+                    userId: "user-456"
+                    metadata: {}
+                    promptText: "How do I center a div?"
+                    aiOutput: "Use flexbox..."
+                    modelUsed: "gpt-4"
+                    responseTime: 1.2
+                total: 47
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/stats:
+    get:
+      summary: Get user statistics
+      description: Get aggregate feedback statistics for a specific user
+      operationId: getUserStats
+      tags:
+        - Statistics
+      parameters:
+        - name: userId
+          in: query
+          description: Unique identifier for the user
+          required: true
+          schema:
+            type: string
+          example: "user-456"
+      responses:
+        '200':
+          description: User statistics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BasicStats'
+              example:
+                totalVotes: 47
+                positiveRate: 0.74
+                recentTrend: "improving"
+                topFeedback:
+                  - "Great suggestion!"
+                  - "Very helpful"
+                  - "Exactly what I needed"
+                  - "Perfect response"
+                  - "Thanks!"
+        '400':
+          description: Missing required parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Missing userId parameter"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/stats/prompt/{promptId}:
+    get:
+      summary: Get prompt statistics
+      description: Get feedback statistics for a specific AI prompt/suggestion
+      operationId: getPromptStats
+      tags:
+        - Statistics
+      parameters:
+        - name: promptId
+          in: path
+          description: Unique identifier for the prompt
+          required: true
+          schema:
+            type: string
+          example: "prompt-123"
+        - name: userId
+          in: query
+          description: Optional user ID to filter stats by specific user
+          required: false
+          schema:
+            type: string
+          example: "user-456"
+      responses:
+        '200':
+          description: Prompt statistics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromptStats'
+              example:
+                promptId: "prompt-123"
+                totalVotes: 12
+                positiveRate: 0.83
+                comments:
+                  - "Helpful suggestion!"
+                  - "Thanks for the tip"
+                  - "Perfect solution"
+        '400':
+          description: Missing required parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                error: "Missing promptId parameter"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  schemas:
+    VoteEvent:
+      type: object
+      description: Represents a single user feedback event on an AI suggestion
+      properties:
+        promptId:
+          type: string
+          description: Unique identifier for the AI prompt/suggestion
+          example: "prompt-123"
+        value:
+          type: integer
+          description: User feedback score
+          enum: [1, -1]
+          example: 1
+        comment:
+          type: string
+          description: Optional text comment from the user
+          example: "This suggestion was very helpful!"
+          nullable: true
+        timestamp:
+          type: integer
+          description: Timestamp when the feedback was recorded (milliseconds since epoch)
+          example: 1705312200000
+        userId:
+          type: string
+          description: Unique identifier for the user who provided feedback
+          example: "user-456"
+        metadata:
+          type: object
+          description: Additional arbitrary data attached to the event
+          additionalProperties: true
+          example: {}
+        promptText:
+          type: string
+          description: The original user prompt/question that led to the AI response
+          example: "How do I center a div in CSS?"
+          nullable: true
+        aiOutput:
+          type: string
+          description: The complete AI response that was rated
+          example: "Use flexbox with justify-content: center and align-items: center"
+          nullable: true
+        modelUsed:
+          type: string
+          description: Which AI model generated the response
+          example: "gpt-4"
+          nullable: true
+        responseTime:
+          type: number
+          description: How long the AI took to respond, in seconds
+          example: 1.2
+          nullable: true
+      required:
+        - promptId
+        - value
+        - timestamp
+        - userId
+
+    BasicStats:
+      type: object
+      description: Aggregate statistics for user feedback
+      properties:
+        totalVotes:
+          type: integer
+          description: Total number of votes recorded
+          example: 47
+        positiveRate:
+          type: number
+          description: Ratio of positive votes (0.0 to 1.0)
+          minimum: 0
+          maximum: 1
+          example: 0.74
+        recentTrend:
+          type: string
+          description: Trend based on recent vs historical feedback
+          enum: ["improving", "declining", "stable"]
+          example: "improving"
+        topFeedback:
+          type: array
+          description: Most recent feedback comments (up to 5)
+          items:
+            type: string
+          example:
+            - "Great suggestion!"
+            - "Very helpful"
+            - "Exactly what I needed"
+      required:
+        - totalVotes
+        - positiveRate
+        - recentTrend
+        - topFeedback
+
+    PromptStats:
+      type: object
+      description: Statistics for a specific AI prompt/suggestion
+      properties:
+        promptId:
+          type: string
+          description: The prompt ID these statistics are for
+          example: "prompt-123"
+        totalVotes:
+          type: integer
+          description: Number of votes for this specific prompt
+          example: 12
+        positiveRate:
+          type: number
+          description: Ratio of positive votes for this prompt (0.0 to 1.0)
+          minimum: 0
+          maximum: 1
+          example: 0.83
+        comments:
+          type: array
+          description: All text comments for this prompt
+          items:
+            type: string
+          example:
+            - "Helpful suggestion!"
+            - "Thanks for the tip"
+            - "Perfect solution"
+      required:
+        - promptId
+        - totalVotes
+        - positiveRate
+        - comments
+
+    Error:
+      type: object
+      description: Standard error response format
+      properties:
+        error:
+          type: string
+          description: Human-readable error message
+          example: "Missing required fields"
+      required:
+        - error
+
+tags:
+  - name: Health
+    description: API health and status endpoints
+  - name: Events
+    description: Submit and retrieve user feedback events
+  - name: Statistics
+    description: Get analytics and statistics on user feedback
+
+externalDocs:
+  description: Bilan GitHub Repository
+  url: https://github.com/Mocksi/bilan 

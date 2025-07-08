@@ -25,6 +25,9 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
           
+      - name: Update npm to latest
+        run: npm install -g npm@latest
+        
       - name: Install dependencies
         run: npm ci
         
@@ -60,6 +63,9 @@ jobs:
           node-version: 20
           cache: 'npm'
           
+      - name: Update npm to latest
+        run: npm install -g npm@latest
+        
       - name: Install dependencies
         run: npm ci
         
@@ -95,6 +101,9 @@ jobs:
           node-version: 20
           cache: 'npm'
           
+      - name: Update npm to latest
+        run: npm install -g npm@latest
+        
       - name: Install dependencies
         run: npm ci
         
@@ -104,7 +113,7 @@ jobs:
           npm run test -- --coverage
           
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
         with:
           file: packages/sdk/coverage/lcov.info
           flags: sdk
@@ -126,6 +135,9 @@ jobs:
           node-version: 20
           cache: 'npm'
           
+      - name: Update npm to latest
+        run: npm install -g npm@latest
+        
       - name: Install dependencies
         run: npm ci
         
@@ -154,6 +166,9 @@ jobs:
           node-version: 20
           cache: 'npm'
           
+      - name: Update npm to latest
+        run: npm install -g npm@latest
+        
       - name: Install root dependencies
         run: npm ci
         
@@ -183,6 +198,9 @@ jobs:
           node-version: 20
           cache: 'npm'
           
+      - name: Update npm to latest
+        run: npm install -g npm@latest
+        
       - name: Install dependencies
         run: npm ci
         

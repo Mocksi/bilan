@@ -17,13 +17,14 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Auto Label PR
-        uses: actions/labeler@v4
+        uses: actions/labeler@v5
         with:
           repo-token: "${{ secrets.GITHUB_TOKEN }}"
           configuration-path: .github/labeler.yml
+          sync-labels: false
 
       - name: Add size labels
-        uses: pascalgn/size-label-action@v0.4.3
+        uses: pascalgn/size-label-action@v0.5.4
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -37,26 +38,34 @@ jobs:
             }
 
       - name: Add type labels based on branch name
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           script: |
-            const { context } = require('@actions/github');
+            const { context, github } = require('@actions/github');
             const branchName = context.payload.pull_request.head.ref;
+            
+            // Get existing labels in the repo
+            const existingLabels = await github.rest.issues.listLabelsForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+            
+            const existingLabelNames = existingLabels.data.map(label => label.name);
             
             const labels = [];
             
             if (branchName.startsWith('feat/') || branchName.startsWith('feature/')) {
-              labels.push('enhancement');
+              if (existingLabelNames.includes('enhancement')) labels.push('enhancement');
             } else if (branchName.startsWith('fix/') || branchName.startsWith('bug/')) {
-              labels.push('bug');
+              if (existingLabelNames.includes('bug')) labels.push('bug');
             } else if (branchName.startsWith('docs/')) {
-              labels.push('documentation');
+              if (existingLabelNames.includes('documentation')) labels.push('documentation');
             } else if (branchName.startsWith('refactor/')) {
-              labels.push('refactor');
+              if (existingLabelNames.includes('refactor')) labels.push('refactor');
             } else if (branchName.startsWith('test/')) {
-              labels.push('tests');
+              if (existingLabelNames.includes('tests')) labels.push('tests');
             } else if (branchName.startsWith('ci/') || branchName.startsWith('build/')) {
-              labels.push('ci/cd');
+              if (existingLabelNames.includes('ci/cd')) labels.push('ci/cd');
             }
             
             if (labels.length > 0) {

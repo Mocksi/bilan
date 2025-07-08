@@ -6,7 +6,6 @@ import { createPromptId } from '@bilan/sdk'
 
 export interface ServerConfig {
   port?: number
-  host?: string
   dbPath?: string
   cors?: boolean
 }
@@ -89,7 +88,7 @@ export class BilanServer {
           return reply.status(400).send({ error: 'Missing userId parameter' })
         }
 
-        const events = this.db.getEventsByUser(userId)
+        const events = this.db.getEvents({ userId })
         const stats = BasicAnalytics.calculateBasicStats(events)
         
         return stats
@@ -109,10 +108,8 @@ export class BilanServer {
           return reply.status(400).send({ error: 'Missing promptId parameter' })
         }
 
-        // Use optimized query instead of filtering in memory
-        const events = userId ? 
-          this.db.getEventsByPromptAndUser(promptId, userId) :
-          this.db.getEventsByPrompt(promptId)
+        // Use simplified filtering
+        const events = this.db.getEvents({ promptId, userId })
         const stats = BasicAnalytics.calculatePromptStats(events, createPromptId(promptId))
         
         return stats
@@ -126,10 +123,11 @@ export class BilanServer {
     this.fastify.get<{ Querystring: EventsQuery }>('/api/events', async (request: FastifyRequest<{ Querystring: EventsQuery }>, reply: FastifyReply) => {
       try {
         const { limit = '100', offset = '0' } = request.query
-        const events = this.db.getAllEvents(parseInt(limit, 10), parseInt(offset, 10))
+        const limitNum = parseInt(limit, 10)
+        const offsetNum = parseInt(offset, 10)
         
-        // Get total count separately for accurate pagination
-        const total = this.db.getTotalEventsCount()
+        const events = this.db.getEvents({ limit: limitNum, offset: offsetNum })
+        const total = this.db.getEventsCount()
         
         return { events, total }
       } catch (error) {
@@ -142,7 +140,7 @@ export class BilanServer {
   async start(): Promise<void> {
     try {
       const port = this.config.port || 3001
-      const host = this.config.host || '0.0.0.0'
+      const host = '0.0.0.0' // Always listen on all interfaces
       
       await this.fastify.listen({ port, host })
       console.log(`Bilan server listening on http://${host}:${port}`)

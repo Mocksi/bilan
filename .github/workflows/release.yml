@@ -12,6 +12,8 @@ jobs:
     permissions:
       contents: write
       packages: write
+    outputs:
+      version: ${{ steps.version.outputs.VERSION }}
       
     steps:
       - name: Checkout code
@@ -47,6 +49,11 @@ jobs:
           cd ../server && npm version ${{ steps.version.outputs.VERSION }} --no-git-tag-version
           cd ../dashboard && npm version ${{ steps.version.outputs.VERSION }} --no-git-tag-version
           
+      - name: Create SDK package for release
+        run: |
+          cd packages/sdk
+          npm pack
+          
       - name: Publish SDK to NPM
         run: |
           cd packages/sdk
@@ -77,6 +84,7 @@ jobs:
           echo "- **SDK Gzipped Size**: $(cd packages/sdk && gzip -c dist/index.js | wc -c | awk '{print $1/1024 " KB"}')" >> CHANGELOG.md
           
       - name: Create GitHub Release
+        id: create_release
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -107,7 +115,7 @@ jobs:
       - name: Notify success
         if: needs.release.result == 'success'
         run: |
-          echo "✅ Release v${{ steps.version.outputs.VERSION }} published successfully!"
+          echo "✅ Release v${{ needs.release.outputs.version }} published successfully!"
           echo "📦 SDK available at: https://www.npmjs.com/package/@bilan/sdk"
           
       - name: Notify failure
