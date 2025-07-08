@@ -1,71 +1,24 @@
-# SDK related changes
+# Package areas
 'area: sdk':
-  - 'packages/sdk/**/*'
+  - changed-files:
+    - any-glob-to-any-file: 'packages/sdk/**/*'
 
-# Server related changes  
 'area: server':
-  - 'packages/server/**/*'
+  - changed-files:
+    - any-glob-to-any-file: 'packages/server/**/*'
 
-# Dashboard related changes
 'area: dashboard':
-  - 'packages/dashboard/**/*'
+  - changed-files:
+    - any-glob-to-any-file: 'packages/dashboard/**/*'
 
-# Examples related changes
-'area: examples':
-  - 'packages/examples/**/*'
-
-# Documentation changes
+# Documentation
 'documentation':
-  - '*.md'
-  - 'docs/**/*'
-  - '**/*.md'
+  - changed-files:
+    - any-glob-to-any-file: 
+      - '*.md'
+      - 'docs/**/*'
 
-# Configuration changes
-'config':
-  - '*.json'
-  - '*.yml'
-  - '*.yaml'
-  - '*.config.*'
-  - '.env*'
-  - 'package*.json'
-  - 'tsconfig*.json'
-
-# CI/CD changes
+# CI/CD
 'ci/cd':
-  - '.github/**/*'
-  - '*.yml'
-  - '*.yaml'
-  - 'Dockerfile*'
-  - 'docker-compose*'
-
-# Dependencies
-'dependencies':
-  - 'package*.json'
-  - 'npm-shrinkwrap.json'
-
-# Tests
-'tests':
-  - '**/*.test.*'
-  - '**/*.spec.*'
-  - '**/tests/**/*'
-  - '**/test/**/*'
-  - '**/__tests__/**/*'
-
-# TypeScript
-'typescript':
-  - '**/*.ts'
-  - '**/*.tsx'
-  - 'tsconfig*.json'
-
-# JavaScript
-'javascript':
-  - '**/*.js'
-  - '**/*.jsx'
-
-# Build/tooling
-'build':
-  - 'rollup.config.*'
-  - 'vite.config.*'
-  - 'webpack.config.*'
-  - 'build/**/*'
-  - 'scripts/**/*' 
+  - changed-files:
+    - any-glob-to-any-file: '.github/**/*' 
