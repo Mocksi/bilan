@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  bilan-server:
+    build: .
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - DB_PATH=/app/data/bilan.db
+      - PORT=3001
+      - HOST=0.0.0.0
+    restart: unless-stopped
+
+  bilan-dashboard:
+    build:
+      context: .
+      dockerfile: packages/dashboard/Dockerfile
+    ports:
+      - "3000:3000"
+    depends_on:
+      - bilan-server
+    environment:
+      - NEXT_PUBLIC_API_URL=http://bilan-server:3001
+    restart: unless-stopped 

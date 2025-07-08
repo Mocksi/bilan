@@ -1,0 +1,254 @@
+# Bilan Project Rules - Trust Analytics for AI Products
+
+## Project Overview
+Bilan is an open-source TypeScript SDK + managed analytics platform that helps teams monitor and improve user trust in AI features. Think "Sentry for AI" - real-time trust scoring, automatic model routing, and actionable insights.
+
+## Tech Stack & Architecture
+- **Monorepo**: packages/* (SDK, types, examples) + apps/* (api, dashboard, workers)
+- **SDK**: TypeScript, Rollup, Vitest, <5KB bundle size
+- **API**: Fastify, ClickHouse, Railway deployment
+- **Workers**: Cloudflare Workers + KV for scoring and routing
+- **Dashboard**: Next.js 14, Tailwind CSS, Vercel deployment
+- **Database**: ClickHouse Cloud for event storage and aggregation
+
+## Core Principles
+
+### Developer Experience First
+- Integration must be <10 minutes from npm install to first data
+- TypeScript-first with full type safety and autocompletion
+- Zero config defaults, progressive enhancement
+- Bundle size <5KB gzipped for SDK
+- Error messages should be actionable and helpful
+
+### Performance Standards
+- API response time: <20ms P99
+- Trust score updates: 60 seconds max
+- Dashboard load time: <2 seconds
+- SDK initialization: <100ms
+
+### Open Source + Managed Platform
+- SDK is MIT licensed, fully open source
+- Backend services are proprietary but offer generous free tier
+- All types and interfaces must be exported
+- Examples should be production-ready
+
+## Code Style & Standards
+
+### TypeScript
+- Use strict mode, enable all strict flags
+- Prefer interfaces over types for public APIs
+- Use branded types for IDs (e.g., `type UserId = string & { __brand: 'UserId' }`)
+- Export all public interfaces and types
+- Use JSDoc for public API documentation
+
+### React/Next.js
+- Use App Router (not Pages Router)
+- Prefer server components when possible
+- Use TypeScript with React.FC for components
+- Implement proper error boundaries
+- Use Tailwind for styling, avoid custom CSS
+
+### API Design
+- RESTful endpoints with consistent naming
+- Use proper HTTP status codes
+- Include request/response types
+- Implement proper error handling with structured error responses
+- Use Bearer token authentication
+
+### Database (ClickHouse)
+- Use MergeTree engine for events table
+- Optimize for time-series queries
+- Use LowCardinality for enum-like fields
+- Implement proper partitioning by date
+- Use async inserts for performance
+
+## File Structure & Naming
+
+### Monorepo Structure
+```
+packages/
+├── sdk/          # @bilan/sdk - Main TypeScript SDK
+├── types/        # Shared TypeScript types
+└── examples/     # Integration examples (nextjs, react, etc.)
+
+apps/
+├── api/          # Fastify API for event ingestion
+├── dashboard/    # Next.js analytics dashboard
+├── scoring-worker/ # Cloudflare Worker for trust scoring
+└── router/       # Cloudflare Worker for model routing
+```
+
+### Naming Conventions
+- Use kebab-case for directories and files
+- Use PascalCase for React components
+- Use camelCase for functions and variables
+- Use SCREAMING_SNAKE_CASE for constants
+- Prefix interfaces with 'I' only for internal types
+
+## SDK-Specific Rules
+
+### Public API Design
+- Keep surface area minimal, focus on core use cases
+- Use method chaining where appropriate
+- Provide both imperative and declarative APIs
+- Include TypeScript definitions in bundle
+- Support both ESM and CommonJS
+
+### Error Handling
+- Never throw errors, always handle gracefully
+- Use console.warn for non-critical issues
+- Provide debug mode for development
+- Queue events if initialization is pending
+
+### Bundle Optimization
+- Use tree-shaking friendly exports
+- Minimize dependencies (prefer native APIs)
+- Use dynamic imports for optional features
+- Implement proper code splitting
+
+## Testing Standards
+
+### Unit Tests
+- Use Vitest for all testing
+- Aim for >90% code coverage
+- Test public APIs thoroughly
+- Mock external dependencies
+- Use descriptive test names
+
+### Integration Tests
+- Test full event flow (SDK → API → Database)
+- Verify trust score calculations
+- Test routing decisions
+- Validate dashboard displays
+
+## Security Guidelines
+
+### API Security
+- Validate all inputs with proper sanitization
+- Implement rate limiting (100 req/min per key)
+- Use HTTPS everywhere
+- Separate public and private API keys
+- Log security events
+
+### Data Privacy
+- Never log sensitive user data
+- Implement proper data retention policies
+- Support GDPR compliance features
+- Use minimal data collection
+
+## Performance Optimization
+
+### SDK Performance
+- Lazy load non-critical features
+- Batch API calls when possible
+- Use requestIdleCallback for background tasks
+- Implement proper caching strategies
+
+### API Performance
+- Use connection pooling for ClickHouse
+- Implement proper indexing strategies
+- Use async processing for heavy operations
+- Monitor query performance
+
+## Domain-Specific Guidelines
+
+### Trust Scoring
+- Scores must be between 0 and 1
+- Use weighted averages for historical data
+- Implement decay functions for old signals
+- Provide confidence intervals
+
+### Event Processing
+- Use consistent event schemas
+- Implement proper deduplication
+- Support batch processing
+- Handle out-of-order events
+
+### AI Integration
+- Support multiple AI providers
+- Implement fallback strategies
+- Track model performance metrics
+- Support A/B testing scenarios
+
+## Documentation Standards
+
+### Code Documentation
+- Document all public APIs with JSDoc
+- Include examples in documentation
+- Explain complex algorithms
+- Document performance characteristics
+
+### User Documentation
+- Provide working code examples
+- Include troubleshooting guides
+- Document integration patterns
+- Maintain API changelog
+
+## Common Patterns
+
+### Error Handling Pattern
+```typescript
+try {
+  await riskyOperation()
+} catch (error) {
+  if (this.config.debug) {
+    console.error('Bilan SDK error:', error)
+  }
+  // Continue gracefully
+}
+```
+
+### Event Schema Pattern
+```typescript
+interface BaseEvent {
+  id: string
+  timestamp: number
+  userId: string
+  metadata?: Record<string, any>
+}
+```
+
+### API Response Pattern
+```typescript
+interface ApiResponse<T> {
+  success: boolean
+  data?: T
+  error?: {
+    code: string
+    message: string
+  }
+}
+```
+
+## Dependencies to Avoid
+- Large utility libraries (lodash, moment.js)
+- jQuery or other DOM manipulation libraries
+- Heavy framework dependencies in SDK
+- Unmaintained or deprecated packages
+
+## Preferred Libraries
+- **Date handling**: native Date API or date-fns
+- **HTTP requests**: native fetch API
+- **Testing**: Vitest, @testing-library
+- **Build tools**: Rollup, Vite, esbuild
+- **Type checking**: TypeScript strict mode
+
+## Environment Variables
+- Use descriptive names with BILAN_ prefix
+- Provide defaults for development
+- Document all required variables
+- Use type-safe environment validation
+
+## Git & Deployment
+- Use conventional commits
+- Squash feature branches before merging
+- Tag releases with semantic versioning
+- Use GitHub Actions for CI/CD
+- Deploy SDK to npm, services to respective platforms
+
+## Final Notes
+- Always consider the developer experience impact
+- Performance is a feature, not an afterthought
+- Maintain backward compatibility in public APIs
+- Document breaking changes thoroughly
+- Focus on solving real user problems, not building features 
