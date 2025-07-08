@@ -1,0 +1,203 @@
+name: ✨ Feature Request
+description: Suggest a new idea or enhancement for Bilan
+title: "[Feature]: "
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for suggesting a new feature! 🚀
+        
+        Before submitting, please:
+        - Search existing issues and discussions to avoid duplicates
+        - Check our roadmap and documentation
+        - Consider if this fits with Bilan's core mission of trust analytics
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Preflight Checklist
+      description: Please confirm the following
+      options:
+        - label: I have searched for existing feature requests
+          required: true
+        - label: I have read the project documentation and roadmap
+          required: true
+        - label: This feature aligns with Bilan's trust analytics mission
+          required: true
+
+  - type: dropdown
+    id: feature-area
+    attributes:
+      label: Feature Area
+      description: Which area of Bilan would this feature affect?
+      options:
+        - "SDK Core"
+        - "Analytics & Algorithms"
+        - "Server/API"
+        - "Dashboard/UI"
+        - "Integration/Examples"
+        - "Documentation"
+        - "DevX/Tooling"
+        - "Other"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: user-type
+    attributes:
+      label: User Type
+      description: Who would primarily benefit from this feature?
+      multiple: true
+      options:
+        - "Individual Developers"
+        - "Small Teams"
+        - "Enterprise Teams"
+        - "Open Source Contributors"
+        - "End Users"
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem-statement
+    attributes:
+      label: Problem Statement
+      description: What problem does this feature solve? What's the user pain point?
+      placeholder: |
+        As a [user type], I struggle with [specific problem] because [reason].
+        
+        Current workarounds:
+        - [workaround 1]
+        - [workaround 2]
+        
+        Why this matters:
+        - [impact on users]
+        - [impact on adoption]
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: Proposed Solution
+      description: Describe your ideal solution in detail
+      placeholder: |
+        I propose that we add [specific feature] that would:
+        
+        1. [specific capability 1]
+        2. [specific capability 2]
+        3. [specific capability 3]
+        
+        This would work by:
+        - [technical approach]
+        - [user interaction flow]
+    validations:
+      required: true
+
+  - type: textarea
+    id: api-design
+    attributes:
+      label: API Design (if applicable)
+      description: If this involves new APIs, show what the interface might look like
+      render: typescript
+      placeholder: |
+        // Example API design
+        interface NewFeatureConfig {
+          option1: string
+          option2?: boolean
+        }
+        
+        // New method
+        configureFeature(config: NewFeatureConfig): Promise<void>
+        
+        // Usage
+        await configureFeature({
+          option1: 'value',
+          option2: true
+        })
+
+  - type: textarea
+    id: user-stories
+    attributes:
+      label: User Stories
+      description: Break down the feature into specific user stories
+      placeholder: |
+        - As a developer, I want to [action] so that [benefit]
+        - As a PM, I want to [action] so that [benefit]  
+        - As an end user, I want to [action] so that [benefit]
+
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance Criteria
+      description: How would we know this feature is complete and working?
+      placeholder: |
+        - [ ] Feature works in [specific environment]
+        - [ ] Performance impact is less than [specific metric]
+        - [ ] Documentation is updated
+        - [ ] Tests cover [specific scenarios]
+        - [ ] Backward compatibility is maintained
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority Level
+      description: How important is this feature?
+      options:
+        - "Low - Nice to have"
+        - "Medium - Would improve experience"
+        - "High - Needed for adoption"
+        - "Critical - Blocking users"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: complexity
+    attributes:
+      label: Estimated Complexity
+      description: How complex do you think this feature would be to implement?
+      options:
+        - "Small - Few hours of work"
+        - "Medium - Few days of work"
+        - "Large - Few weeks of work"
+        - "XL - Major effort/breaking changes"
+        - "Unknown - Needs investigation"
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternative Solutions
+      description: What other approaches could solve this problem?
+      placeholder: |
+        Alternative 1: [description]
+        - Pros: [benefits]
+        - Cons: [limitations]
+        
+        Alternative 2: [description]
+        - Pros: [benefits]
+        - Cons: [limitations]
+
+  - type: textarea
+    id: related-features
+    attributes:
+      label: Related Features
+      description: Are there existing features this would build on or conflict with?
+      placeholder: |
+        This feature would:
+        - Build on: [existing feature]
+        - Integrate with: [existing feature]
+        - Potentially conflict with: [existing feature]
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context
+      description: Any other context, screenshots, or examples
+      placeholder: |
+        Links to similar features in other tools:
+        - [Tool name]: [description of how they handle this]
+        
+        Additional context:
+        - [relevant information] 

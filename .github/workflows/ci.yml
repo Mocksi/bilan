@@ -1,0 +1,204 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Test on Node.js ${{ matrix.node-version }}
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [18, 20, 22]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Run TypeScript check
+        run: npx tsc --noEmit
+        
+      - name: Run tests
+        run: npm test
+        
+      - name: Run build
+        run: npm run build
+        
+      - name: Check bundle size
+        run: |
+          cd packages/sdk
+          npm run build
+          echo "SDK bundle size:"
+          du -h dist/index.js
+          echo "SDK gzipped size:"
+          gzip -c dist/index.js | wc -c | awk '{print $1/1024 " KB"}'
+
+  lint:
+    name: Lint and Format Check
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Check formatting (if prettier is added)
+        run: |
+          if [ -f "package.json" ] && npm list prettier > /dev/null 2>&1; then
+            npm run format:check
+          else
+            echo "Prettier not configured, skipping format check"
+          fi
+        continue-on-error: true
+        
+      - name: Run linting (if eslint is added)
+        run: |
+          if [ -f "package.json" ] && npm list eslint > /dev/null 2>&1; then
+            npm run lint
+          else
+            echo "ESLint not configured, skipping lint check"
+          fi
+        continue-on-error: true
+
+  coverage:
+    name: Code Coverage
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Run tests with coverage
+        run: |
+          cd packages/sdk
+          npm run test -- --coverage
+          
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          file: packages/sdk/coverage/lcov.info
+          flags: sdk
+          name: sdk-coverage
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  security:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Run security audit
+        run: npm audit --audit-level=moderate
+        
+      - name: Run Snyk security scan
+        uses: snyk/actions/node@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=high
+        continue-on-error: true
+
+  examples:
+    name: Test Examples
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          
+      - name: Install root dependencies
+        run: npm ci
+        
+      - name: Build SDK
+        run: |
+          cd packages/sdk
+          npm run build
+          
+      - name: Test NextJS example
+        run: |
+          cd packages/examples/nextjs
+          npm ci
+          npm run build
+          echo "NextJS example builds successfully"
+
+  validate-package:
+    name: Validate Package
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Build packages
+        run: npm run build
+        
+      - name: Pack SDK for testing
+        run: |
+          cd packages/sdk
+          npm pack
+          echo "SDK package created successfully"
+          
+      - name: Validate package.json files
+        run: |
+          echo "Validating package.json files..."
+          for pkg in packages/*/package.json; do
+            echo "Checking $pkg"
+            node -e "console.log('✓ Valid JSON:', require('./$pkg').name)"
+          done 

@@ -15,6 +15,7 @@ interface TableProps {
   loading?: boolean
   emptyMessage?: string
   className?: string
+  keyField?: string // Field to use as unique key for rows
 }
 
 export default function Table({ 
@@ -23,8 +24,14 @@ export default function Table({
   title, 
   loading = false, 
   emptyMessage = 'No data available',
-  className = ''
+  className = '',
+  keyField = 'id'
 }: TableProps) {
+  const getRowKey = (row: any, index: number) => {
+    // Try to use the specified keyField, fallback to common id fields, then index
+    return row[keyField] || row.id || row._id || row.uuid || `row-${index}`
+  }
+
   if (loading) {
     return (
       <div className={`bg-white rounded-lg shadow-sm border ${className}`}>
@@ -80,7 +87,7 @@ export default function Table({
               </tr>
             ) : (
               data.map((row, index) => (
-                <tr key={index} className="hover:bg-gray-50">
+                <tr key={getRowKey(row, index)} className="hover:bg-gray-50">
                   {columns.map((column) => (
                     <td
                       key={column.key}

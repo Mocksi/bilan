@@ -99,6 +99,30 @@ export class BilanDatabase {
     }))
   }
 
+  // New method for efficient filtering by both promptId and userId
+  getEventsByPromptAndUser(promptId: string, userId: string, limit: number = 1000): VoteEvent[] {
+    const stmt = this.db.prepare(`
+      SELECT * FROM events 
+      WHERE prompt_id = ? AND user_id = ? 
+      ORDER BY timestamp DESC 
+      LIMIT ?
+    `)
+    
+    const rows = stmt.all(promptId, userId, limit) as any[]
+    return rows.map(row => ({
+      promptId: row.prompt_id,
+      value: row.value,
+      comment: row.comment,
+      timestamp: row.timestamp,
+      userId: row.user_id,
+      metadata: JSON.parse(row.metadata || '{}'),
+      promptText: row.prompt_text,
+      aiOutput: row.ai_output,
+      modelUsed: row.model_used,
+      responseTime: row.response_time
+    }))
+  }
+
   getAllEvents(limit: number = 100, offset: number = 0): VoteEvent[] {
     const stmt = this.db.prepare(`
       SELECT * FROM events 
@@ -119,6 +143,13 @@ export class BilanDatabase {
       modelUsed: row.model_used,
       responseTime: row.response_time
     }))
+  }
+
+  // New method to get total count of all events
+  getTotalEventsCount(): number {
+    const stmt = this.db.prepare('SELECT COUNT(*) as count FROM events')
+    const result = stmt.get() as { count: number }
+    return result.count
   }
 
   close(): void {

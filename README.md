@@ -10,8 +10,10 @@
 [![NPM Version](https://img.shields.io/npm/v/@bilan/sdk?style=flat-square)](https://www.npmjs.com/package/@bilan/sdk)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue?style=flat-square)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
-[![Build Status](https://img.shields.io/github/actions/workflow/status/bilan-ai/bilan/ci.yml?style=flat-square)](https://github.com/bilan-ai/bilan/actions)
-[![Discord](https://img.shields.io/discord/1234567890?style=flat-square&logo=discord&logoColor=white)](https://discord.gg/bilan)
+[![CI](https://img.shields.io/github/actions/workflow/status/Mocksi/bilan/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/Mocksi/bilan/actions/workflows/ci.yml)
+[![CodeQL](https://img.shields.io/github/actions/workflow/status/Mocksi/bilan/codeql.yml?branch=main&style=flat-square&label=CodeQL)](https://github.com/Mocksi/bilan/actions/workflows/codeql.yml)
+[![Codecov](https://img.shields.io/codecov/c/github/Mocksi/bilan?style=flat-square)](https://codecov.io/gh/Mocksi/bilan)
+[![Bundle Size](https://img.shields.io/bundlephobia/minzip/@bilan/sdk?style=flat-square&label=Bundle%20Size)](https://bundlephobia.com/package/@bilan/sdk)
 
 </div>
 
@@ -332,8 +334,8 @@ init({
 module.exports = {
   // Database configuration
   database: {
-    type: 'postgresql', // or 'mysql', 'sqlite'
-    url: process.env.DATABASE_URL
+    type: 'sqlite', // SQLite database
+    path: process.env.DB_PATH || './bilan.db'
   },
   
   // Basic trust scoring settings
@@ -506,138 +508,3 @@ onMounted(() => {
 ### Project Structure
 
 ```
-bilan/
-├── packages/
-│   ├── sdk/              # TypeScript SDK
-│   ├── server/           # Self-hostable API server
-│   ├── dashboard/        # Web dashboard
-│   └── examples/         # Integration examples
-├── docs/                 # Documentation
-├── .env.example          # Environment variables template
-├── bilan.config.js       # Configuration example
-├── CONTRIBUTING.md       # Contributing guidelines
-└── LICENSE               # MIT License
-```
-
-### Running Tests
-
-```bash
-# Run all tests
-npm test
-
-# Run tests for specific package
-npm test -- --filter=@bilan/sdk
-
-# Run tests in watch mode
-npm test -- --watch
-```
-
-### Building
-
-```bash
-# Build all packages
-npm run build
-
-# Build specific package
-npm run build -- --filter=@bilan/sdk
-
-# Build for production
-npm run build:prod
-```
-
-## Deployment
-
-### Vercel
-
-```bash
-# Deploy the dashboard
-cd packages/dashboard
-npx vercel --prod
-```
-
-### Docker
-
-```dockerfile
-# Dockerfile
-FROM node:18-alpine
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --only=production
-COPY . .
-RUN npm run build
-EXPOSE 3000
-CMD ["npm", "start"]
-```
-
-### Railway
-
-```bash
-# Deploy the server
-cd packages/server
-npm run deploy:railway
-```
-
-## Storage Adapters
-
-### Custom Storage
-
-```typescript
-interface StorageAdapter {
-  get(key: string): Promise<string | null>
-  set(key: string, value: string): Promise<void>
-  delete(key: string): Promise<void>
-  clear(): Promise<void>
-}
-
-class RedisStorageAdapter implements StorageAdapter {
-  // Implementation
-}
-
-init({
-  mode: 'local',
-  userId: 'user-123',
-  storage: new RedisStorageAdapter()
-})
-```
-
-## Contributing
-
-We welcome contributions! See our [Contributing Guide](./CONTRIBUTING.md) for details.
-
-### Quick Development Setup
-
-```bash
-git clone https://github.com/bilan-ai/bilan.git
-cd bilan
-npm install
-npm run dev
-```
-
-### Contribution Areas
-
-- **SDK improvements** - New platforms, better APIs
-- **Analytics algorithms** - Better trust scoring methods
-- **Dashboard features** - New visualizations, better UX
-- **Documentation** - Guides, examples, API docs
-- **Testing** - Unit tests, integration tests, E2E tests
-
-## Community
-
-- [💬 Discord](https://discord.gg/bilan) - Get help, share ideas
-- [🐛 Issues](https://github.com/bilan-ai/bilan/issues) - Report bugs, request features
-- [📖 Discussions](https://github.com/bilan-ai/bilan/discussions) - Questions, ideas, showcase
-
-## License
-
-MIT License - see [LICENSE](./LICENSE) for details.
-
----
-
-<div align="center">
-  <p>Built with ❤️ by the open source community</p>
-  <p>
-    <a href="https://github.com/bilan-ai/bilan">GitHub</a> •
-    <a href="https://discord.gg/bilan">Discord</a> •
-    <a href="https://twitter.com/bilan_ai">Twitter</a>
-  </p>
-</div>

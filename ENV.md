@@ -1,6 +1,22 @@
 # Environment Configuration
 
-Copy this to `.env` or set as environment variables:
+## Server-Side Variables
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `DB_PATH` | No | `./bilan.db` | Database path (SQLite) |
+| `PORT` | No | `3001` | Server port |
+| `HOST` | No | `0.0.0.0` | Server host |
+
+## Client-Side Variables
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `NEXT_PUBLIC_API_URL` | No | `http://localhost:3001` | API URL for dashboard |
+
+## Local Development
+
+Create a `.env` file in your project root:
 
 ```bash
 # Database path (SQLite)

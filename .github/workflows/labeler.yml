@@ -1,0 +1,69 @@
+name: "Auto Label PRs"
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize]
+
+jobs:
+  label:
+    name: Auto Label
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Auto Label PR
+        uses: actions/labeler@v4
+        with:
+          repo-token: "${{ secrets.GITHUB_TOKEN }}"
+          configuration-path: .github/labeler.yml
+
+      - name: Add size labels
+        uses: pascalgn/size-label-action@v0.4.3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          sizes: >
+            {
+              "0": "XS",
+              "20": "S", 
+              "50": "M",
+              "100": "L",
+              "500": "XL"
+            }
+
+      - name: Add type labels based on branch name
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const { context } = require('@actions/github');
+            const branchName = context.payload.pull_request.head.ref;
+            
+            const labels = [];
+            
+            if (branchName.startsWith('feat/') || branchName.startsWith('feature/')) {
+              labels.push('enhancement');
+            } else if (branchName.startsWith('fix/') || branchName.startsWith('bug/')) {
+              labels.push('bug');
+            } else if (branchName.startsWith('docs/')) {
+              labels.push('documentation');
+            } else if (branchName.startsWith('refactor/')) {
+              labels.push('refactor');
+            } else if (branchName.startsWith('test/')) {
+              labels.push('tests');
+            } else if (branchName.startsWith('ci/') || branchName.startsWith('build/')) {
+              labels.push('ci/cd');
+            }
+            
+            if (labels.length > 0) {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.payload.pull_request.number,
+                labels: labels
+              });
+            } 

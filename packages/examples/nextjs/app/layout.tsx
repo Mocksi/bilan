@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { ErrorBoundary } from '../components/ErrorBoundary'
 
 export const metadata: Metadata = {
   title: 'Bilan SDK Example',
@@ -13,7 +14,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        {children}
+        <ErrorBoundary>
+          {children}
+        </ErrorBoundary>
       </body>
     </html>
   )

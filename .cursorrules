@@ -85,6 +85,30 @@ apps/
 - Use SCREAMING_SNAKE_CASE for constants
 - Prefix interfaces with 'I' only for internal types
 
+## GitHub Templates & PR/Issue Standards
+
+### Pull Request Format
+- Follow the template in `.github/pull_request_template.md`
+- Required sections: Description, Type of Change, Testing, Bundle Size Impact
+- Always include bundle size impact for SDK changes
+- Document breaking changes with migration examples
+- Complete all relevant checklist items
+- Add screenshots for UI changes
+
+### Issue Creation
+- Use templates in `.github/ISSUE_TEMPLATE/`
+- bug_report.yml for bugs with reproduction steps
+- feature_request.yml for new features with use cases
+- Provide clear titles and detailed descriptions
+- Include relevant labels and assignees
+
+### PR Review Guidelines
+- Code review completed by at least one maintainer
+- All tests must pass
+- Bundle size impact acceptable (<5KB gzipped for SDK)
+- Documentation updated for public API changes
+- Breaking changes require migration guide
+
 ## SDK-Specific Rules
 
 ### Public API Design

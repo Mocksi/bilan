@@ -1,7 +1,8 @@
-import Fastify from 'fastify'
+import Fastify, { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 import cors from '@fastify/cors'
 import { BilanDatabase } from './database/schema.js'
 import { BasicAnalytics } from '@bilan/sdk'
+import { createPromptId } from '@bilan/sdk'
 
 export interface ServerConfig {
   port?: number
@@ -10,11 +11,30 @@ export interface ServerConfig {
   cors?: boolean
 }
 
+interface EventsBody {
+  events: any[]
+}
+
+interface StatsQuery {
+  userId?: string
+}
+
+interface EventsQuery {
+  limit?: string
+  offset?: string
+}
+
+interface PromptParams {
+  promptId: string
+}
+
 export class BilanServer {
-  private fastify: any
+  private fastify: FastifyInstance
   private db: BilanDatabase
+  private config: ServerConfig
 
   constructor(config: ServerConfig = {}) {
+    this.config = config
     this.fastify = Fastify({ logger: true })
     this.db = new BilanDatabase(config.dbPath)
     
@@ -37,7 +57,7 @@ export class BilanServer {
     })
 
     // Submit events
-    this.fastify.post('/api/events', async (request: any, reply: any) => {
+    this.fastify.post<{ Body: EventsBody }>('/api/events', async (request: FastifyRequest<{ Body: EventsBody }>, reply: FastifyReply) => {
       try {
         const { events } = request.body
         
@@ -61,7 +81,7 @@ export class BilanServer {
     })
 
     // Get user stats
-    this.fastify.get('/api/stats', async (request: any, reply: any) => {
+    this.fastify.get<{ Querystring: StatsQuery }>('/api/stats', async (request: FastifyRequest<{ Querystring: StatsQuery }>, reply: FastifyReply) => {
       try {
         const { userId } = request.query
         
@@ -80,7 +100,7 @@ export class BilanServer {
     })
 
     // Get prompt stats
-    this.fastify.get('/api/stats/prompt/:promptId', async (request: any, reply: any) => {
+    this.fastify.get<{ Params: PromptParams; Querystring: StatsQuery }>('/api/stats/prompt/:promptId', async (request: FastifyRequest<{ Params: PromptParams; Querystring: StatsQuery }>, reply: FastifyReply) => {
       try {
         const { promptId } = request.params
         const { userId } = request.query
@@ -89,10 +109,11 @@ export class BilanServer {
           return reply.status(400).send({ error: 'Missing promptId parameter' })
         }
 
+        // Use optimized query instead of filtering in memory
         const events = userId ? 
-          this.db.getEventsByPrompt(promptId).filter((e: any) => e.userId === userId) :
+          this.db.getEventsByPromptAndUser(promptId, userId) :
           this.db.getEventsByPrompt(promptId)
-        const stats = BasicAnalytics.calculatePromptStats(events, promptId)
+        const stats = BasicAnalytics.calculatePromptStats(events, createPromptId(promptId))
         
         return stats
       } catch (error) {
@@ -102,12 +123,15 @@ export class BilanServer {
     })
 
     // Get all events
-    this.fastify.get('/api/events', async (request: any, reply: any) => {
+    this.fastify.get<{ Querystring: EventsQuery }>('/api/events', async (request: FastifyRequest<{ Querystring: EventsQuery }>, reply: FastifyReply) => {
       try {
-        const { limit = 100, offset = 0 } = request.query
-        const events = this.db.getAllEvents(parseInt(limit), parseInt(offset))
+        const { limit = '100', offset = '0' } = request.query
+        const events = this.db.getAllEvents(parseInt(limit, 10), parseInt(offset, 10))
         
-        return { events, total: events.length }
+        // Get total count separately for accurate pagination
+        const total = this.db.getTotalEventsCount()
+        
+        return { events, total }
       } catch (error) {
         this.fastify.log.error(error)
         return reply.status(500).send({ error: 'Internal server error' })
@@ -115,8 +139,11 @@ export class BilanServer {
     })
   }
 
-  async start(port: number = 3001, host: string = '0.0.0.0'): Promise<void> {
+  async start(): Promise<void> {
     try {
+      const port = this.config.port || 3001
+      const host = this.config.host || '0.0.0.0'
+      
       await this.fastify.listen({ port, host })
       console.log(`Bilan server listening on http://${host}:${port}`)
     } catch (err) {

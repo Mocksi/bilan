@@ -1,0 +1,71 @@
+# SDK related changes
+'area: sdk':
+  - 'packages/sdk/**/*'
+
+# Server related changes  
+'area: server':
+  - 'packages/server/**/*'
+
+# Dashboard related changes
+'area: dashboard':
+  - 'packages/dashboard/**/*'
+
+# Examples related changes
+'area: examples':
+  - 'packages/examples/**/*'
+
+# Documentation changes
+'documentation':
+  - '*.md'
+  - 'docs/**/*'
+  - '**/*.md'
+
+# Configuration changes
+'config':
+  - '*.json'
+  - '*.yml'
+  - '*.yaml'
+  - '*.config.*'
+  - '.env*'
+  - 'package*.json'
+  - 'tsconfig*.json'
+
+# CI/CD changes
+'ci/cd':
+  - '.github/**/*'
+  - '*.yml'
+  - '*.yaml'
+  - 'Dockerfile*'
+  - 'docker-compose*'
+
+# Dependencies
+'dependencies':
+  - 'package*.json'
+  - 'npm-shrinkwrap.json'
+
+# Tests
+'tests':
+  - '**/*.test.*'
+  - '**/*.spec.*'
+  - '**/tests/**/*'
+  - '**/test/**/*'
+  - '**/__tests__/**/*'
+
+# TypeScript
+'typescript':
+  - '**/*.ts'
+  - '**/*.tsx'
+  - 'tsconfig*.json'
+
+# JavaScript
+'javascript':
+  - '**/*.js'
+  - '**/*.jsx'
+
+# Build/tooling
+'build':
+  - 'rollup.config.*'
+  - 'vite.config.*'
+  - 'webpack.config.*'
+  - 'build/**/*'
+  - 'scripts/**/*' 

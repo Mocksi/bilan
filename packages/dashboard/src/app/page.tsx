@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { logger } from '../lib/logger'
 
 interface Event {
   promptId: string
@@ -14,11 +15,32 @@ interface Event {
   responseTime?: number
 }
 
+interface UserStats {
+  totalVotes: number
+  positiveRate: number
+  recentTrend: string
+}
+
+interface ApiResponse<T> {
+  success: boolean
+  data?: T
+  error?: string
+}
+
+interface EventsResponse {
+  events: Event[]
+  total: number
+}
+
 export default function Dashboard() {
   const [events, setEvents] = useState<Event[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
-  const [userStats, setUserStats] = useState<any>(null)
+  const [userStats, setUserStats] = useState<UserStats | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  // Get API base URL from environment variables
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3002'
 
   useEffect(() => {
     fetchEvents()
@@ -26,11 +48,20 @@ export default function Dashboard() {
 
   const fetchEvents = async () => {
     try {
-      const response = await fetch('http://localhost:3002/api/events?limit=50')
-      const data = await response.json()
+      setError(null)
+      const response = await fetch(`${API_BASE_URL}/api/events?limit=50`)
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      
+      const data: EventsResponse = await response.json()
       setEvents(data.events || [])
+      logger.info('Events fetched successfully', { count: data.events?.length || 0 })
     } catch (error) {
-      console.error('Error fetching events:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+      setError(`Failed to fetch events: ${errorMessage}`)
+      logger.error('Error fetching events', { error: errorMessage })
     } finally {
       setLoading(false)
     }
@@ -38,11 +69,20 @@ export default function Dashboard() {
 
   const fetchUserStats = async (userId: string) => {
     try {
-      const response = await fetch(`http://localhost:3002/api/stats?userId=${userId}`)
-      const data = await response.json()
+      setError(null)
+      const response = await fetch(`${API_BASE_URL}/api/stats?userId=${userId}`)
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      
+      const data: UserStats = await response.json()
       setUserStats(data)
+      logger.info('User stats fetched successfully', { userId, stats: data })
     } catch (error) {
-      console.error('Error fetching user stats:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+      setError(`Failed to fetch user stats: ${errorMessage}`)
+      logger.error('Error fetching user stats', { error: errorMessage, userId })
     }
   }
 
@@ -54,6 +94,7 @@ export default function Dashboard() {
   const clearSelection = () => {
     setSelectedUserId(null)
     setUserStats(null)
+    setError(null)
   }
 
   const formatTimestamp = (timestamp: number) => {
@@ -74,10 +115,47 @@ export default function Dashboard() {
     return text.substring(0, maxLength) + '...'
   }
 
+  const retryFetch = () => {
+    setError(null)
+    setLoading(true)
+    fetchEvents()
+  }
+
   if (loading) {
     return (
       <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif' }}>
         <h1>Bilan Analytics - Loading...</h1>
+      </div>
+    )
+  }
+
+  if (error && events.length === 0) {
+    return (
+      <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif', maxWidth: '800px', margin: '0 auto' }}>
+        <div style={{ 
+          backgroundColor: '#f8d7da', 
+          border: '1px solid #f5c6cb',
+          borderRadius: '8px',
+          padding: '20px',
+          textAlign: 'center'
+        }}>
+          <h2 style={{ color: '#721c24', marginBottom: '10px' }}>Error Loading Dashboard</h2>
+          <p style={{ color: '#721c24', marginBottom: '20px' }}>{error}</p>
+          <button
+            onClick={retryFetch}
+            style={{
+              backgroundColor: '#007bff',
+              color: 'white',
+              padding: '10px 20px',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '16px'
+            }}
+          >
+            Retry
+          </button>
+        </div>
       </div>
     )
   }
@@ -90,6 +168,34 @@ export default function Dashboard() {
           Trust analytics and user feedback insights for your AI-powered application
         </p>
       </div>
+
+      {error && (
+        <div style={{ 
+          marginBottom: '20px', 
+          padding: '15px', 
+          backgroundColor: '#f8d7da', 
+          border: '1px solid #f5c6cb',
+          borderRadius: '5px',
+          color: '#721c24'
+        }}>
+          <strong>Warning:</strong> {error}
+          <button
+            onClick={retryFetch}
+            style={{
+              marginLeft: '10px',
+              backgroundColor: '#007bff',
+              color: 'white',
+              padding: '5px 10px',
+              border: 'none',
+              borderRadius: '3px',
+              cursor: 'pointer',
+              fontSize: '12px'
+            }}
+          >
+            Retry
+          </button>
+        </div>
+      )}
       
       {selectedUserId && (
         <div style={{ 

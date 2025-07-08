@@ -27,7 +27,7 @@
     "typescript": "^5.8.3"
   },
   "dependencies": {
-    "@bilan/sdk": "file:../sdk",
+    "@bilan/sdk": "workspace:*",
     "@tailwindcss/postcss": "^4.1.11",
     "next": "^15.3.5",
     "react": "^19.1.0",
