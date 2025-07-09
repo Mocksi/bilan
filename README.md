@@ -7,7 +7,7 @@
 
 <div align="center">
 
-[![NPM Version](https://img.shields.io/npm/v/@bilan/sdk?style=flat-square)](https://www.npmjs.com/package/@bilan/sdk)
+[![NPM Version](https://img.shields.io/npm/v/@mocksi/bilan-sdk?style=flat-square)](https://www.npmjs.com/package/@mocksi/bilan-sdk)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue?style=flat-square)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 [![CI](https://img.shields.io/github/actions/workflow/status/Mocksi/bilan/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/Mocksi/bilan/actions/workflows/ci.yml)
@@ -37,11 +37,11 @@ Bilan is an open source analytics tool that helps you understand how users react
 ### Quick Start
 
 ```bash
-npm install @bilan/sdk
+npm install @mocksi/bilan-sdk
 ```
 
 ```typescript
-import { init, vote, getStats, createUserId, createPromptId } from '@bilan/sdk'
+import { init, vote, getStats, createUserId, createPromptId } from '@mocksi/bilan-sdk'
 
 // Initialize the SDK
 await init({
@@ -61,7 +61,7 @@ console.log(`Trend: ${stats.recentTrend}`) // 'improving' | 'declining' | 'stabl
 ### Advanced Configuration
 
 ```typescript
-import { init, TrendConfig } from '@bilan/sdk'
+import { init, TrendConfig } from '@mocksi/bilan-sdk'
 
 // Custom trend analysis configuration
 const trendConfig: TrendConfig = {
@@ -167,7 +167,7 @@ await init({
 Create separate SDK instances for different contexts:
 
 ```typescript
-import { BilanSDK, createUserId } from '@bilan/sdk'
+import { BilanSDK, createUserId } from '@mocksi/bilan-sdk'
 
 const userSDK = new BilanSDK()
 const adminSDK = new BilanSDK()
@@ -247,14 +247,14 @@ npm run start
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   @bilan/sdk    │ -> │  Local Storage  │ -> │   Dashboard     │
+│   @mocksi/bilan-sdk    │ -> │  Local Storage  │ -> │   Dashboard     │
 │   (TypeScript)  │    │  or Database    │    │   (Next.js)     │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
 ### What's Included
 
-- **[@bilan/sdk](./packages/sdk)** - TypeScript SDK for tracking user feedback
+- **[@mocksi/bilan-sdk](./packages/sdk)** - TypeScript SDK for tracking user feedback
 - **[Basic Server](./packages/server)** - Self-hostable API server
 - **[Dashboard](./packages/dashboard)** - Web interface for viewing metrics
 - **[Examples](./packages/examples)** - Integration examples (React, Next.js, etc.)
@@ -304,7 +304,7 @@ init({
 The SDK includes an improved trend calculation that uses time weighting and statistical significance. You can configure it with:
 
 ```typescript
-import { init, TrendConfig } from '@bilan/sdk'
+import { init, TrendConfig } from '@mocksi/bilan-sdk'
 
 const customTrendConfig: TrendConfig = {
   sensitivity: 0.2,        // Higher = more sensitive to changes
@@ -438,7 +438,7 @@ curl http://localhost:3001/api/stats?userId=user-123
 
 ```typescript
 import { useEffect, useState } from 'react'
-import { init, vote, getStats } from '@bilan/sdk'
+import { init, vote, getStats } from '@mocksi/bilan-sdk'
 
 export function useBilan(userId: string) {
   const [stats, setStats] = useState(null)
@@ -491,7 +491,7 @@ export default function AIFeedback({ promptId, suggestion }: Props) {
 </template>
 
 <script setup>
-import { init, vote } from '@bilan/sdk'
+import { init, vote } from '@mocksi/bilan-sdk'
 
 const props = defineProps(['promptId', 'suggestion'])
 const { userId } = useAuth()

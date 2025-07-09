@@ -67,7 +67,7 @@ Bilan is an open-source TypeScript SDK + managed analytics platform that helps t
 ### Monorepo Structure
 ```
 packages/
-├── sdk/          # @bilan/sdk - Main TypeScript SDK
+├── sdk/          # @mocksi/bilan-sdk - Main TypeScript SDK
 ├── types/        # Shared TypeScript types
 └── examples/     # Integration examples (nextjs, react, etc.)
 

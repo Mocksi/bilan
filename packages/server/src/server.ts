@@ -1,8 +1,8 @@
 import Fastify, { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 import cors from '@fastify/cors'
 import { BilanDatabase } from './database/schema.js'
-import { BasicAnalytics } from '@bilan/sdk'
-import { createPromptId } from '@bilan/sdk'
+import { BasicAnalytics } from '@mocksi/bilan-sdk'
+import { createPromptId } from '@mocksi/bilan-sdk'
 
 export interface ServerConfig {
   port?: number

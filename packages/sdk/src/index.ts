@@ -7,7 +7,7 @@ import { BasicAnalytics } from './analytics/basic-analytics'
  * 
  * @example
  * ```typescript
- * import { init, vote, getStats } from '@bilan/sdk'
+ * import { init, vote, getStats } from '@mocksi/bilan-sdk'
  * 
  * // Initialize the SDK
  * await init({ mode: 'local', userId: 'user-123' })
