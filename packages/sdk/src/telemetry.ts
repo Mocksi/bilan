@@ -1,4 +1,5 @@
 import { InitConfig } from './types'
+import { SDK_VERSION } from './version'
 
 export interface TelemetryEvent {
   event: 'sdk_init' | 'vote_recorded' | 'stats_requested' | 'error'
@@ -26,7 +27,7 @@ class TelemetryService {
   constructor(config: TelemetryConfig, version: string, anonymousId: string, mode: 'local' | 'server') {
     this.config = config
     this.version = version
-    this.anonymousId = this.hashUserId(anonymousId)
+    this.anonymousId = this.hashString(anonymousId)
     this.mode = mode
 
     // Listen for online/offline events
@@ -38,13 +39,18 @@ class TelemetryService {
     }
   }
 
-  private hashUserId(userId: string): string {
+  private hashString(input: string): string {
     let hash = 0
-    for (let i = 0; i < userId.length; i++) {
-      hash = ((hash << 5) - hash) + userId.charCodeAt(i)
+    for (let i = 0; i < input.length; i++) {
+      hash = ((hash << 5) - hash) + input.charCodeAt(i)
       hash = hash & hash
     }
     return Math.abs(hash).toString(36)
+  }
+
+  // Make hashString accessible for promptId hashing
+  public hashPromptId(promptId: string): string {
+    return this.hashString(promptId)
   }
 
   private shouldSendTelemetry(): boolean {
@@ -118,13 +124,13 @@ class TelemetryService {
 
 let telemetryService: TelemetryService | null = null
 
-export function initTelemetry(config: InitConfig): void {
+export function initTelemetry(config: InitConfig, version?: string): void {
   const telemetryConfig: TelemetryConfig = {
     enabled: config.telemetry?.enabled ?? (config.mode === 'server'),
     endpoint: config.telemetry?.endpoint
   }
 
-  telemetryService = new TelemetryService(telemetryConfig, '0.3.0', config.userId, config.mode)
+  telemetryService = new TelemetryService(telemetryConfig, version || SDK_VERSION, config.userId, config.mode)
 
   telemetryService.track({
     event: 'sdk_init',
@@ -137,21 +143,26 @@ export function initTelemetry(config: InitConfig): void {
 }
 
 export function trackEvent(event: Omit<TelemetryEvent, 'timestamp' | 'version' | 'anonymousId' | 'mode'>): void {
-  telemetryService?.track(event)
+  if (!telemetryService) return
+  telemetryService.track(event)
 }
 
 export function trackVote(promptId: string, value: 1 | -1, hasComment: boolean): void {
+  if (!telemetryService) return
+  
   trackEvent({
     event: 'vote_recorded',
-    metadata: { value, hasComment, promptIdHash: promptId.substring(0, 8) }
+    metadata: { value, hasComment, promptIdHash: telemetryService.hashPromptId(promptId) }
   })
 }
 
 export function trackStatsRequest(type: 'basic' | 'prompt'): void {
+  if (!telemetryService) return
   trackEvent({ event: 'stats_requested', metadata: { type } })
 }
 
 export function trackError(error: Error, context?: string): void {
+  if (!telemetryService) return
   trackEvent({
     event: 'error',
     metadata: { message: error.message, context }
