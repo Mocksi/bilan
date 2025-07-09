@@ -17,7 +17,7 @@ npm install @mocksi/bilan-sdk
 ```typescript
 // lib/llm-wrapper.ts
 import { init } from '@mocksi/bilan-sdk'
-import { generateId } from 'crypto'
+import { randomUUID } from 'crypto'
 
 export interface LLMProvider {
   name: string
@@ -43,9 +43,12 @@ export class TrackedLLM {
 
   private async initBilan() {
     this.bilan = await init({
-      mode: 'local',
-      userId: 'user-123',
-      telemetry: { enabled: true }
+      mode: process.env.BILAN_MODE || 'local', // 'local' or 'server'
+      apiKey: process.env.BILAN_API_KEY, // Required for server mode
+      userId: process.env.USER_ID || 'anonymous', // Your user identifier
+      telemetry: { 
+        enabled: process.env.BILAN_TELEMETRY !== 'false' // opt-in to usage analytics
+      }
     })
   }
 
@@ -53,7 +56,7 @@ export class TrackedLLM {
     prompt: string,
     options: any = {}
   ): Promise<TrackedLLMResponse> {
-    const promptId = generateId()
+    const promptId = randomUUID()
     const startTime = Date.now()
 
     try {
@@ -90,7 +93,7 @@ export class TrackedLLM {
       throw new Error(`${this.provider.name} does not support streaming`)
     }
 
-    const promptId = generateId()
+    const promptId = randomUUID()
     const startTime = Date.now()
 
     const stream = this.provider.generateStreamingResponse(prompt, options)

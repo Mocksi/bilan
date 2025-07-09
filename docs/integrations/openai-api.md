@@ -24,18 +24,28 @@ export const openai = new OpenAI({
 })
 
 export const bilan = await init({
-  mode: 'local',
-  userId: 'user-123',
-  telemetry: { enabled: true }
+  mode: process.env.BILAN_MODE || 'local', // 'local' or 'server'
+  apiKey: process.env.BILAN_API_KEY, // Required for server mode
+  userId: process.env.USER_ID || 'anonymous', // Your user identifier
+  telemetry: { 
+    enabled: process.env.BILAN_TELEMETRY !== 'false' // opt-in to usage analytics
+  }
 })
 ```
+
+**Required Environment Variables:**
+- `OPENAI_API_KEY` - Your OpenAI API key for authentication
+- `BILAN_MODE` - Set to 'server' for production, 'local' for development
+- `BILAN_API_KEY` - Your Bilan API key (required for server mode)
+- `USER_ID` - Unique identifier for the current user
+- `BILAN_TELEMETRY` - Set to 'false' to disable telemetry (optional)
 
 ### 2. Create a tracked chat completion function
 
 ```typescript
 // lib/chat.ts
 import { openai } from './openai'
-import { generateId } from 'crypto'
+import { randomUUID } from 'crypto'
 
 export interface TrackedChatResponse {
   content: string
@@ -57,7 +67,7 @@ export async function createChatCompletion(
     maxTokens?: number
   } = {}
 ): Promise<TrackedChatResponse> {
-  const promptId = generateId()
+  const promptId = randomUUID()
   const model = options.model || 'gpt-3.5-turbo'
   
   try {
@@ -101,7 +111,7 @@ export async function createChatCompletion(
 ```typescript
 // lib/streaming-chat.ts
 import { openai } from './openai'
-import { generateId } from 'crypto'
+import { randomUUID } from 'crypto'
 
 export interface StreamingChatResponse {
   promptId: string
@@ -118,7 +128,7 @@ export async function createStreamingChat(
     maxTokens?: number
   } = {}
 ): Promise<StreamingChatResponse> {
-  const promptId = generateId()
+  const promptId = randomUUID()
   const model = options.model || 'gpt-3.5-turbo'
   
   const stream = await openai.chat.completions.create({
@@ -611,7 +621,7 @@ console.log('Trust score:', stats.trustScore)
 ```typescript
 // lib/function-calling.ts
 import { openai } from './openai'
-import { generateId } from 'crypto'
+import { randomUUID } from 'crypto'
 
 const functions = [
   {
@@ -633,7 +643,7 @@ const functions = [
 export async function createFunctionCall(
   messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>
 ) {
-  const promptId = generateId()
+  const promptId = randomUUID()
   
   const response = await openai.chat.completions.create({
     model: 'gpt-3.5-turbo',
@@ -721,7 +731,7 @@ export async function createAdaptiveCompletion(
 ```typescript
 // lib/batch-processing.ts
 import { openai } from './openai'
-import { generateId } from 'crypto'
+import { randomUUID } from 'crypto'
 
 export async function processBatch(
   prompts: string[],
@@ -730,7 +740,7 @@ export async function processBatch(
   const results = []
   
   for (const prompt of prompts) {
-    const promptId = generateId()
+    const promptId = randomUUID()
     
     try {
       const response = await openai.chat.completions.create({
