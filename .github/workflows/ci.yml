@@ -35,5 +35,14 @@ jobs:
       - name: Build packages
         run: npm run build
 
-      - name: Test SDK
-        run: npm run test:sdk 
+      - name: Test SDK with coverage
+        run: cd packages/sdk && npm run test -- --coverage --reporter=verbose
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          file: packages/sdk/coverage/lcov.info
+          flags: sdk
+          name: sdk-coverage
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN || '' }} 
