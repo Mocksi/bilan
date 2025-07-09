@@ -148,7 +148,7 @@ Get analytics for a specific prompt.
 
 #### Error Handling
 
-The SDK includes robust error handling:
+The SDK includes robust error handling with graceful degradation:
 
 ```typescript
 // Production mode: warnings logged, execution continues
@@ -159,6 +159,90 @@ await init({
   mode: 'local', 
   userId: createUserId('user-123'),
   debug: true  // Throws errors instead of warning
+})
+```
+
+**Error Types:**
+- `BilanInitializationError` - SDK setup issues
+- `BilanVoteError` - Vote recording problems  
+- `BilanStatsError` - Analytics retrieval issues
+- `BilanNetworkError` - Network connectivity problems
+- `BilanStorageError` - Storage operation failures
+
+**Error Handling Strategies:**
+
+```typescript
+import { init, vote, BilanVoteError } from '@mocksi/bilan-sdk'
+
+// Graceful degradation (recommended for production)
+try {
+  await vote(createPromptId('prompt-123'), 1)
+} catch (error) {
+  if (error instanceof BilanVoteError) {
+    console.warn('Vote failed:', error.message)
+    // App continues normally
+  }
+}
+
+// Debug mode for development
+await init({ 
+  mode: 'local', 
+  userId: createUserId('user-123'),
+  debug: true  // Throws detailed errors
+})
+```
+
+#### Telemetry & Privacy
+
+The SDK includes optional telemetry to help improve the library:
+
+```typescript
+await init({
+  mode: 'local',
+  userId: createUserId('user-123'),
+  telemetry: {
+    enabled: true,  // Default: true for server mode, false for local
+    endpoint: 'https://your-analytics.com/events'  // Optional custom endpoint
+  }
+})
+```
+
+**What's Collected:**
+- SDK initialization events
+- Error occurrences (without sensitive data)
+- Basic usage metrics (vote counts, not content)
+- Performance metrics
+
+**Privacy Features:**
+- User IDs are hashed before transmission
+- No personal data or vote content is sent
+- Prompt IDs are hashed for privacy
+- Disabled automatically in development mode
+- Easy to disable completely
+
+**Disable Telemetry:**
+```typescript
+// Disable for all modes
+await init({
+  mode: 'local',
+  userId: createUserId('user-123'),
+  telemetry: { enabled: false }
+})
+
+// Or set environment variable
+process.env.BILAN_TELEMETRY = 'false'
+```
+
+**Custom Telemetry Endpoint:**
+```typescript
+await init({
+  mode: 'server',
+  userId: createUserId('user-123'),
+  endpoint: 'https://your-api.com',
+  telemetry: {
+    enabled: true,
+    endpoint: 'https://your-analytics.com/events'
+  }
 })
 ```
 
@@ -295,6 +379,12 @@ init({
     timeWeightHours: 48,    // Hours for time decay (default: 24)
     minSampleSize: 8,       // Minimum events needed (default: 5)
     recentWindowSize: 15    // Size of recent window (default: 10)
+  },
+  
+  // Optional: Telemetry configuration
+  telemetry: {
+    enabled: true,          // Enable/disable telemetry (default: true for server mode)
+    endpoint: 'https://your-analytics.com/events'  // Custom telemetry endpoint
   }
 })
 ```
@@ -370,6 +460,11 @@ interface InitConfig {
   endpoint?: string
   debug?: boolean
   storage?: StorageAdapter
+  trendConfig?: TrendConfig
+  telemetry?: {
+    enabled: boolean
+    endpoint?: string
+  }
 }
 ```
 
