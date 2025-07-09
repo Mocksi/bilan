@@ -1,0 +1,97 @@
+version: 2
+updates:
+  # Root package.json
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "bilan-ai/maintainers"
+    assignees:
+      - "bilan-ai/maintainers"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+
+  # SDK package
+  - package-ecosystem: "npm"
+    directory: "/packages/sdk"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "bilan-ai/maintainers"
+    assignees:
+      - "bilan-ai/maintainers"
+    commit-message:
+      prefix: "deps(sdk)"
+      include: "scope"
+
+  # Server package
+  - package-ecosystem: "npm"
+    directory: "/packages/server"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "bilan-ai/maintainers"
+    assignees:
+      - "bilan-ai/maintainers"
+    commit-message:
+      prefix: "deps(server)"
+      include: "scope"
+
+  # Dashboard package
+  - package-ecosystem: "npm"
+    directory: "/packages/dashboard"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 5
+    reviewers:
+      - "bilan-ai/maintainers"
+    assignees:
+      - "bilan-ai/maintainers"
+    commit-message:
+      prefix: "deps(dashboard)"
+      include: "scope"
+
+  # Examples - NextJS
+  - package-ecosystem: "npm"
+    directory: "/packages/examples/nextjs"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 3
+    reviewers:
+      - "bilan-ai/maintainers"
+    assignees:
+      - "bilan-ai/maintainers"
+    commit-message:
+      prefix: "deps(examples)"
+      include: "scope"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 2
+    reviewers:
+      - "bilan-ai/maintainers"
+    assignees:
+      - "bilan-ai/maintainers"
+    commit-message:
+      prefix: "ci"
+      include: "scope" 

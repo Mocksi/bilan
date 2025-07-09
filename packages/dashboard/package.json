@@ -1,0 +1,36 @@
+{
+  "name": "@bilan/dashboard",
+  "version": "0.3.0",
+  "description": "Dashboard for Bilan trust analytics",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "keywords": [
+    "bilan",
+    "dashboard",
+    "analytics",
+    "nextjs"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^24.0.10",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "autoprefixer": "^10.4.21",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.11",
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "@bilan/sdk": "file:../sdk",
+    "@tailwindcss/postcss": "^4.1.11",
+    "next": "^15.3.5",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  }
+}

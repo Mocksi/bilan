@@ -1,0 +1,38 @@
+{
+  "name": "@bilan/sdk",
+  "version": "0.3.0",
+  "description": "TypeScript SDK for Bilan trust analytics",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "build": "rollup -c",
+    "dev": "rollup -c --watch",
+    "test": "vitest",
+    "test:ui": "vitest --ui"
+  },
+  "keywords": [
+    "ai",
+    "trust",
+    "analytics",
+    "feedback",
+    "typescript"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@rollup/plugin-typescript": "^12.1.4",
+    "@rollup/plugin-terser": "^0.4.4",
+    "jsdom": "^26.1.0",
+    "rollup": "4.44.2",
+    "rollup-plugin-dts": "^6.2.1",
+    "tslib": "^2.8.1",
+    "vitest": "^3.2.4"
+  }
+}
