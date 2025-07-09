@@ -6,7 +6,7 @@ export interface TelemetryEvent {
   version: string
   mode: 'local' | 'server'
   anonymousId: string // hash of userId
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
 }
 
 export interface TelemetryConfig {
@@ -21,19 +21,26 @@ class TelemetryService {
   private mode: 'local' | 'server'
   private queue: TelemetryEvent[] = []
   private isOnline: boolean = navigator?.onLine ?? true
+  private readonly MAX_QUEUE_SIZE = 100 // Maximum events to keep in queue
+  private isHashingComplete: boolean = false
+  private pendingEvents: TelemetryEvent[] = []
 
   constructor(config: TelemetryConfig, version: string, anonymousId: string, mode: 'local' | 'server') {
     this.config = config
     this.version = version
-    this.anonymousId = '' // Will be set asynchronously
+    this.anonymousId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}` // Temporary ID until hashing completes
     this.mode = mode
 
     // Hash the user ID asynchronously
     this.hashUserId(anonymousId).then(hash => {
       this.anonymousId = hash
+      this.isHashingComplete = true
+      this.processPendingEvents()
     }).catch(() => {
       // Fallback to simple hash if crypto fails
       this.anonymousId = this.fallbackHashUserId(anonymousId)
+      this.isHashingComplete = true
+      this.processPendingEvents()
     })
 
     // Listen for online/offline events
@@ -62,7 +69,7 @@ class TelemetryService {
       
       // Node.js environment
       if (typeof process !== 'undefined' && process.versions && process.versions.node) {
-        const crypto = require('crypto')
+        const crypto = await import('crypto')
         return crypto.createHash('sha256').update(userId).digest('hex').substring(0, 16)
       }
       
@@ -83,6 +90,28 @@ class TelemetryService {
       hash = hash & hash // Convert to 32-bit integer
     }
     return Math.abs(hash).toString(36)
+  }
+
+  private processPendingEvents(): void {
+    // Update anonymousId for all pending events and move them to main queue
+    for (const event of this.pendingEvents) {
+      event.anonymousId = this.anonymousId
+      
+      // Check queue size limit before adding
+      if (this.queue.length >= this.MAX_QUEUE_SIZE) {
+        this.queue.shift()
+      }
+      
+      this.queue.push(event)
+    }
+    
+    // Clear pending events
+    this.pendingEvents = []
+    
+    // Try to flush if online
+    if (this.isOnline) {
+      this.flushQueue()
+    }
   }
 
   private getDefaultEndpoint(): string {
@@ -119,6 +148,21 @@ class TelemetryService {
       mode: this.mode
     }
 
+    // If hashing is not complete, queue event separately
+    if (!this.isHashingComplete) {
+      if (this.pendingEvents.length >= this.MAX_QUEUE_SIZE) {
+        this.pendingEvents.shift()
+      }
+      this.pendingEvents.push(telemetryEvent)
+      return
+    }
+
+    // Check queue size limit before adding new event
+    if (this.queue.length >= this.MAX_QUEUE_SIZE) {
+      // Remove oldest event to make room for new one
+      this.queue.shift()
+    }
+
     // Add to queue
     this.queue.push(telemetryEvent)
 
@@ -137,22 +181,38 @@ class TelemetryService {
     try {
       const endpoint = this.config.endpoint || this.getDefaultEndpoint()
       
+      // Create AbortController for timeout
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 5000) // 5 second timeout
+      
+      // Prepare headers - conditionally set User-Agent for Node.js environments
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      }
+      
+      // Only set User-Agent in Node.js environments where it's allowed
+      if (typeof process !== 'undefined' && process.versions && process.versions.node) {
+        headers['User-Agent'] = `bilan-sdk/${this.version}`
+      }
+      
       const response = await fetch(endpoint, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': `bilan-sdk/${this.version}`
-        },
-        body: JSON.stringify({ events })
+        headers,
+        body: JSON.stringify({ events }),
+        signal: controller.signal
       })
 
+      clearTimeout(timeoutId)
+
       if (!response.ok) {
-        // Re-queue events if send failed
-        this.queue.unshift(...events)
+        // Re-queue events if send failed, but respect queue size limit
+        const eventsToRequeue = events.slice(-this.MAX_QUEUE_SIZE)
+        this.queue.unshift(...eventsToRequeue)
       }
     } catch (error) {
-      // Re-queue events if send failed
-      this.queue.unshift(...events)
+      // Re-queue events if send failed, but respect queue size limit
+      const eventsToRequeue = events.slice(-this.MAX_QUEUE_SIZE)
+      this.queue.unshift(...eventsToRequeue)
       
       // Only log in debug mode
       if (typeof process !== 'undefined' && process.env && process.env.NODE_ENV === 'development') {
