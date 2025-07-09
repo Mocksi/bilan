@@ -35,7 +35,7 @@ export const bilan = await init({
 ```typescript
 // lib/claude-chat.ts
 import { anthropic } from './anthropic'
-import { generateId } from 'crypto'
+import { randomUUID } from 'crypto'
 
 export interface TrackedClaudeResponse {
   content: string
@@ -57,7 +57,7 @@ export async function createClaudeMessage(
     system?: string
   } = {}
 ): Promise<TrackedClaudeResponse> {
-  const promptId = generateId()
+  const promptId = randomUUID()
   const model = options.model || 'claude-3-haiku-20240307'
   
   try {
@@ -103,7 +103,7 @@ export async function createClaudeMessage(
 ```typescript
 // lib/claude-streaming.ts
 import { anthropic } from './anthropic'
-import { generateId } from 'crypto'
+import { randomUUID } from 'crypto'
 
 export interface StreamingClaudeResponse {
   promptId: string
@@ -121,7 +121,7 @@ export async function createStreamingClaudeMessage(
     system?: string
   } = {}
 ): Promise<StreamingClaudeResponse> {
-  const promptId = generateId()
+  const promptId = randomUUID()
   const model = options.model || 'claude-3-haiku-20240307'
   
   const stream = anthropic.messages.stream({
@@ -403,7 +403,7 @@ export default function ClaudeChat() {
 ```typescript
 // lib/claude-analysis.ts
 import { anthropic } from './anthropic'
-import { generateId } from 'crypto'
+import { randomUUID } from 'crypto'
 
 export interface DocumentAnalysis {
   summary: string
@@ -417,7 +417,7 @@ export async function analyzeDocument(
   document: string,
   analysisType: 'summary' | 'sentiment' | 'key_points' | 'comprehensive' = 'comprehensive'
 ): Promise<DocumentAnalysis> {
-  const promptId = generateId()
+  const promptId = randomUUID()
   
   const systemPrompt = `You are an expert document analyzer. Provide clear, structured analysis of the given document.`
   
@@ -486,7 +486,7 @@ ${document}`
 ```typescript
 // lib/claude-conversation.ts
 import { anthropic } from './anthropic'
-import { generateId } from 'crypto'
+import { randomUUID } from 'crypto'
 
 export interface ConversationContext {
   messages: Array<{ role: 'user' | 'assistant'; content: string }>
@@ -515,7 +515,7 @@ export class ClaudeConversation {
     promptId: string
     usage: { inputTokens: number; outputTokens: number }
   }> {
-    const promptId = generateId()
+    const promptId = randomUUID()
     
     // Add user message to context
     this.context.messages.push({ role: 'user', content })
@@ -619,7 +619,7 @@ console.log('Trust score:', stats.trustScore)
 ```typescript
 // lib/claude-tools.ts
 import { anthropic } from './anthropic'
-import { generateId } from 'crypto'
+import { randomUUID } from 'crypto'
 
 const tools = [
   {
@@ -655,7 +655,7 @@ const tools = [
 export async function createToolMessage(
   messages: Array<{ role: 'user' | 'assistant'; content: string }>
 ) {
-  const promptId = generateId()
+  const promptId = randomUUID()
   
   const response = await anthropic.messages.create({
     model: 'claude-3-sonnet-20240229',
@@ -676,7 +676,18 @@ export async function createToolMessage(
     } else if (content.name === 'calculate') {
       const args = content.input as { expression: string }
       try {
-        toolResult = eval(args.expression).toString()
+        // Safe calculator implementation - only allow basic math operations
+        const sanitized = args.expression.replace(/[^0-9+\-*/().\s]/g, '')
+        
+        // Simple validation for basic math expressions
+        if (!/^[0-9+\-*/().\s]+$/.test(sanitized)) {
+          toolResult = 'Invalid mathematical expression'
+        } else {
+          // Use Function constructor for safer evaluation (still not recommended for production)
+          // For production, use a proper math expression parser like mathjs
+          const result = Function(`"use strict"; return (${sanitized})`)()
+          toolResult = result.toString()
+        }
       } catch {
         toolResult = 'Invalid calculation'
       }
@@ -741,7 +752,7 @@ export async function createToolMessage(
 ```typescript
 // lib/claude-vision.ts
 import { anthropic } from './anthropic'
-import { generateId } from 'crypto'
+import { randomUUID } from 'crypto'
 
 export async function analyzeImage(
   imageBase64: string,
@@ -751,7 +762,7 @@ export async function analyzeImage(
   promptId: string
   metadata: Record<string, any>
 }> {
-  const promptId = generateId()
+  const promptId = randomUUID()
   
   const response = await anthropic.messages.create({
     model: 'claude-3-sonnet-20240229',

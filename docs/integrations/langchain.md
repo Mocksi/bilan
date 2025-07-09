@@ -19,11 +19,21 @@ npm install @mocksi/bilan-sdk langchain @langchain/openai
 import { init } from '@mocksi/bilan-sdk'
 
 export const bilan = await init({
-  mode: 'local',
-  userId: 'user-123',
-  telemetry: { enabled: true }
+  mode: process.env.BILAN_MODE || 'local', // 'local' or 'server'
+  apiKey: process.env.BILAN_API_KEY, // Required for server mode
+  userId: process.env.USER_ID || 'anonymous', // Your user identifier
+  telemetry: { 
+    enabled: process.env.BILAN_TELEMETRY !== 'false' // opt-in to usage analytics
+  }
 })
 ```
+
+**Required Environment Variables:**
+- `OPENAI_API_KEY` - Your OpenAI API key for LangChain models
+- `BILAN_MODE` - Set to 'server' for production, 'local' for development
+- `BILAN_API_KEY` - Your Bilan API key (required for server mode)
+- `USER_ID` - Unique identifier for the current user
+- `BILAN_TELEMETRY` - Set to 'false' to disable telemetry (optional)
 
 ### 2. Create a tracked LangChain chain
 
@@ -33,7 +43,7 @@ import { ChatOpenAI } from '@langchain/openai'
 import { PromptTemplate } from '@langchain/core/prompts'
 import { RunnableSequence } from '@langchain/core/runnables'
 import { StringOutputParser } from '@langchain/core/output_parsers'
-import { generateId } from 'crypto'
+import { randomUUID } from 'crypto'
 
 const model = new ChatOpenAI({
   modelName: 'gpt-3.5-turbo',
@@ -61,7 +71,7 @@ export const createQAChain = () => {
 
   return {
     async invoke(question: string): Promise<TrackedChainResponse> {
-      const promptId = generateId()
+      const promptId = randomUUID()
       
       try {
         const answer = await chain.invoke({ question })
@@ -241,7 +251,7 @@ import { ChatOpenAI } from '@langchain/openai'
 import { PromptTemplate } from '@langchain/core/prompts'
 import { RunnableSequence } from '@langchain/core/runnables'
 import { StringOutputParser } from '@langchain/core/output_parsers'
-import { generateId } from 'crypto'
+import { randomUUID } from 'crypto'
 
 export interface ResearchChainResponse {
   steps: Array<{
@@ -288,7 +298,7 @@ export const createResearchChain = () => {
       const steps: ResearchChainResponse['steps'] = []
       
       // Step 1: Planning
-      const planningId = generateId()
+      const planningId = randomUUID()
       const planningChain = RunnableSequence.from([planningPrompt, model, new StringOutputParser()])
       const plan = await planningChain.invoke({ question })
       
@@ -303,7 +313,7 @@ export const createResearchChain = () => {
       const findings: string[] = []
 
       for (const subQuestion of subQuestions) {
-        const researchId = generateId()
+        const researchId = randomUUID()
         const answerChain = RunnableSequence.from([answerPrompt, model, new StringOutputParser()])
         const answer = await answerChain.invoke({ subQuestion })
         
@@ -317,7 +327,7 @@ export const createResearchChain = () => {
       }
 
       // Step 3: Synthesis
-      const synthesisId = generateId()
+      const synthesisId = randomUUID()
       const synthesisChain = RunnableSequence.from([synthesisPrompt, model, new StringOutputParser()])
       const finalAnswer = await synthesisChain.invoke({
         originalQuestion: question,
@@ -523,7 +533,7 @@ export const createRAGChain = async (documents: string[]) => {
 
   return {
     async invoke(question: string) {
-      const promptId = generateId()
+      const promptId = randomUUID()
       
       // Retrieve relevant documents
       const relevantDocs = await vectorStore.similaritySearch(question, 3)
@@ -572,9 +582,21 @@ export const createAgentChain = () => {
       name: 'calculator',
       description: 'Useful for mathematical calculations',
       func: async (input: string) => {
-        // Simple calculator implementation
+        // Safe calculator implementation - only allow basic math operations
         try {
-          return eval(input).toString()
+          // Remove any non-math characters and validate input
+          const sanitized = input.replace(/[^0-9+\-*/().\s]/g, '')
+          
+          // Simple validation for basic math expressions
+          if (!/^[0-9+\-*/().\s]+$/.test(sanitized)) {
+            return 'Invalid mathematical expression'
+          }
+          
+          // Use Function constructor for safer evaluation (still not recommended for production)
+          // For production, use a proper math expression parser like mathjs
+          const result = Function(`"use strict"; return (${sanitized})`)()
+          
+          return result.toString()
         } catch {
           return 'Invalid calculation'
         }
@@ -592,7 +614,7 @@ export const createAgentChain = () => {
 
   return {
     async invoke(input: string) {
-      const promptId = generateId()
+      const promptId = randomUUID()
       
       const agent = await createOpenAIFunctionsAgent({
         llm: model,
