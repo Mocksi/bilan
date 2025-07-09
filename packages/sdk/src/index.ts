@@ -1,6 +1,8 @@
 import { InitConfig, VoteEvent, BasicStats, PromptStats, StorageAdapter, TrendConfig, UserId, PromptId, createUserId, createPromptId } from './types'
 import { LocalStorageAdapter } from './storage/local-storage'
 import { BasicAnalytics } from './analytics/basic-analytics'
+import { initTelemetry, trackVote, trackStatsRequest, trackError } from './telemetry'
+import { ErrorHandler, GracefulDegradation } from './error-handling'
 
 /**
  * Bilan SDK for tracking user feedback on AI suggestions and calculating trust metrics.
@@ -39,6 +41,7 @@ class BilanSDK {
    * @param config.debug - Enable debug logging and error throwing
    * @param config.storage - Custom storage adapter (for 'local' mode)
    * @param config.trendConfig - Configuration for trend calculation algorithm
+   * @param config.telemetry - Configuration for anonymous usage analytics
    * 
    * @throws {Error} When in debug mode and initialization fails
    * 
@@ -64,17 +67,52 @@ class BilanSDK {
    * ```
    */
   async init(config: InitConfig): Promise<void> {
-    this.config = config
-    
-    // Use custom storage if provided
-    if (config.mode === 'local') {
-      this.storage = config.storage || new LocalStorageAdapter()
-    }
+    try {
+      // Validate configuration
+      if (!config.mode || !['local', 'server'].includes(config.mode)) {
+        throw new Error('Invalid mode. Must be "local" or "server".')
+      }
 
-    this.isInitialized = true
-    
-    if (this.config.debug) {
-      console.log('Bilan SDK initialized:', config)
+      if (!config.userId) {
+        throw new Error('userId is required. Use createUserId("your-user-id").')
+      }
+
+      if (config.mode === 'server' && !config.endpoint) {
+        throw new Error('endpoint is required for server mode.')
+      }
+
+      // Check environment compatibility
+      if (config.mode === 'local' && !GracefulDegradation.isLocalStorageAvailable()) {
+        throw new Error('localStorage is not available. Consider using server mode or a custom storage adapter.')
+      }
+
+      this.config = config
+      
+      // Set debug mode for error handling
+      ErrorHandler.setDebugMode(config.debug || false)
+      
+      // Use custom storage if provided
+      if (config.mode === 'local') {
+        this.storage = config.storage || new LocalStorageAdapter()
+      }
+
+      // Initialize telemetry
+      initTelemetry(config)
+
+      this.isInitialized = true
+      
+      if (this.config.debug) {
+        console.log('Bilan SDK initialized:', config)
+      }
+    } catch (error) {
+      const bilanError = ErrorHandler.handleInitError(error instanceof Error ? error : new Error('Unknown init error'), config)
+      trackError(bilanError, 'init')
+      
+      if (config.debug) {
+        throw bilanError
+      } else {
+        ErrorHandler.logError(bilanError)
+      }
     }
   }
 
@@ -122,10 +160,26 @@ class BilanSDK {
   ): Promise<void> {
     if (!this.isInitialized || !this.config) {
       const error = new Error('Bilan SDK not initialized. Call init() first.')
+      const bilanError = ErrorHandler.handleVoteError(error)
+      
       if (this.config && this.config.debug) {
-        throw error
+        throw bilanError
       } else {
-        console.warn(error.message)
+        ErrorHandler.logError(bilanError)
+        return
+      }
+    }
+
+    // Validate inputs
+    if (value !== 1 && value !== -1) {
+      const error = new Error('Invalid vote value. Must be 1 (positive) or -1 (negative).')
+      const promptIdStr = typeof promptId === 'string' ? promptId : String(promptId)
+      const bilanError = ErrorHandler.handleVoteError(error, promptIdStr, value)
+      
+      if (this.config.debug) {
+        throw bilanError
+      } else {
+        ErrorHandler.logError(bilanError)
         return
       }
     }
@@ -149,12 +203,18 @@ class BilanSDK {
       } else if (this.config.mode === 'server') {
         await this.sendEventToServer(event)
       }
+
+      // Track vote for analytics (no PII)
+      trackVote(event.promptId, value, !!comment)
     } catch (error) {
-      const errorMessage = `Failed to record vote: ${error instanceof Error ? error.message : 'Unknown error'}`
+      const promptIdStr = typeof promptId === 'string' ? promptId : String(promptId)
+      const bilanError = ErrorHandler.handleVoteError(error instanceof Error ? error : new Error('Unknown vote error'), promptIdStr, value)
+      trackError(bilanError, 'vote')
+      
       if (this.config.debug) {
-        throw new Error(errorMessage)
+        throw bilanError
       } else {
-        console.warn(errorMessage)
+        ErrorHandler.logError(bilanError)
       }
     }
   }
@@ -179,13 +239,19 @@ class BilanSDK {
   async getStats(): Promise<BasicStats> {
     if (!this.isInitialized || !this.config) {
       const error = new Error('Bilan SDK not initialized. Call init() first.')
+      const bilanError = ErrorHandler.handleStatsError(error)
+      
       if (this.config && this.config.debug) {
-        throw error
+        throw bilanError
+      } else {
+        ErrorHandler.logError(bilanError)
+        return GracefulDegradation.getStatsFallback()
       }
-      return { totalVotes: 0, positiveRate: 0, recentTrend: 'stable', topFeedback: [] }
     }
 
     try {
+      trackStatsRequest('basic')
+      
       if (this.config.mode === 'server') {
         return await this.getStatsFromServer()
       }
@@ -193,12 +259,14 @@ class BilanSDK {
       const events = await this.getAllEvents()
       return BasicAnalytics.calculateBasicStats(events, this.config.trendConfig)
     } catch (error) {
-      const errorMessage = `Failed to get stats: ${error instanceof Error ? error.message : 'Unknown error'}`
+      const bilanError = ErrorHandler.handleStatsError(error instanceof Error ? error : new Error('Unknown stats error'))
+      trackError(bilanError, 'getStats')
+      
       if (this.config.debug) {
-        throw new Error(errorMessage)
+        throw bilanError
       } else {
-        console.warn(errorMessage)
-        return { totalVotes: 0, positiveRate: 0, recentTrend: 'stable', topFeedback: [] }
+        ErrorHandler.logError(bilanError)
+        return GracefulDegradation.getStatsFallback()
       }
     }
   }
@@ -226,13 +294,19 @@ class BilanSDK {
     
     if (!this.isInitialized || !this.config) {
       const error = new Error('Bilan SDK not initialized. Call init() first.')
+      const bilanError = ErrorHandler.handleStatsError(error, 'prompt')
+      
       if (this.config && this.config.debug) {
-        throw error
+        throw bilanError
+      } else {
+        ErrorHandler.logError(bilanError)
+        return GracefulDegradation.getPromptStatsFallback(typedPromptId)
       }
-      return { promptId: typedPromptId, totalVotes: 0, positiveRate: 0, comments: [] }
     }
 
     try {
+      trackStatsRequest('prompt')
+      
       if (this.config.mode === 'server') {
         return await this.getPromptStatsFromServer(typedPromptId)
       }
@@ -240,12 +314,14 @@ class BilanSDK {
       const events = await this.getAllEvents()
       return BasicAnalytics.calculatePromptStats(events, typedPromptId)
     } catch (error) {
-      const errorMessage = `Failed to get prompt stats: ${error instanceof Error ? error.message : 'Unknown error'}`
+      const bilanError = ErrorHandler.handleStatsError(error instanceof Error ? error : new Error('Unknown prompt stats error'), 'prompt')
+      trackError(bilanError, 'getPromptStats')
+      
       if (this.config.debug) {
-        throw new Error(errorMessage)
+        throw bilanError
       } else {
-        console.warn(errorMessage)
-        return { promptId: typedPromptId, totalVotes: 0, positiveRate: 0, comments: [] }
+        ErrorHandler.logError(bilanError)
+        return GracefulDegradation.getPromptStatsFallback(typedPromptId)
       }
     }
   }
@@ -371,4 +447,20 @@ export const getPromptStats = defaultBilan.getPromptStats.bind(defaultBilan)
 export { BilanSDK }
 export { LocalStorageAdapter } from './storage/local-storage'
 export { BasicAnalytics } from './analytics/basic-analytics'
+
+// Export error handling classes for advanced users
+export { 
+  BilanError, 
+  BilanInitializationError, 
+  BilanVoteError, 
+  BilanStatsError, 
+  BilanNetworkError, 
+  BilanStorageError,
+  ErrorHandler,
+  GracefulDegradation
+} from './error-handling'
+
+// Export telemetry types for advanced users
+export type { TelemetryEvent, TelemetryConfig } from './telemetry'
+
 export * from './types' 
