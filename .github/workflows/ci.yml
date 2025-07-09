@@ -39,10 +39,9 @@ jobs:
         run: cd packages/sdk && npm run test -- --coverage --reporter=verbose
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
-          file: packages/sdk/coverage/lcov.info
+          token: ${{ secrets.CODECOV_TOKEN || '' }}
           flags: sdk
           name: sdk-coverage
-          fail_ci_if_error: false
-          token: ${{ secrets.CODECOV_TOKEN || '' }} 
+          fail_ci_if_error: false 
