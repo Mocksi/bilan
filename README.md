@@ -12,7 +12,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 [![CI](https://img.shields.io/github/actions/workflow/status/Mocksi/bilan/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/Mocksi/bilan/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/Mocksi/bilan/graph/badge.svg?token=YV3PW1YYM3)](https://codecov.io/gh/Mocksi/bilan)
-[![Bundle Size](https://img.shields.io/bundlephobia/minzip/@bilan/sdk?style=flat-square&label=Bundle%20Size)](https://bundlephobia.com/package/@bilan/sdk)
+[![Bundle Size](https://img.shields.io/badge/Bundle%20Size-1.7KB%20gzipped-brightgreen?style=flat-square)](https://github.com/Mocksi/bilan/tree/main/packages/sdk)
 
 </div>
 
@@ -178,7 +178,7 @@ await adminSDK.init({ mode: 'server', userId: createUserId('admin-456'), endpoin
 
 ### Bundle Size & Performance
 
-- **Minified**: 5.4KB
+- **Minified**: 5.5KB
 - **Gzipped**: 1.7KB  
 - **Dependencies**: 0
 - **ES2020 target**: Modern, efficient JavaScript
