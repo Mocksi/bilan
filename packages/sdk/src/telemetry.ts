@@ -25,8 +25,16 @@ class TelemetryService {
   constructor(config: TelemetryConfig, version: string, anonymousId: string, mode: 'local' | 'server') {
     this.config = config
     this.version = version
-    this.anonymousId = this.hashUserId(anonymousId)
+    this.anonymousId = '' // Will be set asynchronously
     this.mode = mode
+
+    // Hash the user ID asynchronously
+    this.hashUserId(anonymousId).then(hash => {
+      this.anonymousId = hash
+    }).catch(() => {
+      // Fallback to simple hash if crypto fails
+      this.anonymousId = this.fallbackHashUserId(anonymousId)
+    })
 
     // Listen for online/offline events
     if (typeof window !== 'undefined') {
@@ -40,8 +48,34 @@ class TelemetryService {
     }
   }
 
-  private hashUserId(userId: string): string {
-    // Simple hash function for anonymization
+  private async hashUserId(userId: string): Promise<string> {
+    // Use cryptographic SHA-256 hash for strong anonymization
+    try {
+      // Browser environment
+      if (typeof window !== 'undefined' && window.crypto && window.crypto.subtle) {
+        const encoder = new TextEncoder()
+        const data = encoder.encode(userId)
+        const hashBuffer = await window.crypto.subtle.digest('SHA-256', data)
+        const hashArray = Array.from(new Uint8Array(hashBuffer))
+        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 16)
+      }
+      
+      // Node.js environment
+      if (typeof process !== 'undefined' && process.versions && process.versions.node) {
+        const crypto = require('crypto')
+        return crypto.createHash('sha256').update(userId).digest('hex').substring(0, 16)
+      }
+      
+      // Fallback if crypto is not available
+      return this.fallbackHashUserId(userId)
+    } catch (error) {
+      // Fallback if crypto fails
+      return this.fallbackHashUserId(userId)
+    }
+  }
+
+  private fallbackHashUserId(userId: string): string {
+    // Simple hash function for anonymization (fallback)
     let hash = 0
     for (let i = 0; i < userId.length; i++) {
       const char = userId.charCodeAt(i)
@@ -62,7 +96,7 @@ class TelemetryService {
     // - Self-hosted mode (unless explicitly enabled)
     if (!this.config.enabled) return false
     
-    if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development') {
+    if (typeof process !== 'undefined' && process.env && process.env.NODE_ENV === 'development') {
       return false
     }
 
@@ -121,7 +155,7 @@ class TelemetryService {
       this.queue.unshift(...events)
       
       // Only log in debug mode
-      if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development') {
+      if (typeof process !== 'undefined' && process.env && process.env.NODE_ENV === 'development') {
         console.warn('Bilan telemetry failed to send:', error)
       }
     }
