@@ -30,7 +30,11 @@ export default function Example() {
       mode: 'server',
       endpoint: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3002',
       userId: createUserId('demo-user'),
-      debug: true
+      debug: true,
+      telemetry: {
+        enabled: true,  // Enable telemetry for analytics
+        endpoint: 'https://analytics.bilan.dev/events'  // Custom telemetry endpoint
+      }
     }).then(refreshStats)
   }, [])
 
