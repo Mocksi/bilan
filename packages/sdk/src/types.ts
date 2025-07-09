@@ -21,6 +21,13 @@ export interface InitConfig {
   storage?: StorageAdapter
   /** Configuration for trend calculation algorithm */
   trendConfig?: TrendConfig
+  /** Configuration for anonymous usage analytics */
+  telemetry?: {
+    /** Enable/disable telemetry collection (default: enabled for server mode, disabled for local mode) */
+    enabled?: boolean
+    /** Custom endpoint for telemetry data (default: Bilan analytics endpoint) */
+    endpoint?: string
+  }
 }
 
 /**

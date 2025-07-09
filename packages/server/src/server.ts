@@ -37,14 +37,17 @@ export class BilanServer {
     this.fastify = Fastify({ logger: true })
     this.db = new BilanDatabase(config.dbPath)
     
-    this.setupRoutes()
     this.setupCors(config.cors !== false)
+    this.setupRoutes()
   }
 
   private setupCors(enabled: boolean): void {
     if (enabled) {
       this.fastify.register(cors, {
-        origin: true
+        origin: ['http://localhost:3004', 'http://localhost:3003', 'http://localhost:3002', 'http://localhost:3001', 'http://localhost:3000', 'http://127.0.0.1:3004', 'http://127.0.0.1:3003', 'http://127.0.0.1:3002', 'http://127.0.0.1:3001', 'http://127.0.0.1:3000'],
+        methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+        credentials: true
       })
     }
   }
@@ -93,7 +96,7 @@ export class BilanServer {
         
         return stats
       } catch (error) {
-        this.fastify.log.error(error)
+        this.fastify.log.error('Error in GET /api/stats:', error)
         return reply.status(500).send({ error: 'Internal server error' })
       }
     })
@@ -126,12 +129,21 @@ export class BilanServer {
         const limitNum = parseInt(limit, 10)
         const offsetNum = parseInt(offset, 10)
         
+        // Validate limits
+        if (isNaN(limitNum) || limitNum < 1 || limitNum > 1000) {
+          return reply.status(400).send({ error: 'Invalid limit parameter' })
+        }
+        
+        if (isNaN(offsetNum) || offsetNum < 0) {
+          return reply.status(400).send({ error: 'Invalid offset parameter' })
+        }
+        
         const events = this.db.getEvents({ limit: limitNum, offset: offsetNum })
         const total = this.db.getEventsCount()
         
         return { events, total }
       } catch (error) {
-        this.fastify.log.error(error)
+        this.fastify.log.error('Error in GET /api/events:', error)
         return reply.status(500).send({ error: 'Internal server error' })
       }
     })
