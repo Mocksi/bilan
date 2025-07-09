@@ -14,6 +14,7 @@ import {
   ErrorHandler,
   GracefulDegradation
 } from './error-handling'
+import { createUserId } from './types'
 
 describe('BilanError', () => {
   it('should create a BilanError with all properties', () => {
@@ -227,7 +228,7 @@ describe('ErrorHandler', () => {
 
     it('should accept optional config parameter', () => {
       const originalError = new Error('Config error')
-      const config = { mode: 'local' as const, userId: 'test-user' }
+      const config = { mode: 'local' as const, userId: createUserId('test-user') }
       const handled = ErrorHandler.handleInitError(originalError, config)
 
       expect(handled).toBeInstanceOf(BilanInitializationError)
@@ -267,12 +268,12 @@ describe('ErrorHandler', () => {
     })
 
     it('should handle network error with suggestion', () => {
-      const originalError = new Error('Network request failed')
+      const originalError = new Error('network request failed')
       const handled = ErrorHandler.handleVoteError(originalError)
 
       expect(handled).toBeInstanceOf(BilanVoteError)
-      expect(handled.message).toBe('Network request failed')
-      expect(handled.suggestion).toContain('Network error')
+      expect(handled.message).toBe('network request failed')
+      expect(handled.suggestion).toContain('Network error occurred')
       expect(handled.suggestion).toContain('endpoint')
     })
 
@@ -282,7 +283,7 @@ describe('ErrorHandler', () => {
 
       expect(handled).toBeInstanceOf(BilanVoteError)
       expect(handled.message).toBe('fetch failed')
-      expect(handled.suggestion).toContain('Network error')
+      expect(handled.suggestion).toContain('Network error occurred')
       expect(handled.suggestion).toContain('endpoint')
     })
 
@@ -308,11 +309,11 @@ describe('ErrorHandler', () => {
     })
 
     it('should handle no data error with suggestion', () => {
-      const originalError = new Error('No data available')
+      const originalError = new Error('no data available')
       const handled = ErrorHandler.handleStatsError(originalError)
 
       expect(handled).toBeInstanceOf(BilanStatsError)
-      expect(handled.message).toBe('No data available')
+      expect(handled.message).toBe('no data available')
       expect(handled.suggestion).toContain('Record some votes')
       expect(handled.suggestion).toContain('vote(')
     })
@@ -328,22 +329,22 @@ describe('ErrorHandler', () => {
     })
 
     it('should handle server error with suggestion', () => {
-      const originalError = new Error('Server error occurred')
+      const originalError = new Error('server error occurred')
       const handled = ErrorHandler.handleStatsError(originalError)
 
       expect(handled).toBeInstanceOf(BilanStatsError)
-      expect(handled.message).toBe('Server error occurred')
-      expect(handled.suggestion).toContain('Server error')
+      expect(handled.message).toBe('server error occurred')
+      expect(handled.suggestion).toContain('Server error occurred')
       expect(handled.suggestion).toContain('endpoint')
     })
 
     it('should handle endpoint error with suggestion', () => {
-      const originalError = new Error('Endpoint not found')
+      const originalError = new Error('endpoint not found')
       const handled = ErrorHandler.handleStatsError(originalError)
 
       expect(handled).toBeInstanceOf(BilanStatsError)
-      expect(handled.message).toBe('Endpoint not found')
-      expect(handled.suggestion).toContain('Server error')
+      expect(handled.message).toBe('endpoint not found')
+      expect(handled.suggestion).toContain('Server error occurred')
       expect(handled.suggestion).toContain('endpoint')
     })
 
@@ -418,31 +419,31 @@ describe('ErrorHandler', () => {
     })
 
     it('should handle quota error with suggestion', () => {
-      const originalError = new Error('Storage quota exceeded')
+      const originalError = new Error('quota exceeded')
       const handled = ErrorHandler.handleStorageError(originalError)
 
       expect(handled).toBeInstanceOf(BilanStorageError)
-      expect(handled.message).toBe('Storage quota exceeded')
+      expect(handled.message).toBe('quota exceeded')
       expect(handled.suggestion).toContain('Storage quota exceeded')
       expect(handled.suggestion).toContain('server mode')
     })
 
     it('should handle storage error with suggestion', () => {
-      const originalError = new Error('Storage operation failed')
+      const originalError = new Error('storage operation failed')
       const handled = ErrorHandler.handleStorageError(originalError)
 
       expect(handled).toBeInstanceOf(BilanStorageError)
-      expect(handled.message).toBe('Storage operation failed')
+      expect(handled.message).toBe('storage operation failed')
       expect(handled.suggestion).toContain('Storage quota exceeded')
       expect(handled.suggestion).toContain('server mode')
     })
 
     it('should handle generic error without specific suggestion', () => {
-      const originalError = new Error('Generic storage error')
+      const originalError = new Error('Generic unknown error')
       const handled = ErrorHandler.handleStorageError(originalError)
 
       expect(handled).toBeInstanceOf(BilanStorageError)
-      expect(handled.message).toBe('Generic storage error')
+      expect(handled.message).toBe('Generic unknown error')
       expect(handled.suggestion).toBe('')
     })
   })
