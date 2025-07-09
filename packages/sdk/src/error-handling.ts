@@ -6,11 +6,45 @@
 import { InitConfig } from './types'
 import { createPromptId } from './types'
 
+/**
+ * Base error class for all Bilan SDK errors with enhanced developer experience.
+ * Provides structured error information including error codes, context, and
+ * actionable suggestions for resolving issues.
+ * 
+ * @example
+ * ```typescript
+ * const error = new BilanError(
+ *   'Invalid configuration',
+ *   'CONFIG_ERROR',
+ *   'initialization',
+ *   'Check your configuration object'
+ * )
+ * ```
+ */
 export class BilanError extends Error {
+  /** 
+   * Unique error code for programmatic error handling 
+   */
   public readonly code: string
+  
+  /** 
+   * Context where the error occurred (e.g., 'initialization', 'vote recording') 
+   */
   public readonly context?: string
+  
+  /** 
+   * Developer-friendly suggestion for resolving the error 
+   */
   public readonly suggestion?: string
 
+  /**
+   * Creates a new BilanError instance
+   * 
+   * @param message - Human-readable error message
+   * @param code - Unique error code for programmatic handling
+   * @param context - Context where the error occurred
+   * @param suggestion - Developer-friendly suggestion for resolution
+   */
   constructor(message: string, code: string, context?: string, suggestion?: string) {
     super(message)
     this.name = 'BilanError'
@@ -20,35 +54,125 @@ export class BilanError extends Error {
   }
 }
 
+/**
+ * Error thrown during SDK initialization with helpful setup guidance.
+ * Common causes include invalid mode, missing userId, or missing endpoint.
+ * 
+ * @example
+ * ```typescript
+ * throw new BilanInitializationError(
+ *   'userId is required',
+ *   'Use createUserId("your-user-id")'
+ * )
+ * ```
+ */
 export class BilanInitializationError extends BilanError {
+  /**
+   * Creates a new initialization error
+   * 
+   * @param message - Description of the initialization problem
+   * @param suggestion - Helpful guidance for fixing the issue
+   */
   constructor(message: string, suggestion?: string) {
     super(message, 'INIT_ERROR', 'initialization', suggestion)
     this.name = 'BilanInitializationError'
   }
 }
 
+/**
+ * Error thrown during vote recording with guidance for proper usage.
+ * Common causes include invalid vote values, missing promptId, or SDK not initialized.
+ * 
+ * @example
+ * ```typescript
+ * throw new BilanVoteError(
+ *   'Invalid vote value',
+ *   'Use 1 for positive or -1 for negative votes'
+ * )
+ * ```
+ */
 export class BilanVoteError extends BilanError {
+  /**
+   * Creates a new vote recording error
+   * 
+   * @param message - Description of the vote recording problem
+   * @param suggestion - Helpful guidance for fixing the issue
+   */
   constructor(message: string, suggestion?: string) {
     super(message, 'VOTE_ERROR', 'vote recording', suggestion)
     this.name = 'BilanVoteError'
   }
 }
 
+/**
+ * Error thrown during statistics retrieval with guidance for data access.
+ * Common causes include no data available, SDK not initialized, or server errors.
+ * 
+ * @example
+ * ```typescript
+ * throw new BilanStatsError(
+ *   'No data available',
+ *   'Record some votes first before requesting statistics'
+ * )
+ * ```
+ */
 export class BilanStatsError extends BilanError {
+  /**
+   * Creates a new statistics retrieval error
+   * 
+   * @param message - Description of the statistics problem
+   * @param suggestion - Helpful guidance for fixing the issue
+   */
   constructor(message: string, suggestion?: string) {
     super(message, 'STATS_ERROR', 'stats retrieval', suggestion)
     this.name = 'BilanStatsError'
   }
 }
 
+/**
+ * Error thrown during network operations with connectivity guidance.
+ * Common causes include CORS issues, timeout errors, or endpoint not found.
+ * 
+ * @example
+ * ```typescript
+ * throw new BilanNetworkError(
+ *   'Request timeout',
+ *   'Check your network connection and server availability'
+ * )
+ * ```
+ */
 export class BilanNetworkError extends BilanError {
+  /**
+   * Creates a new network error
+   * 
+   * @param message - Description of the network problem
+   * @param suggestion - Helpful guidance for fixing the issue
+   */
   constructor(message: string, suggestion?: string) {
     super(message, 'NETWORK_ERROR', 'network request', suggestion)
     this.name = 'BilanNetworkError'
   }
 }
 
+/**
+ * Error thrown during storage operations with storage guidance.
+ * Common causes include localStorage unavailable, quota exceeded, or storage errors.
+ * 
+ * @example
+ * ```typescript
+ * throw new BilanStorageError(
+ *   'localStorage not available',
+ *   'Consider using server mode or a custom storage adapter'
+ * )
+ * ```
+ */
 export class BilanStorageError extends BilanError {
+  /**
+   * Creates a new storage error
+   * 
+   * @param message - Description of the storage problem
+   * @param suggestion - Helpful guidance for fixing the issue
+   */
   constructor(message: string, suggestion?: string) {
     super(message, 'STORAGE_ERROR', 'storage operation', suggestion)
     this.name = 'BilanStorageError'
@@ -56,17 +180,57 @@ export class BilanStorageError extends BilanError {
 }
 
 /**
- * Enhanced error handling with helpful developer messages
+ * Enhanced error handler that provides contextual error messages and suggestions
+ * for common SDK usage issues. Supports both debug and production modes with
+ * appropriate logging levels.
+ * 
+ * @example
+ * ```typescript
+ * // Enable debug mode for detailed error logging
+ * ErrorHandler.setDebugMode(true)
+ * 
+ * // Handle an initialization error
+ * const error = ErrorHandler.handleInitError(new Error('Invalid mode'))
+ * ```
  */
 export class ErrorHandler {
   private static isDebugMode = false
 
+  /**
+   * Sets the debug mode for error handling and logging.
+   * In debug mode, errors are logged with full details including stack traces.
+   * In production mode, only basic error messages are logged.
+   * 
+   * @param enabled - Whether to enable debug mode
+   * 
+   * @example
+   * ```typescript
+   * // Enable debug mode during development
+   * ErrorHandler.setDebugMode(process.env.NODE_ENV === 'development')
+   * ```
+   */
   static setDebugMode(enabled: boolean): void {
     ErrorHandler.isDebugMode = enabled
   }
 
   /**
-   * Handle initialization errors with helpful suggestions
+   * Handles initialization errors and provides helpful setup guidance.
+   * Analyzes the error message to provide specific suggestions for common
+   * initialization problems like missing configuration or invalid parameters.
+   * 
+   * @param error - The original error that occurred during initialization
+   * @param config - Optional configuration object for additional context
+   * @returns A BilanInitializationError with helpful suggestions
+   * 
+   * @example
+   * ```typescript
+   * try {
+   *   await init({ mode: 'invalid' })
+   * } catch (error) {
+   *   const handled = ErrorHandler.handleInitError(error)
+   *   console.log(handled.suggestion) // Shows proper init() usage
+   * }
+   * ```
    */
   static handleInitError(error: Error, config?: InitConfig): BilanInitializationError {
     let message = error.message
@@ -112,7 +276,24 @@ await init({
   }
 
   /**
-   * Handle vote recording errors with helpful suggestions
+   * Handles vote recording errors and provides helpful usage guidance.
+   * Analyzes the error to provide specific suggestions for common voting
+   * problems like invalid values, missing initialization, or network issues.
+   * 
+   * @param error - The original error that occurred during vote recording
+   * @param promptId - Optional prompt ID for additional context
+   * @param value - Optional vote value for additional context
+   * @returns A BilanVoteError with helpful suggestions
+   * 
+   * @example
+   * ```typescript
+   * try {
+   *   await vote('prompt-1', 2) // Invalid vote value
+   * } catch (error) {
+   *   const handled = ErrorHandler.handleVoteError(error, 'prompt-1', 2)
+   *   console.log(handled.suggestion) // Shows valid vote values
+   * }
+   * ```
    */
   static handleVoteError(error: Error, promptId?: string, value?: number): BilanVoteError {
     let message = error.message
@@ -168,7 +349,23 @@ await init({
   }
 
   /**
-   * Handle stats retrieval errors with helpful suggestions
+   * Handles statistics retrieval errors and provides helpful data access guidance.
+   * Analyzes the error to provide specific suggestions for common stats problems
+   * like no data available, SDK not initialized, or server connectivity issues.
+   * 
+   * @param error - The original error that occurred during stats retrieval
+   * @param type - Type of stats being requested ('basic' or 'prompt')
+   * @returns A BilanStatsError with helpful suggestions
+   * 
+   * @example
+   * ```typescript
+   * try {
+   *   const stats = await getStats()
+   * } catch (error) {
+   *   const handled = ErrorHandler.handleStatsError(error, 'basic')
+   *   console.log(handled.suggestion) // Shows how to record votes first
+   * }
+   * ```
    */
   static handleStatsError(error: Error, type: 'basic' | 'prompt' = 'basic'): BilanStatsError {
     let message = error.message
@@ -215,7 +412,23 @@ await init({
   }
 
   /**
-   * Handle network errors with helpful suggestions
+   * Handles network errors and provides helpful connectivity guidance.
+   * Analyzes the error to provide specific suggestions for common network
+   * problems like CORS issues, timeouts, or endpoint configuration.
+   * 
+   * @param error - The original network error
+   * @param endpoint - Optional endpoint URL for additional context
+   * @returns A BilanNetworkError with helpful suggestions
+   * 
+   * @example
+   * ```typescript
+   * try {
+   *   await fetch('/api/events')
+   * } catch (error) {
+   *   const handled = ErrorHandler.handleNetworkError(error, '/api/events')
+   *   console.log(handled.suggestion) // Shows CORS or connectivity fixes
+   * }
+   * ```
    */
   static handleNetworkError(error: Error, endpoint?: string): BilanNetworkError {
     let message = error.message
@@ -255,7 +468,22 @@ Current endpoint: ${endpoint}
   }
 
   /**
-   * Handle storage errors with helpful suggestions
+   * Handles storage errors and provides helpful storage guidance.
+   * Analyzes the error to provide specific suggestions for common storage
+   * problems like localStorage unavailable or quota exceeded.
+   * 
+   * @param error - The original storage error
+   * @returns A BilanStorageError with helpful suggestions
+   * 
+   * @example
+   * ```typescript
+   * try {
+   *   localStorage.setItem('key', 'value')
+   * } catch (error) {
+   *   const handled = ErrorHandler.handleStorageError(error)
+   *   console.log(handled.suggestion) // Shows alternative storage options
+   * }
+   * ```
    */
   static handleStorageError(error: Error): BilanStorageError {
     let message = error.message
@@ -289,7 +517,17 @@ Solutions:
   }
 
   /**
-   * Log error with helpful formatting
+   * Logs errors with appropriate formatting based on debug mode.
+   * In debug mode, provides detailed error information including context and suggestions.
+   * In production mode, logs simple warning messages.
+   * 
+   * @param error - The BilanError to log
+   * 
+   * @example
+   * ```typescript
+   * const error = new BilanError('Something went wrong', 'GENERIC_ERROR')
+   * ErrorHandler.logError(error) // Logs with appropriate detail level
+   * ```
    */
   static logError(error: BilanError): void {
     if (ErrorHandler.isDebugMode) {
@@ -308,11 +546,28 @@ Solutions:
   }
 
   /**
-   * Graceful error handling - log but don't throw
+   * Handles errors gracefully without throwing, following the SDK principle
+   * of never crashing user applications. Logs the error and returns a fallback value.
+   * 
+   * @param error - The original error that occurred
+   * @param context - Context where the error occurred
+   * @param fallback - Optional fallback value to return
+   * @returns The fallback value or undefined
+   * 
+   * @example
+   * ```typescript
+   * // Always returns a safe value, never throws
+   * const result = ErrorHandler.handleGracefully(
+   *   new Error('API failed'),
+   *   'stats',
+   *   { totalVotes: 0, positiveRate: 0 }
+   * )
+   * ```
    */
   static handleGracefully(error: Error, context: string, fallback?: any): any {
     let bilanError: BilanError
 
+    // Convert to appropriate Bilan error type
     switch (context) {
       case 'init':
         bilanError = ErrorHandler.handleInitError(error)
@@ -321,7 +576,7 @@ Solutions:
         bilanError = ErrorHandler.handleVoteError(error)
         break
       case 'stats':
-        bilanError = ErrorHandler.handleStatsError(error, 'basic')
+        bilanError = ErrorHandler.handleStatsError(error)
         break
       case 'network':
         bilanError = ErrorHandler.handleNetworkError(error)
@@ -333,37 +588,51 @@ Solutions:
         bilanError = new BilanError(error.message, 'UNKNOWN_ERROR', context)
     }
 
+    // Always log the error
     ErrorHandler.logError(bilanError)
 
-    if (ErrorHandler.isDebugMode) {
-      throw bilanError
-    }
-
+    // Always return fallback gracefully - never throw even in debug mode
     return fallback
   }
 }
 
 /**
- * Graceful degradation helpers
+ * Utility class for graceful degradation patterns and environment detection.
+ * Provides safe methods to check browser capabilities and return fallback values
+ * when features are not available.
+ * 
+ * @example
+ * ```typescript
+ * if (GracefulDegradation.isBrowser()) {
+ *   // Safe to use browser APIs
+ * }
+ * 
+ * const stats = GracefulDegradation.getStatsFallback()
+ * ```
  */
 export class GracefulDegradation {
   /**
-   * Check if we're in a browser environment
+   * Safely checks if running in a browser environment.
+   * 
+   * @returns True if running in browser, false in Node.js or other environments
    */
   static isBrowser(): boolean {
     return typeof window !== 'undefined' && typeof document !== 'undefined'
   }
 
   /**
-   * Check if localStorage is available
+   * Safely checks if localStorage is available and functional.
+   * Handles cases where localStorage exists but throws errors (e.g., incognito mode).
+   * 
+   * @returns True if localStorage is available and working, false otherwise
    */
   static isLocalStorageAvailable(): boolean {
     try {
-      if (!GracefulDegradation.isBrowser()) return false
+      if (typeof localStorage === 'undefined') return false
       
-      const test = '__bilan_test__'
-      localStorage.setItem(test, test)
-      localStorage.removeItem(test)
+      const testKey = '__bilan_test__'
+      localStorage.setItem(testKey, 'test')
+      localStorage.removeItem(testKey)
       return true
     } catch {
       return false
@@ -371,15 +640,18 @@ export class GracefulDegradation {
   }
 
   /**
-   * Check if we're online
+   * Safely checks if the browser is currently online.
+   * 
+   * @returns True if online, false if offline or navigator unavailable
    */
   static isOnline(): boolean {
-    if (!GracefulDegradation.isBrowser()) return true
-    return navigator.onLine
+    return typeof navigator !== 'undefined' ? navigator.onLine : true
   }
 
   /**
-   * Get a safe fallback for stats when errors occur
+   * Returns a safe fallback statistics object when real stats are unavailable.
+   * 
+   * @returns Default statistics structure with zero values
    */
   static getStatsFallback() {
     return {
@@ -391,11 +663,14 @@ export class GracefulDegradation {
   }
 
   /**
-   * Get a safe fallback for prompt stats when errors occur
+   * Returns a safe fallback prompt statistics object when real stats are unavailable.
+   * 
+   * @param promptId - The prompt ID for the fallback stats
+   * @returns Default prompt statistics structure with zero values
    */
   static getPromptStatsFallback(promptId: string) {
     return {
-      promptId: createPromptId(promptId),
+      promptId,
       totalVotes: 0,
       positiveRate: 0,
       comments: []
