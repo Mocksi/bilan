@@ -40,7 +40,7 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null)
 
   // Get API base URL from environment variables
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001'
+  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3002'
 
   useEffect(() => {
     fetchEvents()
