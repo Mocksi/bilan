@@ -379,6 +379,37 @@ git config commit.template ~/.gitmessage
 # Any breaking changes or migration notes:
 ```
 
+## Git Workflow & Permissions
+
+### Commit Permissions
+- **NEVER commit directly to main branch without explicit user permission**
+- **ALWAYS create feature branches for new work**
+- **ALWAYS ask user before making any git commits**
+- Use format: "Should I commit these changes to [branch-name]?"
+- Wait for explicit user approval before proceeding with commits
+- If user says no, explain alternatives (save changes, create branch, etc.)
+
+### Branch Strategy
+- Create feature branches for all new work: `feature/description`
+- Use descriptive branch names that explain the change
+- Keep branches focused on single features or fixes
+- Create pull requests for all changes to main branch
+
+### Commit Workflow
+1. **Ask permission first**: "Should I commit these changes?"
+2. **Create feature branch**: `git checkout -b feature/description`
+3. **Make atomic commits**: One logical change per commit
+4. **Push to feature branch**: Never push directly to main
+5. **Create pull request**: For review and merge approval
+
+### Example Permission Request
+```
+I've created the integration guides. Should I:
+1. Commit these changes to a new feature branch?
+2. Create a pull request for review?
+3. Or would you prefer a different approach?
+```
+
 ## Final Notes
 - Always consider the developer experience impact
 - Performance is a feature, not an afterthought
