@@ -270,6 +270,115 @@ interface ApiResponse<T> {
 - Use GitHub Actions for CI/CD
 - Deploy SDK to npm, services to respective platforms
 
+## Git Commit Best Practices
+
+### Conventional Commits Format
+```
+<type>[optional scope]: <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+### Commit Types
+- **feat**: New feature for users
+- **fix**: Bug fix for users  
+- **docs**: Documentation changes
+- **chore**: Maintenance tasks (deps, CI, etc.)
+- **refactor**: Code changes that neither fix bugs nor add features
+- **test**: Adding or updating tests
+- **perf**: Performance improvements
+- **style**: Code style changes (formatting, semicolons, etc.)
+
+### Subject Line Rules (50 Characters Max)
+- Use imperative mood: "Add feature" not "Added feature"
+- Don't capitalize the first letter after type:
+- No period at the end
+- Be specific and descriptive
+
+### Examples of Good vs Bad Commits
+
+#### ✅ Good - Atomic Commits
+```
+feat: add maxItems constraint to events API
+fix: resolve npm workspace protocol in CI  
+docs: add environment variable documentation
+chore: bump SDK version to 0.3.1
+refactor: extract database mapping logic
+test: add integration tests for vote events
+```
+
+#### ❌ Bad - Non-Atomic Commits
+```
+feat: enhance project structure and documentation
+fix: update everything and fix CI issues
+chore: misc updates and improvements
+```
+
+### Commit Body Guidelines (72 Characters Per Line)
+- Explain **why** the change was made, not just what
+- Include context about the problem being solved
+- Reference issues when applicable
+- Use bullet points for multiple changes (if unavoidable)
+
+### Example of Well-Formatted Commit
+```
+fix: resolve workspace protocol error in CI
+
+npm versions < 7 don't support the workspace:* protocol used in
+package.json dependencies. This was causing CI failures with
+"Unsupported URL Type" errors.
+
+- Use npx npm@9 ci to explicitly use npm v9+ 
+- Ensures workspace protocol support during dependency installation
+- Removes reliance on shell session picking up global npm upgrade
+
+Fixes #123
+```
+
+### Atomic Commit Strategy
+- **One logical change per commit** - easier to review and revert
+- **Separate concerns**: Don't mix documentation updates with code changes
+- **Split large features**: Break into logical, buildable steps
+- **Test each commit**: Every commit should leave the code in a working state
+
+### Before Merging Feature Branches
+```bash
+# Clean up commit history with interactive rebase
+git rebase -i main
+
+# Or use GitHub's "Squash and merge" for smaller features
+# But preserve meaningful commit history for larger features
+```
+
+### What NOT to Commit Together
+❌ Documentation + code changes  
+❌ Multiple unrelated bug fixes  
+❌ Feature + refactoring + bug fix  
+❌ Config changes + new features  
+
+### What CAN Be Committed Together  
+✅ Related test + implementation  
+✅ Type definitions + implementation  
+✅ Multiple files for same logical change  
+✅ Breaking change + migration guide  
+
+### Commit Message Templates
+```bash
+# Set up a commit template
+git config commit.template ~/.gitmessage
+
+# Example ~/.gitmessage:
+# <type>: <subject>
+# 
+# Why this change is needed:
+# 
+# How it addresses the problem:
+# 
+# Any breaking changes or migration notes:
+```
+
 ## Final Notes
 - Always consider the developer experience impact
 - Performance is a feature, not an afterthought
