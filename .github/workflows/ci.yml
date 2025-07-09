@@ -10,29 +10,22 @@ jobs:
   test:
     name: Build and Test
     runs-on: ubuntu-latest
-    
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          
-      - name: Upgrade npm and clear cache
-        run: |
-          npm install -g npm@9
-          npm cache clean --force
-          npm --version
-          
+          cache: 'npm'
+
       - name: Install dependencies
-        run: npx npm@9 ci
-        
+        run: npm ci
+
       - name: Build packages
         run: npm run build
-        
+
       - name: Test SDK
-        run: |
-          cd packages/sdk
-          npm test 
+        run: npm run test:sdk 
