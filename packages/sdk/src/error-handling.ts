@@ -318,7 +318,7 @@ Solutions:
         bilanError = ErrorHandler.handleVoteError(error)
         break
       case 'stats':
-        bilanError = ErrorHandler.handleStatsError(error)
+        bilanError = ErrorHandler.handleStatsError(error, 'basic')
         break
       case 'network':
         bilanError = ErrorHandler.handleNetworkError(error)
