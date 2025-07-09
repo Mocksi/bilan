@@ -19,13 +19,20 @@ npm install @mocksi/bilan-sdk ai
 import { init } from '@mocksi/bilan-sdk'
 
 export const bilan = await init({
-  mode: 'local', // or 'server' with your API key
-  userId: 'user-123', // your user identifier
+  mode: process.env.BILAN_MODE || 'local', // 'local' or 'server'
+  apiKey: process.env.BILAN_API_KEY, // Required for server mode
+  userId: process.env.USER_ID || 'anonymous', // Your user identifier
   telemetry: {
-    enabled: true // opt-in to usage analytics
+    enabled: process.env.BILAN_TELEMETRY !== 'false' // opt-in to usage analytics
   }
 })
 ```
+
+**Required Environment Variables:**
+- `BILAN_MODE` - Set to 'server' for production, 'local' for development
+- `BILAN_API_KEY` - Your Bilan API key (required for server mode)
+- `USER_ID` - Unique identifier for the current user
+- `BILAN_TELEMETRY` - Set to 'false' to disable telemetry (optional)
 
 ### 2. Create your AI chat route with feedback tracking
 
@@ -58,6 +65,11 @@ export async function POST(req: Request) {
   })
 }
 ```
+
+**Required Environment Variables:**
+- `OPENAI_API_KEY` - Your OpenAI API key for authentication
+- Set in `.env.local` for development: `OPENAI_API_KEY=sk-...`
+- For production deployment (Vercel): Add to environment variables in dashboard
 
 ### 3. Create a chat component with feedback
 
