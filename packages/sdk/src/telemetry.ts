@@ -137,6 +137,11 @@ class TelemetryService {
 
 let telemetryService: TelemetryService | null = null
 
+/**
+ * Initializes the telemetry service with the provided configuration and tracks the SDK initialization event.
+ *
+ * Sets up telemetry event tracking for the SDK, including anonymized user identification and environment-specific settings.
+ */
 export function initTelemetry(config: InitConfig): void {
   const telemetryConfig: TelemetryConfig = {
     enabled: config.telemetry?.enabled ?? (config.mode === 'server'), // Default enabled for server mode
@@ -161,10 +166,22 @@ export function initTelemetry(config: InitConfig): void {
   })
 }
 
+/**
+ * Forwards a telemetry event to the initialized telemetry service for tracking.
+ *
+ * If the telemetry service is not initialized, the event is ignored.
+ */
 export function trackEvent(event: Omit<TelemetryEvent, 'timestamp' | 'version' | 'anonymousId' | 'mode'>): void {
   telemetryService?.track(event)
 }
 
+/**
+ * Tracks a vote event with anonymized prompt information and comment presence.
+ *
+ * @param promptId - The unique identifier of the prompt being voted on
+ * @param value - The vote value, either 1 (upvote) or -1 (downvote)
+ * @param hasComment - Indicates whether the vote included a comment
+ */
 export function trackVote(promptId: string, value: 1 | -1, hasComment: boolean): void {
   trackEvent({
     event: 'vote_recorded',
@@ -176,6 +193,11 @@ export function trackVote(promptId: string, value: 1 | -1, hasComment: boolean):
   })
 }
 
+/**
+ * Tracks a telemetry event when statistics are requested.
+ *
+ * @param type - The type of statistics requested, either 'basic' or 'prompt'
+ */
 export function trackStatsRequest(type: 'basic' | 'prompt'): void {
   trackEvent({
     event: 'stats_requested',
@@ -183,6 +205,12 @@ export function trackStatsRequest(type: 'basic' | 'prompt'): void {
   })
 }
 
+/**
+ * Tracks an error event with anonymized and truncated error details.
+ *
+ * @param error - The error object to report
+ * @param context - Optional context describing where the error occurred
+ */
 export function trackError(error: Error, context?: string): void {
   trackEvent({
     event: 'error',
