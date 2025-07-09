@@ -35,7 +35,7 @@ const nextConfig = {
   
   // Performance optimizations
   experimental: {
-    optimizePackageImports: ['@bilan/sdk'],
+    optimizePackageImports: ['@mocksi/bilan-sdk'],
   },
   
   // Bundle optimization
