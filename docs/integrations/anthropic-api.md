@@ -19,6 +19,15 @@ npm install @mocksi/bilan-sdk @anthropic-ai/sdk
 import Anthropic from '@anthropic-ai/sdk'
 import { init } from '@mocksi/bilan-sdk'
 
+// Cross-platform UUID generation
+function generateId(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID()
+  }
+  // Fallback for environments without crypto.randomUUID
+  return Math.random().toString(36).substring(2) + Date.now().toString(36)
+}
+
 export const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY
 })
@@ -35,7 +44,15 @@ export const bilan = await init({
 ```typescript
 // lib/claude-chat.ts
 import { anthropic } from './anthropic'
-import { randomUUID } from 'crypto'
+
+// Cross-platform UUID generation
+function generateId(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID()
+  }
+  // Fallback for environments without crypto.randomUUID
+  return Math.random().toString(36).substring(2) + Date.now().toString(36)
+}
 
 export interface TrackedClaudeResponse {
   content: string
@@ -57,7 +74,7 @@ export async function createClaudeMessage(
     system?: string
   } = {}
 ): Promise<TrackedClaudeResponse> {
-  const promptId = randomUUID()
+  const promptId = generateId()
   const model = options.model || 'claude-3-haiku-20240307'
   
   try {

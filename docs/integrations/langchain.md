@@ -18,6 +18,15 @@ npm install @mocksi/bilan-sdk langchain @langchain/openai
 // lib/bilan.ts
 import { init } from '@mocksi/bilan-sdk'
 
+// Cross-platform UUID generation
+function generateId(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID()
+  }
+  // Fallback for environments without crypto.randomUUID
+  return Math.random().toString(36).substring(2) + Date.now().toString(36)
+}
+
 export const bilan = await init({
   mode: process.env.BILAN_MODE || 'local', // 'local' or 'server'
   apiKey: process.env.BILAN_API_KEY, // Required for server mode
@@ -43,7 +52,15 @@ import { ChatOpenAI } from '@langchain/openai'
 import { PromptTemplate } from '@langchain/core/prompts'
 import { RunnableSequence } from '@langchain/core/runnables'
 import { StringOutputParser } from '@langchain/core/output_parsers'
-import { randomUUID } from 'crypto'
+
+// Cross-platform UUID generation
+function generateId(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID()
+  }
+  // Fallback for environments without crypto.randomUUID
+  return Math.random().toString(36).substring(2) + Date.now().toString(36)
+}
 
 const model = new ChatOpenAI({
   modelName: 'gpt-3.5-turbo',
@@ -71,7 +88,7 @@ export const createQAChain = () => {
 
   return {
     async invoke(question: string): Promise<TrackedChainResponse> {
-      const promptId = randomUUID()
+      const promptId = generateId()
       
       try {
         const answer = await chain.invoke({ question })
@@ -251,7 +268,6 @@ import { ChatOpenAI } from '@langchain/openai'
 import { PromptTemplate } from '@langchain/core/prompts'
 import { RunnableSequence } from '@langchain/core/runnables'
 import { StringOutputParser } from '@langchain/core/output_parsers'
-import { randomUUID } from 'crypto'
 
 export interface ResearchChainResponse {
   steps: Array<{
@@ -298,7 +314,7 @@ export const createResearchChain = () => {
       const steps: ResearchChainResponse['steps'] = []
       
       // Step 1: Planning
-      const planningId = randomUUID()
+      const planningId = generateId()
       const planningChain = RunnableSequence.from([planningPrompt, model, new StringOutputParser()])
       const plan = await planningChain.invoke({ question })
       
@@ -313,7 +329,7 @@ export const createResearchChain = () => {
       const findings: string[] = []
 
       for (const subQuestion of subQuestions) {
-        const researchId = randomUUID()
+        const researchId = generateId()
         const answerChain = RunnableSequence.from([answerPrompt, model, new StringOutputParser()])
         const answer = await answerChain.invoke({ subQuestion })
         
@@ -327,7 +343,7 @@ export const createResearchChain = () => {
       }
 
       // Step 3: Synthesis
-      const synthesisId = randomUUID()
+      const synthesisId = generateId()
       const synthesisChain = RunnableSequence.from([synthesisPrompt, model, new StringOutputParser()])
       const finalAnswer = await synthesisChain.invoke({
         originalQuestion: question,
@@ -519,7 +535,6 @@ console.log('Trust score:', stats.trustScore)
 import { ChatOpenAI } from '@langchain/openai'
 import { MemoryVectorStore } from 'langchain/vectorstores/memory'
 import { OpenAIEmbeddings } from '@langchain/openai'
-import { randomUUID } from 'crypto'
 
 export const createRAGChain = async (documents: string[]) => {
   const embeddings = new OpenAIEmbeddings()
@@ -533,7 +548,7 @@ export const createRAGChain = async (documents: string[]) => {
 
   return {
     async invoke(question: string) {
-      const promptId = randomUUID()
+      const promptId = generateId()
       
       // Retrieve relevant documents
       const relevantDocs = await vectorStore.similaritySearch(question, 3)
@@ -576,7 +591,6 @@ export const createRAGChain = async (documents: string[]) => {
 import { ChatOpenAI } from '@langchain/openai'
 import { AgentExecutor, createOpenAIFunctionsAgent } from 'langchain/agents'
 import { DynamicTool } from '@langchain/core/tools'
-import { randomUUID } from 'crypto'
 
 export const createAgentChain = () => {
   const model = new ChatOpenAI({ modelName: 'gpt-4' })
@@ -619,7 +633,7 @@ export const createAgentChain = () => {
 
   return {
     async invoke(input: string) {
-      const promptId = randomUUID()
+      const promptId = generateId()
       
       const agent = await createOpenAIFunctionsAgent({
         llm: model,

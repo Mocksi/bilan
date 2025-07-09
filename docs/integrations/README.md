@@ -202,9 +202,9 @@ if (promptAnalytics.averageScore > 0.8) {
 
 ### 1. **Always Generate Unique IDs**
 ```typescript
-import { generateId } from 'crypto'
+import { randomUUID } from 'crypto'
 
-const promptId = generateId() // Use this for tracking
+const promptId = randomUUID() // Use this for tracking
 ```
 
 ### 2. **Handle Errors Gracefully**
