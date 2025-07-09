@@ -3,6 +3,9 @@
  * and graceful degradation patterns.
  */
 
+import { InitConfig } from './types'
+import { createPromptId } from './types'
+
 export class BilanError extends Error {
   public readonly code: string
   public readonly context?: string
@@ -392,7 +395,7 @@ export class GracefulDegradation {
    */
   static getPromptStatsFallback(promptId: string) {
     return {
-      promptId: promptId as any,
+      promptId: createPromptId(promptId),
       totalVotes: 0,
       positiveRate: 0,
       comments: []
