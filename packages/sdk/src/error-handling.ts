@@ -68,7 +68,7 @@ export class ErrorHandler {
   /**
    * Handle initialization errors with helpful suggestions
    */
-  static handleInitError(error: Error, config?: any): BilanInitializationError {
+  static handleInitError(error: Error, config?: InitConfig): BilanInitializationError {
     let message = error.message
     let suggestion = ''
 
