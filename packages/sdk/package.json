@@ -6,7 +6,8 @@
   "types": "dist/index.d.ts",
   "type": "module",
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "directories": {
     "test": "tests"
@@ -24,8 +25,17 @@
     "feedback",
     "typescript"
   ],
-  "author": "",
+  "author": "Mocksi",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Mocksi/bilan.git",
+    "directory": "packages/sdk"
+  },
+  "homepage": "https://github.com/Mocksi/bilan#readme",
+  "bugs": {
+    "url": "https://github.com/Mocksi/bilan/issues"
+  },
   "devDependencies": {
     "@rollup/plugin-terser": "^0.4.4",
     "@rollup/plugin-typescript": "^12.1.4",
