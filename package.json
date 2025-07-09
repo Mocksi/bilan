@@ -3,6 +3,7 @@
   "version": "0.3.0",
   "description": "Open Source Trust Analytics for AI Products - Track user feedback on AI suggestions. Self-hostable, TypeScript-first, <5KB bundle.",
   "main": "index.js",
+  "type": "module",
   "workspaces": ["packages/*"],
   "directories": {
     "doc": "docs"
@@ -20,7 +21,8 @@
     "dev": "npm run dev:server & npm run dev:dashboard",
     "dev:server": "cd packages/server && PORT=3002 npm run dev",
     "dev:dashboard": "cd packages/dashboard && PORT=3004 npm run dev",
-    "dev:example": "cd packages/examples/nextjs && npm run dev"
+    "dev:example": "cd packages/examples/nextjs && npm run dev",
+    "update-bundle-size": "node scripts/update-bundle-size.js"
   },
   "repository": {
     "type": "git",

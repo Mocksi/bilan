@@ -45,4 +45,15 @@ jobs:
           files: ./packages/sdk/coverage/lcov.info
           flags: sdk
           name: sdk-coverage
-          fail_ci_if_error: false 
+          fail_ci_if_error: false
+
+      - name: Validate bundle size
+        run: |
+          BUNDLE_SIZE=$(gzip -c packages/sdk/dist/index.js | wc -c)
+          echo "Bundle size: ${BUNDLE_SIZE} bytes gzipped"
+          if [ $BUNDLE_SIZE -gt 5120 ]; then
+            echo "❌ Bundle size ${BUNDLE_SIZE} bytes exceeds 5KB limit"
+            exit 1
+          else
+            echo "✅ Bundle size ${BUNDLE_SIZE} bytes is within 5KB limit"
+          fi 
