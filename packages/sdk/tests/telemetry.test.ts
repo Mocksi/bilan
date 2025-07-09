@@ -1,5 +1,13 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
-import { initTelemetry, trackEvent, trackVote, trackStatsRequest, trackError } from '../src/telemetry'
+import { 
+  initTelemetry, 
+  trackEvent, 
+  trackVote, 
+  trackStatsRequest, 
+  trackError, 
+  resetTelemetryForTesting,
+  getTelemetryQueueSize 
+} from '../src/telemetry'
 import { createUserId } from '../src/types'
 
 // Mock fetch globally
@@ -15,6 +23,7 @@ Object.defineProperty(navigator, 'onLine', {
 describe('Telemetry', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    resetTelemetryForTesting()
     mockFetch.mockResolvedValue({
       ok: true,
       json: async () => ({ success: true })
@@ -29,6 +38,7 @@ describe('Telemetry', () => {
 
   afterEach(() => {
     vi.clearAllTimers()
+    resetTelemetryForTesting()
   })
 
   describe('initTelemetry', () => {
@@ -110,17 +120,12 @@ describe('Telemetry', () => {
     })
 
     it('should handle null telemetry service gracefully', () => {
-      // Reset telemetry service
-      const originalService = (global as any).telemetryService
-      ;(global as any).telemetryService = null
+      resetTelemetryForTesting()
       
       expect(() => trackEvent({
         event: 'vote_recorded' as const,
         metadata: { test: 'data' }
       })).not.toThrow()
-      
-      // Restore
-      ;(global as any).telemetryService = originalService
     })
   })
 
@@ -143,12 +148,9 @@ describe('Telemetry', () => {
     })
 
     it('should handle null telemetry service gracefully', () => {
-      const originalService = (global as any).telemetryService
-      ;(global as any).telemetryService = null
+      resetTelemetryForTesting()
       
       expect(() => trackVote('test-prompt', 1, true)).not.toThrow()
-      
-      ;(global as any).telemetryService = originalService
     })
   })
 
@@ -171,12 +173,9 @@ describe('Telemetry', () => {
     })
 
     it('should handle null telemetry service gracefully', () => {
-      const originalService = (global as any).telemetryService
-      ;(global as any).telemetryService = null
+      resetTelemetryForTesting()
       
       expect(() => trackStatsRequest('basic')).not.toThrow()
-      
-      ;(global as any).telemetryService = originalService
     })
   })
 
@@ -201,13 +200,10 @@ describe('Telemetry', () => {
     })
 
     it('should handle null telemetry service gracefully', () => {
-      const originalService = (global as any).telemetryService
-      ;(global as any).telemetryService = null
+      resetTelemetryForTesting()
       
       const error = new Error('Test error')
       expect(() => trackError(error, 'test-context')).not.toThrow()
-      
-      ;(global as any).telemetryService = originalService
     })
   })
 
@@ -236,8 +232,7 @@ describe('Telemetry', () => {
     })
 
     it('should disable telemetry in development mode', () => {
-      const originalEnv = process.env.NODE_ENV
-      process.env.NODE_ENV = 'development'
+      vi.stubEnv('NODE_ENV', 'development')
       
       const config = {
         mode: 'server' as const,
@@ -250,7 +245,7 @@ describe('Telemetry', () => {
       
       expect(mockFetch).not.toHaveBeenCalled()
       
-      process.env.NODE_ENV = originalEnv
+      vi.unstubAllEnvs()
     })
 
     it('should handle network failures gracefully', async () => {
@@ -312,8 +307,9 @@ describe('Telemetry', () => {
         trackVote(`prompt-${i}`, 1, true)
       }
       
-      // Should not crash or consume unlimited memory
-      expect(true).toBe(true)
+      // Verify queue size is capped at 100
+      const queueSize = getTelemetryQueueSize()
+      expect(queueSize).toBeLessThanOrEqual(100)
     })
 
     it('should handle timeout errors', async () => {
@@ -359,18 +355,39 @@ describe('Telemetry', () => {
       global.process = originalProcess
     })
 
-    it('should handle online/offline events', () => {
+    it('should handle online/offline events and process queued events', async () => {
+      vi.useFakeTimers()
+      
       const config = {
         mode: 'server' as const,
         userId: createUserId('test-user'),
         endpoint: 'https://api.example.com'
       }
       
-      initTelemetry(config)
-      
-      // Simulate offline
+      // Start offline
       Object.defineProperty(navigator, 'onLine', {
         value: false,
+        writable: true
+      })
+      
+      initTelemetry(config)
+      
+      // Clear initial fetch calls
+      mockFetch.mockClear()
+      
+      // Add events while offline
+      trackVote('test-prompt', 1, true)
+      trackVote('test-prompt-2', -1, false)
+      
+      // Verify no fetch calls made while offline
+      expect(mockFetch).not.toHaveBeenCalled()
+      
+      // Verify events are queued
+      expect(getTelemetryQueueSize()).toBeGreaterThan(0)
+      
+      // Go back online
+      Object.defineProperty(navigator, 'onLine', {
+        value: true,
         writable: true
       })
       
@@ -378,13 +395,39 @@ describe('Telemetry', () => {
       const onlineEvent = new Event('online')
       window.dispatchEvent(onlineEvent)
       
-      // Should not crash
-      expect(true).toBe(true)
-    })
+      // Run all timers to process async operations
+      await vi.runAllTimersAsync()
+      
+      // Verify queued events were sent
+      expect(mockFetch).toHaveBeenCalled()
+      
+      vi.useRealTimers()
+    }, 10000)
   })
 
   describe('Hash Function', () => {
+    let capturedHashes: string[] = []
+    
     beforeEach(() => {
+      capturedHashes = []
+      
+      // Mock fetch to capture hash values
+      mockFetch.mockImplementation(async (url, options) => {
+        const body = JSON.parse(options.body as string)
+        const events = body.events
+        
+        events.forEach((event: any) => {
+          if (event.event === 'vote_recorded' && event.metadata?.promptIdHash) {
+            capturedHashes.push(event.metadata.promptIdHash)
+          }
+        })
+        
+        return {
+          ok: true,
+          json: async () => ({ success: true })
+        }
+      })
+      
       const config = {
         mode: 'server' as const,
         userId: createUserId('test-user'),
@@ -393,21 +436,29 @@ describe('Telemetry', () => {
       initTelemetry(config)
     })
 
-    it('should produce consistent hashes', () => {
+    it('should produce consistent hashes for same input', async () => {
       // Track the same prompt multiple times
       trackVote('consistent-prompt', 1, true)
       trackVote('consistent-prompt', -1, false)
       
+      // Wait for async operations
+      await new Promise(resolve => setTimeout(resolve, 0))
+      
       // Should produce same hash each time
-      expect(true).toBe(true)
+      expect(capturedHashes.length).toBe(2)
+      expect(capturedHashes[0]).toBe(capturedHashes[1])
     })
 
-    it('should produce different hashes for different inputs', () => {
+    it('should produce different hashes for different inputs', async () => {
       trackVote('prompt-1', 1, true)
       trackVote('prompt-2', 1, true)
       
+      // Wait for async operations
+      await new Promise(resolve => setTimeout(resolve, 0))
+      
       // Different prompts should have different hashes
-      expect(true).toBe(true)
+      expect(capturedHashes.length).toBe(2)
+      expect(capturedHashes[0]).not.toBe(capturedHashes[1])
     })
   })
 }) 

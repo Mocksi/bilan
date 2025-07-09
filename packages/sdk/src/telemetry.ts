@@ -53,6 +53,11 @@ class TelemetryService {
     return this.hashString(promptId)
   }
 
+  // Expose queue size for testing
+  public getQueueSize(): number {
+    return this.queue.length
+  }
+
   private shouldSendTelemetry(): boolean {
     if (!this.config.enabled) return false
     if (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development') return false
@@ -167,4 +172,13 @@ export function trackError(error: Error, context?: string): void {
     event: 'error',
     metadata: { message: error.message, context }
   })
+}
+
+// Testing utilities
+export function resetTelemetryForTesting(): void {
+  telemetryService = null
+}
+
+export function getTelemetryQueueSize(): number {
+  return telemetryService?.getQueueSize() ?? 0
 } 

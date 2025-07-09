@@ -25,11 +25,21 @@ Object.defineProperty(window, 'localStorage', {
 const mockFetch = vi.fn()
 global.fetch = mockFetch
 
+// Test utility to reset SDK state
+function resetSDKForTesting() {
+  // Clear any module-level state
+  ;(global as any).sdkInitialized = false
+  ;(global as any).sdkConfig = null
+  ;(global as any).storageAdapter = null
+  ;(global as any).analytics = null
+}
+
 describe('Bilan SDK', () => {
   beforeEach(() => {
     // Clear localStorage before each test
-    (window as any).localStorageData = {}
+    ;(window as any).localStorageData = {}
     vi.clearAllMocks()
+    resetSDKForTesting()
     mockFetch.mockResolvedValue({
       ok: true,
       json: async () => ({ success: true })
@@ -83,7 +93,7 @@ describe('Bilan SDK', () => {
 
     it('should handle localStorage unavailable gracefully', async () => {
       const originalLocalStorage = window.localStorage
-      delete (window as any).localStorage
+      window.localStorage = undefined as any
       
       await expect(init({
         mode: 'local',
@@ -178,11 +188,11 @@ describe('Bilan SDK', () => {
     })
 
     it('should handle vote before initialization', async () => {
-      // Create a fresh SDK instance
-      const { init: freshInit, vote: freshVote } = await import('../src/index')
+      // Reset SDK state to simulate uninitialized state
+      resetSDKForTesting()
       
       // Try to vote before init
-      await expect(freshVote(createPromptId('prompt-1'), 1)).resolves.not.toThrow()
+      await expect(vote(createPromptId('prompt-1'), 1)).resolves.not.toThrow()
     })
 
     it('should handle vote in debug mode', async () => {
@@ -254,9 +264,9 @@ describe('Bilan SDK', () => {
     })
 
     it('should handle stats before initialization', async () => {
-      const { getStats: freshGetStats } = await import('../src/index')
+      resetSDKForTesting()
       
-      const stats = await freshGetStats()
+      const stats = await getStats()
       expect(stats.totalVotes).toBe(0)
     })
 
