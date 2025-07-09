@@ -1,5 +1,5 @@
 {
-  "name": "@bilan/sdk",
+  "name": "@mocksi/bilan-sdk",
   "version": "0.3.0",
   "description": "TypeScript SDK for Bilan trust analytics",
   "main": "dist/index.js",
@@ -29,7 +29,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Mocksi/bilan.git",
+    "url": "git+https://github.com/Mocksi/bilan.git",
     "directory": "packages/sdk"
   },
   "homepage": "https://github.com/Mocksi/bilan#readme",
