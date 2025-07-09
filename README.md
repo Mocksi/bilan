@@ -11,7 +11,6 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue?style=flat-square)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 [![CI](https://img.shields.io/github/actions/workflow/status/Mocksi/bilan/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/Mocksi/bilan/actions/workflows/ci.yml)
-[![CodeQL](https://img.shields.io/github/actions/workflow/status/Mocksi/bilan/codeql.yml?branch=main&style=flat-square&label=CodeQL)](https://github.com/Mocksi/bilan/actions/workflows/codeql.yml)
 [![Codecov](https://img.shields.io/codecov/c/github/Mocksi/bilan?style=flat-square)](https://codecov.io/gh/Mocksi/bilan)
 [![Bundle Size](https://img.shields.io/bundlephobia/minzip/@bilan/sdk?style=flat-square&label=Bundle%20Size)](https://bundlephobia.com/package/@bilan/sdk)
 
@@ -507,4 +506,5 @@ onMounted(() => {
 
 ### Project Structure
 
+```
 ```
