@@ -10,6 +10,15 @@ When using Anthropic's Claude API, you need to track user satisfaction with AI r
 npm install @mocksi/bilan-sdk @anthropic-ai/sdk
 ```
 
+## Environment Variables
+
+**Required Environment Variables:**
+- `ANTHROPIC_API_KEY` - Your Anthropic API key for Claude models
+- `BILAN_MODE` - Set to 'server' for production, 'local' for development
+- `BILAN_API_KEY` - Your Bilan API key (required for server mode)
+- `BILAN_USER_ID` - Unique identifier for the current user
+- `BILAN_TELEMETRY` - Set to 'false' to disable telemetry (optional)
+
 ## Integration
 
 ### 1. Initialize Bilan and Anthropic

@@ -18,6 +18,7 @@ npm install @mocksi/bilan-sdk
 | `BILAN_API_KEY` | Your Bilan API key (required for server mode) | `bln_abc123...` |
 | `BILAN_USER_ID` | Unique identifier for the current user | `user-123` |
 | `BILAN_TELEMETRY` | Set to 'false' to disable telemetry (optional) | `true` or `false` |
+| `NEXT_PUBLIC_HF_API_KEY` | Hugging Face API key for HF providers | `hf_abc123...` |
 
 > **💡 Tip**: Store these variables in a `.env.local` file and never commit them to version control.
 
