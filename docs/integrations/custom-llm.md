@@ -10,6 +10,17 @@ When using custom LLM providers, local models, or proprietary AI services, you n
 npm install @mocksi/bilan-sdk
 ```
 
+## Required Environment Variables
+
+| Variable | Purpose | Example |
+|----------|---------|---------|
+| `BILAN_MODE` | Set to 'server' for production, 'local' for development | `local` or `server` |
+| `BILAN_API_KEY` | Your Bilan API key (required for server mode) | `bln_abc123...` |
+| `BILAN_USER_ID` | Unique identifier for the current user | `user-123` |
+| `BILAN_TELEMETRY` | Set to 'false' to disable telemetry (optional) | `true` or `false` |
+
+> **💡 Tip**: Store these variables in a `.env.local` file and never commit them to version control.
+
 ## Integration Patterns
 
 ### 1. Basic LLM Wrapper
@@ -17,7 +28,15 @@ npm install @mocksi/bilan-sdk
 ```typescript
 // lib/llm-wrapper.ts
 import { init } from '@mocksi/bilan-sdk'
-import { randomUUID } from 'crypto'
+
+// Use crypto.randomUUID() for cross-platform compatibility
+function generateId(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID()
+  }
+  // Fallback for environments without crypto.randomUUID
+  return Math.random().toString(36).substring(2) + Date.now().toString(36)
+}
 
 export interface LLMProvider {
   name: string
@@ -35,17 +54,18 @@ export interface TrackedLLMResponse {
 export class TrackedLLM {
   private provider: LLMProvider
   private bilan: any
+  private ready: Promise<void>
 
   constructor(provider: LLMProvider) {
     this.provider = provider
-    this.initBilan()
+    this.ready = this.initBilan()
   }
 
-  private async initBilan() {
+  private async initBilan(): Promise<void> {
     this.bilan = await init({
       mode: process.env.BILAN_MODE || 'local', // 'local' or 'server'
       apiKey: process.env.BILAN_API_KEY, // Required for server mode
-      userId: process.env.USER_ID || 'anonymous', // Your user identifier
+      userId: process.env.BILAN_USER_ID || 'anonymous', // Your user identifier
       telemetry: { 
         enabled: process.env.BILAN_TELEMETRY !== 'false' // opt-in to usage analytics
       }
@@ -56,7 +76,9 @@ export class TrackedLLM {
     prompt: string,
     options: any = {}
   ): Promise<TrackedLLMResponse> {
-    const promptId = randomUUID()
+    await this.ready // Ensure initialization is complete
+    
+    const promptId = generateId()
     const startTime = Date.now()
 
     try {
@@ -89,11 +111,13 @@ export class TrackedLLM {
     stream: AsyncIterable<string>
     metadata: Record<string, any>
   }> {
+    await this.ready // Ensure initialization is complete
+    
     if (!this.provider.generateStreamingResponse) {
       throw new Error(`${this.provider.name} does not support streaming`)
     }
 
-    const promptId = randomUUID()
+    const promptId = generateId()
     const startTime = Date.now()
 
     const stream = this.provider.generateStreamingResponse(prompt, options)
@@ -112,6 +136,8 @@ export class TrackedLLM {
   }
 
   async submitFeedback(promptId: string, value: 1 | -1, comment?: string) {
+    await this.ready // Ensure initialization is complete
+    
     const { vote } = await import('@mocksi/bilan-sdk')
     return vote(promptId, value, comment)
   }

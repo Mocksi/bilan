@@ -21,7 +21,7 @@ import { init } from '@mocksi/bilan-sdk'
 export const bilan = await init({
   mode: process.env.BILAN_MODE || 'local', // 'local' or 'server'
   apiKey: process.env.BILAN_API_KEY, // Required for server mode
-  userId: process.env.USER_ID || 'anonymous', // Your user identifier
+  userId: process.env.BILAN_USER_ID || 'anonymous', // Your user identifier
   telemetry: { 
     enabled: process.env.BILAN_TELEMETRY !== 'false' // opt-in to usage analytics
   }
@@ -32,7 +32,7 @@ export const bilan = await init({
 - `OPENAI_API_KEY` - Your OpenAI API key for LangChain models
 - `BILAN_MODE` - Set to 'server' for production, 'local' for development
 - `BILAN_API_KEY` - Your Bilan API key (required for server mode)
-- `USER_ID` - Unique identifier for the current user
+- `BILAN_USER_ID` - Unique identifier for the current user
 - `BILAN_TELEMETRY` - Set to 'false' to disable telemetry (optional)
 
 ### 2. Create a tracked LangChain chain
@@ -519,7 +519,7 @@ console.log('Trust score:', stats.trustScore)
 import { ChatOpenAI } from '@langchain/openai'
 import { MemoryVectorStore } from 'langchain/vectorstores/memory'
 import { OpenAIEmbeddings } from '@langchain/openai'
-import { Document } from '@langchain/core/documents'
+import { randomUUID } from 'crypto'
 
 export const createRAGChain = async (documents: string[]) => {
   const embeddings = new OpenAIEmbeddings()
@@ -568,11 +568,15 @@ export const createRAGChain = async (documents: string[]) => {
 
 ### Agent-based chains
 
+> **⚠️ SECURITY WARNING - NOT FOR PRODUCTION**  
+> The calculator tool below uses Function constructor for demonstration purposes only. This poses a security risk and should NOT be used in production. For production applications, use a proper math expression parser like [mathjs](https://mathjs.org/) or similar libraries.
+
 ```typescript
 // lib/chains/agent-chain.ts
 import { ChatOpenAI } from '@langchain/openai'
 import { AgentExecutor, createOpenAIFunctionsAgent } from 'langchain/agents'
 import { DynamicTool } from '@langchain/core/tools'
+import { randomUUID } from 'crypto'
 
 export const createAgentChain = () => {
   const model = new ChatOpenAI({ modelName: 'gpt-4' })
@@ -582,6 +586,7 @@ export const createAgentChain = () => {
       name: 'calculator',
       description: 'Useful for mathematical calculations',
       func: async (input: string) => {
+        // DEMO ONLY - NOT FOR PRODUCTION
         // Safe calculator implementation - only allow basic math operations
         try {
           // Remove any non-math characters and validate input
@@ -643,25 +648,3 @@ export const createAgentChain = () => {
   }
 }
 ```
-
-## Next Steps
-
-- **[Advanced Analytics](../advanced-analytics.md)** - Track chain performance
-- **[Custom Storage](../custom-storage.md)** - Store chain metadata
-- **[A/B Testing](../ab-testing.md)** - Test different chain configurations
-- **[Server Mode](../server-mode.md)** - Scale for production
-
-## Common Issues
-
-**Q: Chain responses not tracked?**
-A: Ensure each chain step generates a unique `promptId`.
-
-**Q: Feedback not working for multi-step chains?**
-A: Check that each step has its own `promptId` and feedback handler.
-
-**Q: Performance issues with complex chains?**
-A: Consider async feedback submission and caching strategies.
-
-## Example Repository
-
-See complete examples at: [bilan-langchain-examples](https://github.com/mocksi/bilan-langchain-examples) 

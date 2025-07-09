@@ -26,7 +26,7 @@ export const openai = new OpenAI({
 export const bilan = await init({
   mode: process.env.BILAN_MODE || 'local', // 'local' or 'server'
   apiKey: process.env.BILAN_API_KEY, // Required for server mode
-  userId: process.env.USER_ID || 'anonymous', // Your user identifier
+  userId: process.env.BILAN_USER_ID || 'anonymous', // Your user identifier
   telemetry: { 
     enabled: process.env.BILAN_TELEMETRY !== 'false' // opt-in to usage analytics
   }
@@ -37,7 +37,7 @@ export const bilan = await init({
 - `OPENAI_API_KEY` - Your OpenAI API key for authentication
 - `BILAN_MODE` - Set to 'server' for production, 'local' for development
 - `BILAN_API_KEY` - Your Bilan API key (required for server mode)
-- `USER_ID` - Unique identifier for the current user
+- `BILAN_USER_ID` - Unique identifier for the current user
 - `BILAN_TELEMETRY` - Set to 'false' to disable telemetry (optional)
 
 ### 2. Create a tracked chat completion function
