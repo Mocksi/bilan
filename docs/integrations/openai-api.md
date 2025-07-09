@@ -55,6 +55,15 @@ export const bilan = await init({
 // lib/chat.ts
 import { openai } from './openai'
 
+// Cross-platform UUID generation
+function generateId(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID()
+  }
+  // Fallback for environments without crypto.randomUUID
+  return Math.random().toString(36).substring(2) + Date.now().toString(36)
+}
+
 export interface TrackedChatResponse {
   content: string
   promptId: string
@@ -120,6 +129,15 @@ export async function createChatCompletion(
 // lib/streaming-chat.ts
 import { openai } from './openai'
 
+// Cross-platform UUID generation
+function generateId(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID()
+  }
+  // Fallback for environments without crypto.randomUUID
+  return Math.random().toString(36).substring(2) + Date.now().toString(36)
+}
+
 export interface StreamingChatResponse {
   promptId: string
   model: string
@@ -133,6 +151,7 @@ export async function createStreamingChat(
     model?: string
     temperature?: number
     maxTokens?: number
+    signal?: AbortSignal
   } = {}
 ): Promise<StreamingChatResponse> {
   const promptId = generateId()
@@ -144,6 +163,8 @@ export async function createStreamingChat(
     temperature: options.temperature || 0.7,
     max_tokens: options.maxTokens || 1000,
     stream: true
+  }, {
+    signal: options.signal // Pass the abort signal to OpenAI request
   })
 
   async function* streamContent() {
@@ -435,7 +456,9 @@ export default function StreamingChat() {
         content: input
       })
 
-      const response = await createStreamingChat(conversationHistory)
+      const response = await createStreamingChat(conversationHistory, {
+        signal: abortControllerRef.current.signal
+      })
       
       // Create streaming message
       const streamingMessage = {

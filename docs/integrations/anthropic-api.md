@@ -709,8 +709,17 @@ export async function createToolMessage(
         if (!/^[0-9+\-*/().\s]+$/.test(sanitized)) {
           toolResult = 'Invalid mathematical expression'
         } else {
-          // Use Function constructor for safer evaluation (still not recommended for production)
-          // For production, use a proper math expression parser like mathjs
+          // ⚠️ SECURITY WARNING: The Function constructor below is UNSAFE and vulnerable to 
+          // remote code execution attacks. This is for demonstration purposes only.
+          // 
+          // 🔒 FOR PRODUCTION USE: Replace this with a vetted math expression parser 
+          // like mathjs (https://mathjs.org/) which safely evaluates mathematical expressions:
+          // 
+          // import { evaluate } from 'mathjs'
+          // const result = evaluate(sanitized)
+          // toolResult = result.toString()
+          
+          // UNSAFE - DO NOT USE IN PRODUCTION
           const result = Function(`"use strict"; return (${sanitized})`)()
           toolResult = result.toString()
         }

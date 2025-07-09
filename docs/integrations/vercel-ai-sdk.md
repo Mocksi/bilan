@@ -103,21 +103,22 @@ export default function Chat() {
     onResponse: (response) => {
       // Extract promptId from response headers
       const promptId = response.headers.get('X-Prompt-ID')
-      if (promptId) {
-        // Store promptId with the message for feedback
+      if (promptId && messages.length > 0) {
+        // Store promptId with the current message's ID for feedback
+        const currentMessage = messages[messages.length - 1]
         setMessagePromptIds(prev => ({
           ...prev,
-          [messages.length]: promptId
+          [currentMessage.id]: promptId
         }))
       }
     }
   })
   
-  const [messagePromptIds, setMessagePromptIds] = useState<Record<number, string>>({})
+  const [messagePromptIds, setMessagePromptIds] = useState<Record<string, string>>({})
   const [feedbackStates, setFeedbackStates] = useState<Record<string, 1 | -1>>({})
 
-  const handleFeedback = async (messageIndex: number, value: 1 | -1, comment?: string) => {
-    const promptId = messagePromptIds[messageIndex]
+  const handleFeedback = async (messageId: string, value: 1 | -1, comment?: string) => {
+    const promptId = messagePromptIds[messageId]
     if (!promptId) return
 
     try {
@@ -131,7 +132,7 @@ export default function Chat() {
   return (
     <div className="flex flex-col h-screen max-w-2xl mx-auto p-4">
       <div className="flex-1 overflow-y-auto space-y-4">
-        {messages.map((message, index) => (
+        {messages.map((message) => (
           <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
               message.role === 'user' 
@@ -141,12 +142,12 @@ export default function Chat() {
               <p>{message.content}</p>
               
               {/* Feedback buttons for AI responses */}
-              {message.role === 'assistant' && messagePromptIds[index] && (
+              {message.role === 'assistant' && messagePromptIds[message.id] && (
                 <div className="mt-2 flex gap-2">
                   <button
-                    onClick={() => handleFeedback(index, 1)}
+                    onClick={() => handleFeedback(message.id, 1)}
                     className={`text-sm px-2 py-1 rounded ${
-                      feedbackStates[messagePromptIds[index]] === 1
+                      feedbackStates[messagePromptIds[message.id]] === 1
                         ? 'bg-green-500 text-white'
                         : 'bg-gray-100 hover:bg-gray-200'
                     }`}
@@ -154,9 +155,9 @@ export default function Chat() {
                     👍 Helpful
                   </button>
                   <button
-                    onClick={() => handleFeedback(index, -1)}
+                    onClick={() => handleFeedback(message.id, -1)}
                     className={`text-sm px-2 py-1 rounded ${
-                      feedbackStates[messagePromptIds[index]] === -1
+                      feedbackStates[messagePromptIds[message.id]] === -1
                         ? 'bg-red-500 text-white'
                         : 'bg-gray-100 hover:bg-gray-200'
                     }`}
