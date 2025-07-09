@@ -202,9 +202,16 @@ if (promptAnalytics.averageScore > 0.8) {
 
 ### 1. **Always Generate Unique IDs**
 ```typescript
-import { randomUUID } from 'crypto'
+// Cross-platform UUID generation
+function generateId(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID()
+  }
+  // Fallback for environments without crypto.randomUUID
+  return Math.random().toString(36).substring(2) + Date.now().toString(36)
+}
 
-const promptId = randomUUID() // Use this for tracking
+const promptId = generateId() // Use this for tracking
 ```
 
 ### 2. **Handle Errors Gracefully**

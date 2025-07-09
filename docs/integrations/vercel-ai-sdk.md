@@ -40,14 +40,22 @@ export const bilan = await init({
 // app/api/chat/route.ts
 import { openai } from '@ai-sdk/openai'
 import { streamText } from 'ai'
-import { randomUUID } from 'crypto'
 import { bilan } from '@mocksi/bilan-sdk'
+
+// Cross-platform UUID generation
+function generateId(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID()
+  }
+  // Fallback for environments without crypto.randomUUID
+  return Math.random().toString(36).substring(2) + Date.now().toString(36)
+}
 
 export async function POST(req: Request) {
   const { messages } = await req.json()
   
   // Generate unique ID for this AI response
-  const promptId = randomUUID()
+  const promptId = generateId()
   
   const result = await streamText({
     model: openai('gpt-4'),
