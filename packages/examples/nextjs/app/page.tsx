@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { init, vote, getStats, BasicStats, createUserId } from '@bilan/sdk'
+import { init, vote, getStats, BasicStats, createUserId } from '@mocksi/bilan-sdk'
 
 export default function Example() {
   const [stats, setStats] = useState<BasicStats | null>(null)

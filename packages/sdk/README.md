@@ -1,6 +1,6 @@
-# @bilan/sdk
+# @mocksi/bilan-sdk
 
-[![NPM Version](https://img.shields.io/npm/v/@bilan/sdk?style=flat-square)](https://www.npmjs.com/package/@bilan/sdk)
+[![NPM Version](https://img.shields.io/npm/v/@mocksi/bilan-sdk?style=flat-square)](https://www.npmjs.com/package/@mocksi/bilan-sdk)
 [![Bundle Size](https://img.shields.io/badge/Bundle%20Size-1.7KB%20gzipped-brightgreen?style=flat-square)](https://github.com/Mocksi/bilan/tree/main/packages/sdk)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue?style=flat-square)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
@@ -10,11 +10,11 @@
 ## Quick Start
 
 ```bash
-npm install @bilan/sdk
+npm install @mocksi/bilan-sdk
 ```
 
 ```typescript
-import { init, vote, getStats, createUserId, createPromptId } from '@bilan/sdk'
+import { init, vote, getStats, createUserId, createPromptId } from '@mocksi/bilan-sdk'
 
 // Initialize the SDK
 await init({

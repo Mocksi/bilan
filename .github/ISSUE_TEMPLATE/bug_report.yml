@@ -21,7 +21,7 @@ body:
       options:
         - label: I have searched for existing issues that describe this bug
           required: true
-        - label: I am using the latest version of @bilan/sdk
+        - label: I am using the latest version of @mocksi/bilan-sdk
           required: true
         - label: I have read the documentation
           required: true
@@ -32,7 +32,7 @@ body:
       label: Which package is affected?
       multiple: true
       options:
-        - "@bilan/sdk"
+        - "@mocksi/bilan-sdk"
         - "@bilan/server"
         - "@bilan/dashboard"
         - "Examples"
@@ -111,7 +111,7 @@ body:
       description: Please provide a minimal code sample that reproduces the issue
       render: typescript
       placeholder: |
-        import { init, vote } from '@bilan/sdk'
+        import { init, vote } from '@mocksi/bilan-sdk'
         
         init({
           mode: 'local',

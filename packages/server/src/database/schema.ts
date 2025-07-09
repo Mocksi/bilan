@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3'
-import { VoteEvent } from '@bilan/sdk'
+import { VoteEvent } from '@mocksi/bilan-sdk'
 
 export class BilanDatabase {
   private db: Database.Database
