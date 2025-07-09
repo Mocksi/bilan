@@ -21,7 +21,7 @@ import { init } from '@mocksi/bilan-sdk'
 export const bilan = await init({
   mode: process.env.BILAN_MODE || 'local', // 'local' or 'server'
   apiKey: process.env.BILAN_API_KEY, // Required for server mode
-  userId: process.env.USER_ID || 'anonymous', // Your user identifier
+  userId: process.env.BILAN_USER_ID || 'anonymous', // Your user identifier
   telemetry: {
     enabled: process.env.BILAN_TELEMETRY !== 'false' // opt-in to usage analytics
   }
@@ -31,7 +31,7 @@ export const bilan = await init({
 **Required Environment Variables:**
 - `BILAN_MODE` - Set to 'server' for production, 'local' for development
 - `BILAN_API_KEY` - Your Bilan API key (required for server mode)
-- `USER_ID` - Unique identifier for the current user
+- `BILAN_USER_ID` - Unique identifier for the current user
 - `BILAN_TELEMETRY` - Set to 'false' to disable telemetry (optional)
 
 ### 2. Create your AI chat route with feedback tracking
@@ -40,13 +40,14 @@ export const bilan = await init({
 // app/api/chat/route.ts
 import { openai } from '@ai-sdk/openai'
 import { streamText } from 'ai'
-import { generateId } from 'ai'
+import { randomUUID } from 'crypto'
+import { bilan } from '@mocksi/bilan-sdk'
 
 export async function POST(req: Request) {
   const { messages } = await req.json()
   
   // Generate unique ID for this AI response
-  const promptId = generateId()
+  const promptId = randomUUID()
   
   const result = await streamText({
     model: openai('gpt-4'),
