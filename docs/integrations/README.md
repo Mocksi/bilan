@@ -4,13 +4,15 @@ This directory contains comprehensive integration guides for popular AI framewor
 
 ## Available Integrations
 
-### 🚀 **Popular Frameworks**
+### 🚀 **AI Frameworks**
+- **[Vercel AI SDK](vercel-ai-sdk.md)** - Streaming responses with real-time feedback
+- **[LangChain](langchain.md)** - Multi-step chains with granular feedback  
+- **[CopilotKit](copilotkit.md)** - React components for AI chat interfaces
 
-- **[Vercel AI SDK](./vercel-ai-sdk.md)** - Streaming AI responses with feedback tracking
-- **[LangChain](./langchain.md)** - Complex chains with step-by-step feedback
-- **[OpenAI API](./openai-api.md)** - Direct OpenAI integration with function calling
-- **[Anthropic Claude](./anthropic-api.md)** - Claude API with tool use and vision
-- **[Custom LLM](./custom-llm.md)** - Any LLM provider (Ollama, Hugging Face, local models)
+### 🤖 **AI Providers**
+- **[OpenAI API](openai-api.md)** - Direct API usage with function calling
+- **[Anthropic API](anthropic-api.md)** - Tool use and vision capabilities
+- **[Custom LLM](custom-llm.md)** - Universal wrapper for any provider
 
 ## Guide Structure
 
@@ -189,6 +191,7 @@ if (promptAnalytics.averageScore > 0.8) {
 |-----------|-----------|------------------|------------|------------|
 | Vercel AI SDK | ✅ | ✅ | ✅ | Low |
 | LangChain | ✅ | ✅ | ✅ | Medium |
+| CopilotKit | ✅ | ✅ | ✅ | Low |
 | OpenAI API | ✅ | ✅ | ✅ | Low |
 | Anthropic | ✅ | ✅ | ✅ | Low |
 | Custom LLM | ⚠️ | ⚠️ | ✅ | High |
