@@ -421,7 +421,7 @@ export default function Dashboard() {
           </div>
           <div style={{ textAlign: 'right' }}>
             <p style={{ margin: 0, color: '#28a745' }}>
-              ● Active ({totalEvents} events loaded)
+              ● Active ({totalEvents} total events)
             </p>
           </div>
         </div>
