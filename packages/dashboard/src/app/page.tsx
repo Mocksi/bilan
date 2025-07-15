@@ -4,9 +4,14 @@ import { useEffect, useState } from 'react'
 import { useDashboardData } from '@/lib/api-client'
 import { DashboardData } from '@/lib/types'
 import { SimpleLineChart } from '@/components/SimpleLineChart'
+import { TimeRangeSelector, useTimeRange } from '@/components/TimeRangeSelector'
+import { TrendIndicator, WeekOverWeekComparison } from '@/components/TrendIndicator'
+import { formatDateRange } from '@/lib/time-utils'
+import { calculateMetricComparisons } from '@/lib/comparison-utils'
 
 export default function Dashboard() {
-  const { data, loading, error, refresh } = useDashboardData()
+  const { timeRange, setTimeRange } = useTimeRange()
+  const { data, loading, error, refresh } = useDashboardData(timeRange, true)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
 
   useEffect(() => {
@@ -22,6 +27,15 @@ export default function Dashboard() {
   const handleRefresh = () => {
     refresh()
   }
+
+  const handleTimeRangeChange = (range: any) => {
+    setTimeRange(range)
+  }
+
+  // Calculate comparisons if comparison data is available
+  const comparisons = data?.comparison ? 
+    calculateMetricComparisons(data, data.comparison.previousPeriod) : 
+    null
 
   if (loading) {
     return (
@@ -69,7 +83,16 @@ export default function Dashboard() {
         <div className="container-xl">
           <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '100vh' }}>
             <div className="text-center">
-              <p className="text-muted">No data available</p>
+              <div className="text-muted mb-3">
+                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 2v6m6-6H6M12 22v-6m6 6H6M2 12h6m6 0H8m0 0v6m0-6V6"/>
+                </svg>
+              </div>
+              <h3 className="text-muted mb-3">No Data Available</h3>
+              <p className="text-muted mb-4">No dashboard data found</p>
+              <button onClick={handleRefresh} className="btn btn-primary">
+                Refresh
+              </button>
             </div>
           </div>
         </div>
@@ -110,7 +133,16 @@ export default function Dashboard() {
             <div className="row g-2 align-items-center">
               <div className="col">
                 <h2 className="page-title">Dashboard</h2>
-                <div className="text-muted mt-1">Trust analytics for your AI-powered application</div>
+                <div className="text-muted mt-1">
+                  Trust analytics for your AI-powered application
+                  <span className="ms-2 text-primary">({formatDateRange(timeRange)})</span>
+                </div>
+              </div>
+              <div className="col-auto">
+                <TimeRangeSelector 
+                  value={timeRange}
+                  onChange={handleTimeRangeChange}
+                />
               </div>
             </div>
           </div>
@@ -179,6 +211,13 @@ export default function Dashboard() {
                     </div>
                     <div className="mt-2">
                       <small className="text-muted">{data.feedbackStats.totalFeedback} total feedback</small>
+                      {comparisons && (
+                        <WeekOverWeekComparison
+                          current={data.feedbackStats.positiveRate}
+                          previous={data.comparison?.previousPeriod.feedbackStats.positiveRate || 0}
+                          className="mt-1"
+                        />
+                      )}
                     </div>
                   </div>
                 </div>
@@ -191,12 +230,23 @@ export default function Dashboard() {
                       <div className="subheader">Recent Trend</div>
                     </div>
                     <div className="d-flex align-items-baseline">
-                      <div className={`h1 mb-0 me-2 ${data.feedbackStats.recentTrend === 'improving' ? 'text-success' : data.feedbackStats.recentTrend === 'declining' ? 'text-danger' : 'text-muted'}`}>
-                        {data.feedbackStats.recentTrend === 'improving' ? '↗' : data.feedbackStats.recentTrend === 'declining' ? '↘' : '→'} {data.feedbackStats.recentTrend}
+                      <div className="h1 mb-0 me-2">
+                        <TrendIndicator 
+                          trend={data.feedbackStats.recentTrend}
+                          className="h1 mb-0"
+                        />
                       </div>
                     </div>
                     <div className="mt-2">
                       <small className="text-muted">Based on recent feedback</small>
+                      {comparisons && (
+                        <WeekOverWeekComparison
+                          current={data.feedbackStats.totalFeedback}
+                          previous={data.comparison?.previousPeriod.feedbackStats.totalFeedback || 0}
+                          formatter={(value) => `${value} votes`}
+                          className="mt-1"
+                        />
+                      )}
                     </div>
                   </div>
                 </div>
