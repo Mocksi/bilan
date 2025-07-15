@@ -555,8 +555,8 @@ describe('Bilan SDK', () => {
     it('should store conversation data in localStorage', async () => {
       const conversationId = await testBilan.startConversation('test-user')
       
-      // Check that conversation data is stored
-      const storageKey = 'conversations:test-user'
+      // Check that conversation data is stored (LocalStorageAdapter adds 'bilan:' prefix)
+      const storageKey = 'bilan:conversations:test-user'
       const storedData = localStorage.getItem(storageKey)
       const conversations = JSON.parse(storedData || '[]')
       
@@ -572,7 +572,7 @@ describe('Bilan SDK', () => {
       await testBilan.addMessage(conversationId)
       await testBilan.addMessage(conversationId)
       
-      const storageKey = 'conversations:test-user'
+      const storageKey = 'bilan:conversations:test-user'
       const storedData = localStorage.getItem(storageKey)
       const conversations = JSON.parse(storedData || '[]')
       
@@ -586,7 +586,7 @@ describe('Bilan SDK', () => {
       await testBilan.recordRegeneration(conversationId)
       await testBilan.recordFeedback(conversationId, 1)
       
-      const storageKey = 'feedback:test-user'
+      const storageKey = 'bilan:feedback:test-user'
       const storedData = localStorage.getItem(storageKey)
       const feedbackEvents = JSON.parse(storedData || '[]')
       
@@ -602,7 +602,7 @@ describe('Bilan SDK', () => {
       
       await testBilan.endConversation(conversationId, 'completed')
       
-      const storageKey = 'conversations:test-user'
+      const storageKey = 'bilan:conversations:test-user'
       const storedData = localStorage.getItem(storageKey)
       const conversations = JSON.parse(storedData || '[]')
       
@@ -675,7 +675,7 @@ describe('Bilan SDK', () => {
       await testBilan.trackJourneyStep('email-agent', 'query-sent', 'test-user')
       await testBilan.trackJourneyStep('email-agent', 'response-received', 'test-user')
       
-      const storageKey = 'journey:test-user'
+      const storageKey = 'bilan:journey:test-user'
       const storedData = localStorage.getItem(storageKey)
       const journeySteps = JSON.parse(storedData || '[]')
       
@@ -688,7 +688,7 @@ describe('Bilan SDK', () => {
     it('should store journey completion correctly', async () => {
       await testBilan.completeJourney('email-agent', 'test-user')
       
-      const storageKey = 'journey:test-user'
+      const storageKey = 'bilan:journey:test-user'
       const storedData = localStorage.getItem(storageKey)
       const journeySteps = JSON.parse(storedData || '[]')
       
@@ -702,7 +702,7 @@ describe('Bilan SDK', () => {
       await testBilan.trackJourneyStep('code-assistant', 'code-generated', 'test-user')
       await testBilan.completeJourney('email-agent', 'test-user')
       
-      const storageKey = 'journey:test-user'
+      const storageKey = 'bilan:journey:test-user'
       const storedData = localStorage.getItem(storageKey)
       const journeySteps = JSON.parse(storedData || '[]')
       

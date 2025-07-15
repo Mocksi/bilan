@@ -729,9 +729,9 @@ class BilanSDK {
   }
 
   private async storeConversationLocally(conversation: ConversationData): Promise<void> {
-    if (!this.storage) throw new Error('Storage adapter not available')
+    if (!this.storage || !this.config) throw new Error('Storage adapter not available')
 
-    const key = `conversations:${this.config!.userId}`
+    const key = `conversations:${this.config.userId}`
     const existingData = await this.storage.get(key)
     const conversations: ConversationData[] = existingData ? JSON.parse(existingData) : []
     
@@ -740,9 +740,9 @@ class BilanSDK {
   }
 
   private async incrementMessageCountLocally(conversationId: string): Promise<void> {
-    if (!this.storage) throw new Error('Storage adapter not available')
+    if (!this.storage || !this.config) throw new Error('Storage adapter not available')
 
-    const key = `conversations:${this.config!.userId}`
+    const key = `conversations:${this.config.userId}`
     const existingData = await this.storage.get(key)
     const conversations: ConversationData[] = existingData ? JSON.parse(existingData) : []
     
@@ -754,9 +754,9 @@ class BilanSDK {
   }
 
   private async recordFeedbackEvent(event: FeedbackEvent): Promise<void> {
-    if (!this.storage) throw new Error('Storage adapter not available')
+    if (!this.storage || !this.config) throw new Error('Storage adapter not available')
 
-    const key = `feedback:${this.config!.userId}`
+    const key = `feedback:${this.config.userId}`
     const existingData = await this.storage.get(key)
     const events: FeedbackEvent[] = existingData ? JSON.parse(existingData) : []
     
@@ -765,9 +765,9 @@ class BilanSDK {
   }
 
   private async endConversationLocally(conversationId: string, outcome: 'completed' | 'abandoned'): Promise<void> {
-    if (!this.storage) throw new Error('Storage adapter not available')
+    if (!this.storage || !this.config) throw new Error('Storage adapter not available')
 
-    const key = `conversations:${this.config!.userId}`
+    const key = `conversations:${this.config.userId}`
     const existingData = await this.storage.get(key)
     const conversations: ConversationData[] = existingData ? JSON.parse(existingData) : []
     
@@ -795,9 +795,9 @@ class BilanSDK {
   }
 
   private async storeJourneyStepLocally(step: JourneyStep): Promise<void> {
-    if (!this.storage) throw new Error('Storage adapter not available')
+    if (!this.storage || !this.config) throw new Error('Storage adapter not available')
 
-    const key = `journey:${this.config!.userId}`
+    const key = `journey:${this.config.userId}`
     const existingData = await this.storage.get(key)
     const steps: JourneyStep[] = existingData ? JSON.parse(existingData) : []
     
