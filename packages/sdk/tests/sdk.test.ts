@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { init, vote, getStats, getPromptStats, BilanSDK } from '../src/index'
-import { createUserId, createPromptId } from '../src/types'
+import { createUserId, createPromptId, createConversationId } from '../src/types'
 
 // Mock localStorage for testing
 Object.defineProperty(window, 'localStorage', {
@@ -529,12 +529,26 @@ describe('Bilan SDK', () => {
     it('should handle conversation tracking before initialization', async () => {
       const uninitializedBilan = new BilanSDK()
       
-      await expect(uninitializedBilan.startConversation('test-user')).resolves.not.toThrow()
-      await expect(uninitializedBilan.addMessage('conv-123')).resolves.not.toThrow()
-      await expect(uninitializedBilan.recordFrustration('conv-123')).resolves.not.toThrow()
-      await expect(uninitializedBilan.recordRegeneration('conv-123')).resolves.not.toThrow()
-      await expect(uninitializedBilan.recordFeedback('conv-123', 1)).resolves.not.toThrow()
-      await expect(uninitializedBilan.endConversation('conv-123', 'completed')).resolves.not.toThrow()
+      await expect(uninitializedBilan.startConversation(createUserId('test-user'))).resolves.not.toThrow()
+      await expect(uninitializedBilan.addMessage(createConversationId('conv-123'))).resolves.not.toThrow()
+      await expect(uninitializedBilan.recordFrustration(createConversationId('conv-123'))).resolves.not.toThrow()
+      await expect(uninitializedBilan.recordRegeneration(createConversationId('conv-123'))).resolves.not.toThrow()
+      await expect(uninitializedBilan.recordFeedback(createConversationId('conv-123'), 1)).resolves.not.toThrow()
+      await expect(uninitializedBilan.endConversation(createConversationId('conv-123'), 'completed')).resolves.not.toThrow()
+    })
+
+    it('should throw initialization error in debug mode for uninitialized methods', async () => {
+      const debugBilan = new BilanSDK()
+      // Initialize with debug mode first, then create a new instance to test uninitialized state
+      await debugBilan.init({ mode: 'local', userId: createUserId('test-user'), debug: true })
+      
+      // Create a new uninitialized instance that would be in debug mode
+      const uninitializedDebugBilan = new BilanSDK()
+      // Set debug mode on the config to test the error path
+      uninitializedDebugBilan['config'] = { debug: true } as any
+      
+      await expect(uninitializedDebugBilan.startConversation(createUserId('test-user')))
+        .rejects.toThrow('Bilan SDK not initialized. Call init() first.')
     })
 
     it('should handle conversation tracking in debug mode', async () => {
