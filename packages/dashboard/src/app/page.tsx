@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useDashboardData } from '@/lib/api-client'
-import { DashboardData } from '@/lib/types'
+import { DashboardData, ConversationSummary } from '@/lib/types'
 import { SimpleLineChart } from '@/components/SimpleLineChart'
 import { TimeRangeSelector, useTimeRange } from '@/components/TimeRangeSelector'
 import { TrendIndicator, WeekOverWeekComparison } from '@/components/TrendIndicator'
@@ -11,6 +11,7 @@ import { calculateMetricComparisons } from '@/lib/comparison-utils'
 import { ConversationFilter, ConversationFilterState } from '@/components/ConversationFilter'
 import { ConversationTable } from '@/components/ConversationTable'
 import { filterConversations } from '@/lib/filter-utils'
+import { ConversationDetailModal } from '@/components/ConversationDetailModal'
 
 export default function Dashboard() {
   const { timeRange, setTimeRange } = useTimeRange()
@@ -22,6 +23,7 @@ export default function Dashboard() {
     journey: '',
     user: ''
   })
+  const [selectedConversation, setSelectedConversation] = useState<ConversationSummary | null>(null)
 
   useEffect(() => {
     if (data) {
@@ -461,8 +463,7 @@ export default function Dashboard() {
                       filteredConversations={filterConversations(data.recentActivity.conversations, conversationFilters)}
                       filterState={conversationFilters}
                       onConversationClick={(conversation) => {
-                        // TODO: Open conversation detail modal in next commit
-                        console.log('Conversation clicked:', conversation)
+                        setSelectedConversation(conversation)
                       }}
                     />
                   </div>
@@ -472,6 +473,12 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+      
+      {/* Conversation Detail Modal */}
+      <ConversationDetailModal 
+        conversation={selectedConversation}
+        onClose={() => setSelectedConversation(null)}
+      />
     </div>
   )
 } 
