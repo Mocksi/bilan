@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { DashboardData } from './types'
 
 export class ApiClient {
@@ -100,6 +100,24 @@ export function useDashboardData() {
   const refresh = () => {
     fetchData()
   }
+
+  // Automatically fetch data when the hook is first used
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        const dashboardData = await apiClient.fetchDashboardData()
+        setData(dashboardData)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch data')
+      } finally {
+        setLoading(false)
+      }
+    }
+    
+    loadData()
+  }, [])
 
   return { data, loading, error, refresh, fetchData }
 } 
