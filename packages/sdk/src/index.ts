@@ -539,6 +539,95 @@ class BilanSDK {
     }
   }
 
+  /**
+   * Track a step in a user journey.
+   * 
+   * @param journeyName - Name of the journey (e.g., 'email-agent', 'code-assistant')
+   * @param stepName - Name of the step within the journey
+   * @param userId - User who completed this step
+   * @returns Promise that resolves when step is recorded
+   * 
+   * @example
+   * ```typescript
+   * await journey.trackStep('email-agent', 'query-sent', 'user-123')
+   * ```
+   */
+  async trackJourneyStep(journeyName: string, stepName: string, userId: string): Promise<void> {
+    if (!this.isInitialized || !this.config) {
+      if (this.config && this.config.debug) {
+        throw new Error('Bilan SDK not initialized. Call init() first.')
+      } else {
+        console.warn('Bilan SDK not initialized. Call init() first.')
+        return
+      }
+    }
+
+    const journeyStep: JourneyStep = {
+      journeyName,
+      stepName,
+      userId,
+      timestamp: Date.now()
+    }
+
+    try {
+      if (this.config.mode === 'local') {
+        await this.storeJourneyStepLocally(journeyStep)
+      } else if (this.config.mode === 'server') {
+        await this.sendJourneyStepToServer(journeyStep)
+      }
+    } catch (error) {
+      if (this.config.debug) {
+        throw error
+      } else {
+        console.warn('Failed to track journey step:', error)
+      }
+    }
+  }
+
+  /**
+   * Mark a user journey as complete.
+   * 
+   * @param journeyName - Name of the journey to complete
+   * @param userId - User who completed the journey
+   * @returns Promise that resolves when completion is recorded
+   * 
+   * @example
+   * ```typescript
+   * await journey.complete('email-agent', 'user-123')
+   * ```
+   */
+  async completeJourney(journeyName: string, userId: string): Promise<void> {
+    if (!this.isInitialized || !this.config) {
+      if (this.config && this.config.debug) {
+        throw new Error('Bilan SDK not initialized. Call init() first.')
+      } else {
+        console.warn('Bilan SDK not initialized. Call init() first.')
+        return
+      }
+    }
+
+    const completionStep: JourneyStep = {
+      journeyName,
+      stepName: 'completed',
+      userId,
+      timestamp: Date.now()
+    }
+
+    try {
+      if (this.config.mode === 'local') {
+        await this.storeJourneyStepLocally(completionStep)
+      } else if (this.config.mode === 'server') {
+        await this.sendJourneyStepToServer(completionStep)
+      }
+    } catch (error) {
+      if (this.config.debug) {
+        throw error
+      } else {
+        console.warn('Failed to complete journey:', error)
+      }
+    }
+  }
+
   private async storeEventLocally(event: VoteEvent): Promise<void> {
     if (!this.storage) {
       throw new Error('Storage adapter not available')
@@ -674,6 +763,22 @@ class BilanSDK {
   }
 
   private async sendConversationEndToServer(conversationId: string, outcome: 'completed' | 'abandoned'): Promise<void> {
+    // TODO: Implement server API calls in later commits
+    throw new Error('Server mode not implemented yet')
+  }
+
+  private async storeJourneyStepLocally(step: JourneyStep): Promise<void> {
+    if (!this.storage) throw new Error('Storage adapter not available')
+
+    const key = `journey:${this.config!.userId}`
+    const existingData = await this.storage.get(key)
+    const steps: JourneyStep[] = existingData ? JSON.parse(existingData) : []
+    
+    steps.push(step)
+    await this.storage.set(key, JSON.stringify(steps))
+  }
+
+  private async sendJourneyStepToServer(step: JourneyStep): Promise<void> {
     // TODO: Implement server API calls in later commits
     throw new Error('Server mode not implemented yet')
   }
