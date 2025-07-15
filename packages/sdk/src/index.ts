@@ -424,6 +424,17 @@ class BilanSDK {
   /** Record explicit feedback */
   async recordFeedback(conversationId: ConversationId, value: 1 | -1): Promise<void> {
     if (!this.checkInit()) return
+    
+    // Validate feedback value
+    if (value !== 1 && value !== -1) {
+      if (this.config?.debug) {
+        throw new Error('Invalid feedback value. Must be 1 (positive) or -1 (negative).')
+      } else {
+        console.warn('Bilan SDK: Invalid feedback value. Must be 1 (positive) or -1 (negative).')
+        return
+      }
+    }
+    
     await this.recordFeedbackEvent({ conversationId, type: 'explicit_feedback', value, timestamp: Date.now() })
   }
 
