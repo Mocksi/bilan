@@ -4,6 +4,7 @@
  */
 export type UserId = string & { __brand: 'UserId' }
 export type PromptId = string & { __brand: 'PromptId' }
+export type ConversationId = string & { __brand: 'ConversationId' }
 
 /**
  * Configuration options for initializing the Bilan SDK.
@@ -115,6 +116,52 @@ export interface StorageAdapter {
 }
 
 /**
+ * Basic conversation tracking data.
+ */
+export interface ConversationData {
+  /** Unique identifier for the conversation */
+  id: ConversationId
+  /** User who participated in the conversation */
+  userId: UserId
+  /** When the conversation started (milliseconds since epoch) */
+  startedAt: number
+  /** When the conversation ended (milliseconds since epoch) */
+  endedAt?: number
+  /** Number of messages in the conversation */
+  messageCount: number
+  /** Final outcome of the conversation */
+  outcome?: 'completed' | 'abandoned'
+}
+
+/**
+ * Simple feedback events for quality signals.
+ */
+export interface FeedbackEvent {
+  /** Conversation this feedback belongs to */
+  conversationId: ConversationId
+  /** Type of feedback event */
+  type: 'frustration' | 'regeneration' | 'explicit_feedback'
+  /** Feedback value (only for explicit feedback) */
+  value?: 1 | -1
+  /** When the feedback was recorded (milliseconds since epoch) */
+  timestamp: number
+}
+
+/**
+ * Journey step tracking data.
+ */
+export interface JourneyStep {
+  /** Name of the journey (e.g., 'email-agent', 'code-assistant') */
+  journeyName: string
+  /** Name of the step within the journey */
+  stepName: string
+  /** User who completed this step */
+  userId: UserId
+  /** When the step was completed (milliseconds since epoch) */
+  timestamp: number
+}
+
+/**
  * Helper function to create a branded UserId from a string.
  * 
  * @param id - The user identifier string
@@ -140,4 +187,18 @@ export const createUserId = (id: string): UserId => id as UserId
  * await vote(promptId, 1, 'Great response!')
  * ```
  */
-export const createPromptId = (id: string): PromptId => id as PromptId 
+export const createPromptId = (id: string): PromptId => id as PromptId
+
+/**
+ * Helper function to create a branded ConversationId from a string.
+ * 
+ * @param id - The conversation identifier string
+ * @returns Branded ConversationId type
+ * 
+ * @example
+ * ```typescript
+ * const conversationId = createConversationId('conv-123')
+ * await addMessage(conversationId)
+ * ```
+ */
+export const createConversationId = (id: string): ConversationId => id as ConversationId 

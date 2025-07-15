@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { init, vote, getStats, getPromptStats } from '../src/index'
-import { createUserId, createPromptId } from '../src/types'
+import { init, vote, getStats, getPromptStats, BilanSDK } from '../src/index'
+import { createUserId, createPromptId, createConversationId } from '../src/types'
 
 // Mock localStorage for testing
 Object.defineProperty(window, 'localStorage', {
@@ -476,6 +476,271 @@ describe('Bilan SDK', () => {
       
       const stats = await getStats()
       expect(stats.topFeedback.length).toBeLessThanOrEqual(5)
+    })
+  })
+
+  describe('Conversation Tracking', () => {
+    let testBilan: BilanSDK
+
+    beforeEach(async () => {
+      testBilan = new BilanSDK()
+      await testBilan.init({ mode: 'local', userId: createUserId('test-user') })
+    })
+
+    it('should start a new conversation', async () => {
+      const conversationId = await testBilan.startConversation('test-user')
+      
+      expect(conversationId).toMatch(/^conv-\d+-[a-z0-9]+$/)
+      expect(conversationId).toBeTruthy()
+    })
+
+    it('should add messages to conversation', async () => {
+      const conversationId = await testBilan.startConversation('test-user')
+      
+      await expect(testBilan.addMessage(conversationId)).resolves.not.toThrow()
+    })
+
+    it('should record frustration events', async () => {
+      const conversationId = await testBilan.startConversation('test-user')
+      
+      await expect(testBilan.recordFrustration(conversationId)).resolves.not.toThrow()
+    })
+
+    it('should record regeneration events', async () => {
+      const conversationId = await testBilan.startConversation('test-user')
+      
+      await expect(testBilan.recordRegeneration(conversationId)).resolves.not.toThrow()
+    })
+
+    it('should record explicit feedback', async () => {
+      const conversationId = await testBilan.startConversation('test-user')
+      
+      await expect(testBilan.recordFeedback(conversationId, 1)).resolves.not.toThrow()
+      await expect(testBilan.recordFeedback(conversationId, -1)).resolves.not.toThrow()
+    })
+
+    it('should end conversations with outcomes', async () => {
+      const conversationId = await testBilan.startConversation('test-user')
+      
+      await expect(testBilan.endConversation(conversationId, 'completed')).resolves.not.toThrow()
+      await expect(testBilan.endConversation(conversationId, 'abandoned')).resolves.not.toThrow()
+    })
+
+    it('should handle conversation tracking before initialization', async () => {
+      const uninitializedBilan = new BilanSDK()
+      
+      await expect(uninitializedBilan.startConversation(createUserId('test-user'))).resolves.not.toThrow()
+      await expect(uninitializedBilan.addMessage(createConversationId('conv-123'))).resolves.not.toThrow()
+      await expect(uninitializedBilan.recordFrustration(createConversationId('conv-123'))).resolves.not.toThrow()
+      await expect(uninitializedBilan.recordRegeneration(createConversationId('conv-123'))).resolves.not.toThrow()
+      await expect(uninitializedBilan.recordFeedback(createConversationId('conv-123'), 1)).resolves.not.toThrow()
+      await expect(uninitializedBilan.endConversation(createConversationId('conv-123'), 'completed')).resolves.not.toThrow()
+    })
+
+    it('should throw initialization error in debug mode for uninitialized methods', async () => {
+      const debugBilan = new BilanSDK()
+      // Initialize with debug mode first, then create a new instance to test uninitialized state
+      await debugBilan.init({ mode: 'local', userId: createUserId('test-user'), debug: true })
+      
+      // Create a new uninitialized instance that would be in debug mode
+      const uninitializedDebugBilan = new BilanSDK()
+      // Set debug mode on the config to test the error path
+      uninitializedDebugBilan['config'] = { debug: true } as any
+      
+      await expect(uninitializedDebugBilan.startConversation(createUserId('test-user')))
+        .rejects.toThrow('Bilan SDK not initialized. Call init() first.')
+    })
+
+    it('should handle conversation tracking in debug mode', async () => {
+      const debugBilan = new BilanSDK()
+      await debugBilan.init({ mode: 'local', userId: createUserId('test-user'), debug: true })
+      
+      const conversationId = await debugBilan.startConversation('test-user')
+      await debugBilan.addMessage(conversationId)
+      await debugBilan.recordFrustration(conversationId)
+      await debugBilan.recordRegeneration(conversationId)
+      await debugBilan.recordFeedback(conversationId, 1)
+      await debugBilan.endConversation(conversationId, 'completed')
+      
+      // Should not throw errors
+      expect(true).toBe(true)
+    })
+
+    it('should store conversation data in localStorage', async () => {
+      const conversationId = await testBilan.startConversation('test-user')
+      
+      // Check that conversation data is stored (LocalStorageAdapter adds 'bilan:' prefix)
+      const storageKey = 'bilan:conversations:test-user'
+      const storedData = localStorage.getItem(storageKey)
+      const conversations = JSON.parse(storedData || '[]')
+      
+      expect(conversations).toHaveLength(1)
+      expect(conversations[0].id).toBe(conversationId)
+      expect(conversations[0].userId).toBe('test-user')
+      expect(conversations[0].messageCount).toBe(0)
+    })
+
+    it('should increment message count correctly', async () => {
+      const conversationId = await testBilan.startConversation('test-user')
+      
+      await testBilan.addMessage(conversationId)
+      await testBilan.addMessage(conversationId)
+      
+      const storageKey = 'bilan:conversations:test-user'
+      const storedData = localStorage.getItem(storageKey)
+      const conversations = JSON.parse(storedData || '[]')
+      
+      expect(conversations[0].messageCount).toBe(2)
+    })
+
+    it('should store feedback events correctly', async () => {
+      const conversationId = await testBilan.startConversation('test-user')
+      
+      await testBilan.recordFrustration(conversationId)
+      await testBilan.recordRegeneration(conversationId)
+      await testBilan.recordFeedback(conversationId, 1)
+      
+      const storageKey = 'bilan:feedback:test-user'
+      const storedData = localStorage.getItem(storageKey)
+      const feedbackEvents = JSON.parse(storedData || '[]')
+      
+      expect(feedbackEvents).toHaveLength(3)
+      expect(feedbackEvents[0].type).toBe('frustration')
+      expect(feedbackEvents[1].type).toBe('regeneration')
+      expect(feedbackEvents[2].type).toBe('explicit_feedback')
+      expect(feedbackEvents[2].value).toBe(1)
+    })
+
+    it('should end conversation with correct outcome', async () => {
+      const conversationId = await testBilan.startConversation('test-user')
+      
+      await testBilan.endConversation(conversationId, 'completed')
+      
+      const storageKey = 'bilan:conversations:test-user'
+      const storedData = localStorage.getItem(storageKey)
+      const conversations = JSON.parse(storedData || '[]')
+      
+      expect(conversations[0].outcome).toBe('completed')
+      expect(conversations[0].endedAt).toBeTruthy()
+    })
+
+    it('should handle invalid feedback values gracefully', async () => {
+      const conversationId = await testBilan.startConversation('test-user')
+      
+      await expect(testBilan.recordFeedback(conversationId, 2 as any)).resolves.not.toThrow()
+      await expect(testBilan.recordFeedback(conversationId, 0 as any)).resolves.not.toThrow()
+    })
+
+    it('should handle storage errors gracefully', async () => {
+      const customStorage = {
+        get: vi.fn().mockRejectedValue(new Error('Storage error')),
+        set: vi.fn().mockRejectedValue(new Error('Storage error')),
+        delete: vi.fn().mockRejectedValue(new Error('Storage error')),
+        clear: vi.fn().mockRejectedValue(new Error('Storage error'))
+      }
+      
+      const errorBilan = new BilanSDK()
+      await errorBilan.init({
+        mode: 'local',
+        userId: createUserId('test-user'),
+        storage: customStorage
+      })
+      
+      await expect(errorBilan.startConversation('test-user')).resolves.not.toThrow()
+    })
+  })
+
+  describe('Journey Tracking', () => {
+    let testBilan: BilanSDK
+
+    beforeEach(async () => {
+      testBilan = new BilanSDK()
+      await testBilan.init({ mode: 'local', userId: createUserId('test-user') })
+    })
+
+    it('should track journey steps', async () => {
+      await expect(testBilan.trackJourneyStep('email-agent', 'query-sent', 'test-user')).resolves.not.toThrow()
+      await expect(testBilan.trackJourneyStep('email-agent', 'response-received', 'test-user')).resolves.not.toThrow()
+    })
+
+    it('should complete journeys', async () => {
+      await expect(testBilan.completeJourney('email-agent', 'test-user')).resolves.not.toThrow()
+    })
+
+    it('should handle journey tracking before initialization', async () => {
+      const uninitializedBilan = new BilanSDK()
+      
+      await expect(uninitializedBilan.trackJourneyStep('email-agent', 'query-sent', 'test-user')).resolves.not.toThrow()
+      await expect(uninitializedBilan.completeJourney('email-agent', 'test-user')).resolves.not.toThrow()
+    })
+
+    it('should handle journey tracking in debug mode', async () => {
+      const debugBilan = new BilanSDK()
+      await debugBilan.init({ mode: 'local', userId: createUserId('test-user'), debug: true })
+      
+      await debugBilan.trackJourneyStep('email-agent', 'query-sent', 'test-user')
+      await debugBilan.completeJourney('email-agent', 'test-user')
+      
+      // Should not throw errors
+      expect(true).toBe(true)
+    })
+
+    it('should store journey steps in localStorage', async () => {
+      await testBilan.trackJourneyStep('email-agent', 'query-sent', 'test-user')
+      await testBilan.trackJourneyStep('email-agent', 'response-received', 'test-user')
+      
+      const storageKey = 'bilan:journey:test-user'
+      const storedData = localStorage.getItem(storageKey)
+      const journeySteps = JSON.parse(storedData || '[]')
+      
+      expect(journeySteps).toHaveLength(2)
+      expect(journeySteps[0].journeyName).toBe('email-agent')
+      expect(journeySteps[0].stepName).toBe('query-sent')
+      expect(journeySteps[1].stepName).toBe('response-received')
+    })
+
+    it('should store journey completion correctly', async () => {
+      await testBilan.completeJourney('email-agent', 'test-user')
+      
+      const storageKey = 'bilan:journey:test-user'
+      const storedData = localStorage.getItem(storageKey)
+      const journeySteps = JSON.parse(storedData || '[]')
+      
+      expect(journeySteps).toHaveLength(1)
+      expect(journeySteps[0].journeyName).toBe('email-agent')
+      expect(journeySteps[0].stepName).toBe('completed')
+    })
+
+    it('should handle multiple journey types', async () => {
+      await testBilan.trackJourneyStep('email-agent', 'query-sent', 'test-user')
+      await testBilan.trackJourneyStep('code-assistant', 'code-generated', 'test-user')
+      await testBilan.completeJourney('email-agent', 'test-user')
+      
+      const storageKey = 'bilan:journey:test-user'
+      const storedData = localStorage.getItem(storageKey)
+      const journeySteps = JSON.parse(storedData || '[]')
+      
+      expect(journeySteps).toHaveLength(3)
+      expect(journeySteps.map((s: any) => s.journeyName)).toEqual(['email-agent', 'code-assistant', 'email-agent'])
+    })
+
+    it('should handle storage errors gracefully', async () => {
+      const customStorage = {
+        get: vi.fn().mockRejectedValue(new Error('Storage error')),
+        set: vi.fn().mockRejectedValue(new Error('Storage error')),
+        delete: vi.fn().mockRejectedValue(new Error('Storage error')),
+        clear: vi.fn().mockRejectedValue(new Error('Storage error'))
+      }
+      
+      const errorBilan = new BilanSDK()
+      await errorBilan.init({
+        mode: 'local',
+        userId: createUserId('test-user'),
+        storage: customStorage
+      })
+      
+      await expect(errorBilan.trackJourneyStep('email-agent', 'query-sent', 'test-user')).resolves.not.toThrow()
+      await expect(errorBilan.completeJourney('email-agent', 'test-user')).resolves.not.toThrow()
     })
   })
 }) 

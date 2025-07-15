@@ -1,4 +1,4 @@
-import { InitConfig, VoteEvent, BasicStats, PromptStats, StorageAdapter, TrendConfig, UserId, PromptId, createUserId, createPromptId } from './types'
+import { InitConfig, VoteEvent, BasicStats, PromptStats, StorageAdapter, TrendConfig, UserId, PromptId, ConversationId, createUserId, createPromptId, createConversationId, ConversationData, FeedbackEvent, JourneyStep } from './types'
 import { LocalStorageAdapter } from './storage/local-storage'
 import { BasicAnalytics } from './analytics/basic-analytics'
 import { initTelemetry, trackVote, trackStatsRequest, trackError } from './telemetry'
@@ -20,6 +20,33 @@ import { ErrorHandler, GracefulDegradation } from './error-handling'
  * // Get analytics
  * const stats = await getStats()
  * console.log(`Positive rate: ${(stats.positiveRate * 100).toFixed(1)}%`)
+ * ```
+ * 
+ * @example
+ * ```typescript
+ * import { init, startConversation, addMessage, recordFeedback, endConversation } from '@mocksi/bilan-sdk'
+ * 
+ * // Initialize the SDK
+ * await init({ mode: 'local', userId: 'user-123' })
+ * 
+ * // Track conversation flow
+ * const conversationId = await startConversation('user-123')
+ * await addMessage(conversationId)
+ * await recordFeedback(conversationId, 1)
+ * await endConversation(conversationId, 'completed')
+ * ```
+ * 
+ * @example
+ * ```typescript
+ * import { init, trackJourneyStep, completeJourney } from '@mocksi/bilan-sdk'
+ * 
+ * // Initialize the SDK
+ * await init({ mode: 'local', userId: 'user-123' })
+ * 
+ * // Track user journey
+ * await trackJourneyStep('email-agent', 'query-sent', 'user-123')
+ * await trackJourneyStep('email-agent', 'response-received', 'user-123')
+ * await completeJourney('email-agent', 'user-123')
  * ```
  */
 class BilanSDK {
@@ -326,6 +353,124 @@ class BilanSDK {
     }
   }
 
+  // Helper method to check initialization and handle errors
+  private checkInit(): boolean {
+    if (!this.isInitialized || !this.config) {
+      const error = new Error('Bilan SDK not initialized. Call init() first.')
+      const bilanError = ErrorHandler.handleInitError(error, this.config || undefined)
+      
+      if (this.config?.debug) {
+        throw bilanError
+      } else {
+        ErrorHandler.logError(bilanError)
+        return false
+      }
+    }
+    return true
+  }
+
+  // Storage helper
+  private async storeData(key: string, data: any, updateFn?: (items: any[]) => void): Promise<void> {
+    if (!this.storage || !this.config) return
+    try {
+      const existing = await this.storage.get(key)
+      const items = existing ? JSON.parse(existing) : []
+      if (updateFn) {
+        updateFn(items)
+      } else {
+        items.push(data)
+      }
+      await this.storage.set(key, JSON.stringify(items))
+    } catch (error) {
+      if (this.config.debug) throw error
+      console.warn('Storage failed:', error)
+    }
+  }
+
+  /** Start a conversation session */
+  async startConversation(userId: UserId): Promise<ConversationId> {
+    if (!this.checkInit()) return createConversationId('fallback-conversation-id')
+    
+    const conversationId = createConversationId(`conv-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`)
+    const data: ConversationData = { id: conversationId, userId, startedAt: Date.now(), messageCount: 0 }
+
+    if (this.config!.mode === 'local') {
+      await this.storeData(`conversations:${this.config!.userId}`, data)
+    }
+    return conversationId
+  }
+
+  /** Add a message to a conversation */
+  async addMessage(conversationId: ConversationId): Promise<void> {
+    if (!this.checkInit()) return
+    
+    if (this.config!.mode === 'local') {
+      await this.storeData(`conversations:${this.config!.userId}`, null, (conversations) => {
+        const conv = conversations.find(c => c.id === conversationId)
+        if (conv) conv.messageCount++
+      })
+    }
+  }
+
+  /** Record user frustration */
+  async recordFrustration(conversationId: ConversationId): Promise<void> {
+    if (!this.checkInit()) return
+    await this.recordFeedbackEvent({ conversationId, type: 'frustration', timestamp: Date.now() })
+  }
+
+  /** Record AI regeneration */
+  async recordRegeneration(conversationId: ConversationId): Promise<void> {
+    if (!this.checkInit()) return
+    await this.recordFeedbackEvent({ conversationId, type: 'regeneration', timestamp: Date.now() })
+  }
+
+  /** Record explicit feedback */
+  async recordFeedback(conversationId: ConversationId, value: 1 | -1): Promise<void> {
+    if (!this.checkInit()) return
+    
+    // Validate feedback value
+    if (value !== 1 && value !== -1) {
+      if (this.config?.debug) {
+        throw new Error('Invalid feedback value. Must be 1 (positive) or -1 (negative).')
+      } else {
+        console.warn('Bilan SDK: Invalid feedback value. Must be 1 (positive) or -1 (negative).')
+        return
+      }
+    }
+    
+    await this.recordFeedbackEvent({ conversationId, type: 'explicit_feedback', value, timestamp: Date.now() })
+  }
+
+  /** End a conversation */
+  async endConversation(conversationId: ConversationId, outcome: 'completed' | 'abandoned'): Promise<void> {
+    if (!this.checkInit()) return
+    
+    if (this.config!.mode === 'local') {
+      await this.storeData(`conversations:${this.config!.userId}`, null, (conversations) => {
+        const conv = conversations.find(c => c.id === conversationId)
+        if (conv) {
+          conv.endedAt = Date.now()
+          conv.outcome = outcome
+        }
+      })
+    }
+  }
+
+  /** Track a journey step */
+  async trackJourneyStep(journeyName: string, stepName: string, userId: UserId): Promise<void> {
+    if (!this.checkInit()) return
+    
+    const step: JourneyStep = { journeyName, stepName, userId, timestamp: Date.now() }
+    if (this.config!.mode === 'local') {
+      await this.storeData(`journey:${this.config!.userId}`, step)
+    }
+  }
+
+  /** Complete a journey */
+  async completeJourney(journeyName: string, userId: UserId): Promise<void> {
+    await this.trackJourneyStep(journeyName, 'completed', userId)
+  }
+
   private async storeEventLocally(event: VoteEvent): Promise<void> {
     if (!this.storage) {
       throw new Error('Storage adapter not available')
@@ -398,50 +543,34 @@ class BilanSDK {
     const data = await this.storage.get(key)
     return data ? JSON.parse(data) : []
   }
+
+  private async recordFeedbackEvent(event: FeedbackEvent): Promise<void> {
+    if (this.config!.mode === 'local') {
+      await this.storeData(`feedback:${this.config!.userId}`, event)
+    }
+  }
 }
 
 // Create a default instance for convenience
 const defaultBilan = new BilanSDK()
 
-/**
- * Initialize the Bilan SDK with configuration options.
- * Uses the default SDK instance for convenience.
- * 
- * @param config - Configuration object for the SDK
- * @see BilanSDK.init for detailed parameter documentation
- */
+// Core SDK methods
 export const init = defaultBilan.init.bind(defaultBilan)
-
-/**
- * Record user feedback on an AI suggestion.
- * Uses the default SDK instance for convenience.
- * 
- * @param promptId - Unique identifier for the AI prompt/suggestion
- * @param value - User feedback: 1 for positive (👍), -1 for negative (👎)
- * @param comment - Optional text comment from the user
- * @param options - Additional context about the AI interaction
- * @see BilanSDK.vote for detailed parameter documentation
- */
 export const vote = defaultBilan.vote.bind(defaultBilan)
-
-/**
- * Get aggregate statistics for all user feedback.
- * Uses the default SDK instance for convenience.
- * 
- * @returns Promise resolving to basic analytics
- * @see BilanSDK.getStats for detailed return value documentation
- */
 export const getStats = defaultBilan.getStats.bind(defaultBilan)
-
-/**
- * Get statistics for a specific AI prompt/suggestion.
- * Uses the default SDK instance for convenience.
- * 
- * @param promptId - Unique identifier for the prompt to analyze
- * @returns Promise resolving to prompt-specific analytics
- * @see BilanSDK.getPromptStats for detailed parameter and return value documentation
- */
 export const getPromptStats = defaultBilan.getPromptStats.bind(defaultBilan)
+
+// Conversation tracking methods
+export const startConversation = defaultBilan.startConversation.bind(defaultBilan)
+export const addMessage = defaultBilan.addMessage.bind(defaultBilan)
+export const recordFrustration = defaultBilan.recordFrustration.bind(defaultBilan)
+export const recordRegeneration = defaultBilan.recordRegeneration.bind(defaultBilan)
+export const recordFeedback = defaultBilan.recordFeedback.bind(defaultBilan)
+export const endConversation = defaultBilan.endConversation.bind(defaultBilan)
+
+// Journey tracking methods
+export const trackJourneyStep = defaultBilan.trackJourneyStep.bind(defaultBilan)
+export const completeJourney = defaultBilan.completeJourney.bind(defaultBilan)
 
 // Export the class for creating custom instances
 export { BilanSDK }

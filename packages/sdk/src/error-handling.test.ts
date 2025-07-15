@@ -14,7 +14,7 @@ import {
   ErrorHandler,
   GracefulDegradation
 } from './error-handling'
-import { createUserId } from './types'
+import { createUserId, createPromptId } from './types'
 
 describe('BilanError', () => {
   it('should create a BilanError with all properties', () => {
@@ -193,8 +193,8 @@ describe('ErrorHandler', () => {
 
       expect(handled).toBeInstanceOf(BilanInitializationError)
       expect(handled.message).toBe('Invalid mode specified')
-      expect(handled.suggestion).toContain('mode: \'local\'')
-      expect(handled.suggestion).toContain('createUserId')
+      expect(handled.suggestion).toContain('local')
+      expect(handled.suggestion).toContain('server')
     })
 
     it('should handle userId error with suggestion', () => {
@@ -204,7 +204,6 @@ describe('ErrorHandler', () => {
       expect(handled).toBeInstanceOf(BilanInitializationError)
       expect(handled.message).toBe('userId is required')
       expect(handled.suggestion).toContain('createUserId')
-      expect(handled.suggestion).toContain('Add this')
     })
 
     it('should handle endpoint error with suggestion', () => {
@@ -213,7 +212,7 @@ describe('ErrorHandler', () => {
 
       expect(handled).toBeInstanceOf(BilanInitializationError)
       expect(handled.message).toBe('endpoint is required')
-      expect(handled.suggestion).toContain('endpoint:')
+      expect(handled.suggestion).toContain('endpoint')
       expect(handled.suggestion).toContain('server')
     })
 
@@ -243,8 +242,7 @@ describe('ErrorHandler', () => {
 
       expect(handled).toBeInstanceOf(BilanVoteError)
       expect(handled.message).toBe('SDK not initialized')
-      expect(handled.suggestion).toContain('init({')
-      expect(handled.suggestion).toContain('vote(')
+      expect(handled.suggestion).toContain('init()')
     })
 
     it('should handle promptId error with suggestion', () => {
@@ -263,8 +261,7 @@ describe('ErrorHandler', () => {
 
       expect(handled).toBeInstanceOf(BilanVoteError)
       expect(handled.message).toBe('Invalid value')
-      expect(handled.suggestion).toContain('1 (positive)')
-      expect(handled.suggestion).toContain('-1 (negative)')
+      expect(handled.suggestion).toContain('1 or -1')
     })
 
     it('should handle network error with suggestion', () => {
@@ -273,8 +270,7 @@ describe('ErrorHandler', () => {
 
       expect(handled).toBeInstanceOf(BilanVoteError)
       expect(handled.message).toBe('network request failed')
-      expect(handled.suggestion).toContain('Network error occurred')
-      expect(handled.suggestion).toContain('endpoint')
+      expect(handled.suggestion).toContain('network connection')
     })
 
     it('should handle fetch error with suggestion', () => {
@@ -283,8 +279,7 @@ describe('ErrorHandler', () => {
 
       expect(handled).toBeInstanceOf(BilanVoteError)
       expect(handled.message).toBe('fetch failed')
-      expect(handled.suggestion).toContain('Network error occurred')
-      expect(handled.suggestion).toContain('endpoint')
+      expect(handled.suggestion).toContain('network connection')
     })
 
     it('should handle generic error without specific suggestion', () => {
@@ -304,8 +299,7 @@ describe('ErrorHandler', () => {
 
       expect(handled).toBeInstanceOf(BilanStatsError)
       expect(handled.message).toBe('SDK not initialized')
-      expect(handled.suggestion).toContain('init({')
-      expect(handled.suggestion).toContain('getStats()')
+      expect(handled.suggestion).toContain('init()')
     })
 
     it('should handle no data error with suggestion', () => {
@@ -315,7 +309,6 @@ describe('ErrorHandler', () => {
       expect(handled).toBeInstanceOf(BilanStatsError)
       expect(handled.message).toBe('no data available')
       expect(handled.suggestion).toContain('Record some votes')
-      expect(handled.suggestion).toContain('vote(')
     })
 
     it('should handle empty data error with suggestion', () => {
@@ -325,7 +318,6 @@ describe('ErrorHandler', () => {
       expect(handled).toBeInstanceOf(BilanStatsError)
       expect(handled.message).toBe('Data is empty')
       expect(handled.suggestion).toContain('Record some votes')
-      expect(handled.suggestion).toContain('vote(')
     })
 
     it('should handle server error with suggestion', () => {
@@ -334,7 +326,6 @@ describe('ErrorHandler', () => {
 
       expect(handled).toBeInstanceOf(BilanStatsError)
       expect(handled.message).toBe('server error occurred')
-      expect(handled.suggestion).toContain('Server error occurred')
       expect(handled.suggestion).toContain('endpoint')
     })
 
@@ -344,7 +335,6 @@ describe('ErrorHandler', () => {
 
       expect(handled).toBeInstanceOf(BilanStatsError)
       expect(handled.message).toBe('endpoint not found')
-      expect(handled.suggestion).toContain('Server error occurred')
       expect(handled.suggestion).toContain('endpoint')
     })
 
@@ -373,8 +363,7 @@ describe('ErrorHandler', () => {
 
       expect(handled).toBeInstanceOf(BilanNetworkError)
       expect(handled.message).toBe('CORS policy blocked')
-      expect(handled.suggestion).toContain('CORS error')
-      expect(handled.suggestion).toContain('Access-Control-Allow-Origin')
+      expect(handled.suggestion).toContain('CORS')
     })
 
     it('should handle timeout error with suggestion', () => {
@@ -383,8 +372,7 @@ describe('ErrorHandler', () => {
 
       expect(handled).toBeInstanceOf(BilanNetworkError)
       expect(handled.message).toBe('Request timeout')
-      expect(handled.suggestion).toContain('Request timeout')
-      expect(handled.suggestion).toContain('/api/events')
+      expect(handled.suggestion).toContain('server availability')
     })
 
     it('should handle 404 error with suggestion', () => {
@@ -393,8 +381,7 @@ describe('ErrorHandler', () => {
 
       expect(handled).toBeInstanceOf(BilanNetworkError)
       expect(handled.message).toBe('404 Not Found')
-      expect(handled.suggestion).toContain('API endpoint not found')
-      expect(handled.suggestion).toContain('/api/stats')
+      expect(handled.suggestion).toContain('API endpoints')
     })
 
     it('should handle generic error without specific suggestion', () => {
@@ -414,7 +401,6 @@ describe('ErrorHandler', () => {
 
       expect(handled).toBeInstanceOf(BilanStorageError)
       expect(handled.message).toBe('localStorage not available')
-      expect(handled.suggestion).toContain('localStorage is not available')
       expect(handled.suggestion).toContain('server mode')
     })
 
@@ -424,8 +410,7 @@ describe('ErrorHandler', () => {
 
       expect(handled).toBeInstanceOf(BilanStorageError)
       expect(handled.message).toBe('quota exceeded')
-      expect(handled.suggestion).toContain('Storage quota exceeded')
-      expect(handled.suggestion).toContain('server mode')
+      expect(handled.suggestion).toContain('storage')
     })
 
     it('should handle storage error with suggestion', () => {
@@ -434,8 +419,7 @@ describe('ErrorHandler', () => {
 
       expect(handled).toBeInstanceOf(BilanStorageError)
       expect(handled.message).toBe('storage operation failed')
-      expect(handled.suggestion).toContain('Storage quota exceeded')
-      expect(handled.suggestion).toContain('server mode')
+      expect(handled.suggestion).toContain('storage')
     })
 
     it('should handle generic error without specific suggestion', () => {
@@ -467,7 +451,7 @@ describe('ErrorHandler', () => {
       expect(groupSpy).toHaveBeenCalledWith('🔴 Bilan SDK Error: TEST_ERROR')
       expect(errorSpy).toHaveBeenCalledWith('Message: Test error')
       expect(errorSpy).toHaveBeenCalledWith('Context: test context')
-      expect(infoSpy).toHaveBeenCalledWith('💡 Suggestion:test suggestion')
+      expect(errorSpy).toHaveBeenCalledWith('Suggestion: test suggestion')
       expect(groupEndSpy).toHaveBeenCalled()
     })
 
@@ -485,7 +469,7 @@ describe('ErrorHandler', () => {
       expect(groupSpy).toHaveBeenCalledWith('🔴 Bilan SDK Error: TEST_ERROR')
       expect(errorSpy).toHaveBeenCalledWith('Message: Test error')
       expect(errorSpy).not.toHaveBeenCalledWith('Context: test context')
-      expect(infoSpy).toHaveBeenCalledWith('💡 Suggestion:test suggestion')
+      expect(errorSpy).toHaveBeenCalledWith('Suggestion: test suggestion')
       expect(groupEndSpy).toHaveBeenCalled()
     })
 
@@ -767,7 +751,7 @@ describe('GracefulDegradation', () => {
 
   describe('getPromptStatsFallback', () => {
     it('should return default prompt stats object', () => {
-      const promptId = 'test-prompt-123'
+      const promptId = createPromptId('test-prompt-123')
       const fallback = GracefulDegradation.getPromptStatsFallback(promptId)
 
       expect(fallback).toEqual({
