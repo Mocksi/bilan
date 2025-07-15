@@ -18,11 +18,25 @@ npm install @mocksi/bilan-sdk
 
 ## Environment Variables
 
-**Required Environment Variables:**
-- `BILAN_MODE` - Set to 'server' for production, 'local' for development
-- `BILAN_API_KEY` - Your Bilan API key (required for server mode)
-- `BILAN_USER_ID` - Unique identifier for the current user
+### Server-Side Variables (Secure)
+**Required for server-side initialization:**
+- `BILAN_MODE` - Set to 'server' for production API routes
+- `BILAN_API_KEY` - Your full Bilan API key (server-side only, never expose to client)
 - `BILAN_TELEMETRY` - Set to 'false' to disable telemetry (optional)
+
+### Client-Side Variables (Public)
+**Required for client-side components:**
+- `NEXT_PUBLIC_BILAN_MODE` - Set to 'client' when using tokens, 'local' for development
+- `NEXT_PUBLIC_BILAN_USER_ID` - Unique identifier for the current user
+- `NEXT_PUBLIC_BILAN_TELEMETRY` - Set to 'false' to disable telemetry (optional)
+
+### Option 1: Public API Key (Less Secure)
+- `NEXT_PUBLIC_BILAN_API_KEY` - Public API key with limited permissions (client-safe)
+
+### Option 2: Token-Based (Recommended)
+Use server-generated tokens instead of exposing API keys to the client.
+
+> **🔒 Security Note**: Never expose your full `BILAN_API_KEY` to the client. Use either a public key with limited permissions or implement server-side token generation.
 
 ## Integration
 
@@ -47,14 +61,18 @@ export function useCopilotChatWithBilan(options: any) {
   const [bilan, setBilan] = useState<any>(null)
   const [messagePromptIds, setMessagePromptIds] = useState<Record<string, string>>({})
 
-  // Initialize Bilan
+  // Initialize Bilan - SECURE VERSION
   useEffect(() => {
     const initBilan = async () => {
       const bilanInstance = await init({
-        mode: process.env.BILAN_MODE || 'local',
-        apiKey: process.env.BILAN_API_KEY,
-        userId: process.env.BILAN_USER_ID || 'anonymous',
-        telemetry: { enabled: process.env.BILAN_TELEMETRY !== 'false' }
+        mode: process.env.NEXT_PUBLIC_BILAN_MODE || 'local',
+        // 🔒 SECURITY: API key should be handled server-side
+        // Option 1: Use public key with limited permissions
+        apiKey: process.env.NEXT_PUBLIC_BILAN_API_KEY, // Only if using public key
+        // Option 2: Get token from your API route (recommended)
+        // token: await getClientToken(), // Implement this function
+        userId: process.env.NEXT_PUBLIC_BILAN_USER_ID || 'anonymous',
+        telemetry: { enabled: process.env.NEXT_PUBLIC_BILAN_TELEMETRY !== 'false' }
       })
       setBilan(bilanInstance)
     }
@@ -105,6 +123,38 @@ export function useCopilotChatWithBilan(options: any) {
     ...chat,
     recordFeedback,
     messagePromptIds
+  }
+}
+```
+
+### 1.1. Server-Side Token Generation (Recommended)
+
+```typescript
+// app/api/bilan-token/route.ts
+import { init } from '@mocksi/bilan-sdk'
+import { NextResponse } from 'next/server'
+
+export async function POST(request: Request) {
+  try {
+    const { userId } = await request.json()
+    
+    // Initialize Bilan server-side with full API key
+    const bilan = await init({
+      mode: 'server',
+      apiKey: process.env.BILAN_API_KEY, // Server-side only
+      userId,
+      telemetry: { enabled: true }
+    })
+    
+    // Generate short-lived client token
+    const clientToken = await bilan.generateClientToken({
+      permissions: ['vote', 'track'], // Limited permissions
+      expiresIn: '1h'
+    })
+    
+    return NextResponse.json({ token: clientToken })
+  } catch (error) {
+    return NextResponse.json({ error: 'Failed to generate token' }, { status: 500 })
   }
 }
 ```
@@ -329,3 +379,57 @@ A: Consider implementing conversation truncation or pagination.
 ---
 
 **Need help?** Join our [Discord community](https://discord.gg/bilan) or [open an issue](https://github.com/mocksi/bilan/issues). 
+
+## Security Considerations
+
+### 🔒 API Key Security
+
+**❌ NEVER DO THIS:**
+```typescript
+// BAD - Exposes secret API key to browser
+const bilan = await init({
+  apiKey: process.env.BILAN_API_KEY // This gets bundled into client code!
+})
+```
+
+**✅ RECOMMENDED APPROACHES:**
+
+#### Option 1: Server-Side Token Generation
+```typescript
+// Server-side API route generates tokens
+// Client uses limited-permission tokens
+const token = await getClientToken(userId)
+const bilan = await init({ token })
+```
+
+#### Option 2: Public API Key (if available)
+```typescript
+// Use public key with limited permissions
+const bilan = await init({
+  apiKey: process.env.NEXT_PUBLIC_BILAN_API_KEY // Public key only
+})
+```
+
+### Environment Variable Security
+
+**Server-Side Only (.env.local):**
+```bash
+# NEVER expose these to client
+BILAN_API_KEY=bln_secret_key_here
+BILAN_MODE=server
+```
+
+**Client-Side Safe (.env.local):**
+```bash
+# Safe to expose (prefixed with NEXT_PUBLIC_)
+NEXT_PUBLIC_BILAN_MODE=client
+NEXT_PUBLIC_BILAN_USER_ID=user-123
+NEXT_PUBLIC_BILAN_TELEMETRY=true
+```
+
+### Token-Based Architecture Benefits
+
+- **Limited Permissions**: Tokens only allow specific actions (vote, track)
+- **Short-Lived**: Tokens expire after 1 hour by default
+- **Revocable**: Can be invalidated server-side if compromised
+- **Audit Trail**: Server logs all token generation and usage 
