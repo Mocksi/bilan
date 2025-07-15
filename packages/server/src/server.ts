@@ -3,6 +3,7 @@ import cors from '@fastify/cors'
 import { BilanDatabase } from './database/schema.js'
 import { BasicAnalytics } from '@mocksi/bilan-sdk'
 import { createPromptId } from '@mocksi/bilan-sdk'
+import { BasicAnalyticsProcessor, DashboardData } from './analytics/basic-processor.js'
 
 export interface ServerConfig {
   port?: number
@@ -31,11 +32,15 @@ export class BilanServer {
   private fastify: FastifyInstance
   private db: BilanDatabase
   private config: ServerConfig
+  private analyticsProcessor: BasicAnalyticsProcessor
+  private dashboardCache: { data: DashboardData; timestamp: number } | null = null
+  private readonly CACHE_DURATION = 60 * 1000 // 60 seconds
 
   constructor(config: ServerConfig = {}) {
     this.config = config
     this.fastify = Fastify({ logger: true })
     this.db = new BilanDatabase(config.dbPath)
+    this.analyticsProcessor = new BasicAnalyticsProcessor(this.db)
     
     this.setupCors(config.cors !== false)
     this.setupRoutes()
@@ -56,6 +61,30 @@ export class BilanServer {
     // Health check
     this.fastify.get('/health', async () => {
       return { status: 'ok', timestamp: new Date().toISOString() }
+    })
+
+    // Dashboard data endpoint - returns all dashboard data in one call
+    this.fastify.get('/api/dashboard', async (request: FastifyRequest, reply: FastifyReply) => {
+      try {
+        // Check cache first
+        if (this.dashboardCache && (Date.now() - this.dashboardCache.timestamp) < this.CACHE_DURATION) {
+          return this.dashboardCache.data
+        }
+
+        // Calculate fresh dashboard data
+        const dashboardData = await this.analyticsProcessor.calculateDashboardData()
+        
+        // Update cache
+        this.dashboardCache = {
+          data: dashboardData,
+          timestamp: Date.now()
+        }
+
+        return dashboardData
+      } catch (error) {
+        this.fastify.log.error('Error in GET /api/dashboard:', error)
+        return reply.status(500).send({ error: 'Internal server error' })
+      }
     })
 
     // Submit events
