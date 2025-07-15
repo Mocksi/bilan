@@ -3,7 +3,7 @@
  * and graceful degradation patterns.
  */
 
-import { InitConfig } from './types'
+import { InitConfig, PromptId } from './types'
 import { createPromptId } from './types'
 
 /**
@@ -668,7 +668,7 @@ export class GracefulDegradation {
    * @param promptId - The prompt ID for the fallback stats
    * @returns Default prompt statistics structure with zero values
    */
-  static getPromptStatsFallback(promptId: string) {
+  static getPromptStatsFallback(promptId: PromptId) {
     return {
       promptId,
       totalVotes: 0,

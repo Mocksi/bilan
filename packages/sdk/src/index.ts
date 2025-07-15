@@ -1,4 +1,4 @@
-import { InitConfig, VoteEvent, BasicStats, PromptStats, StorageAdapter, TrendConfig, UserId, PromptId, createUserId, createPromptId } from './types'
+import { InitConfig, VoteEvent, BasicStats, PromptStats, StorageAdapter, TrendConfig, UserId, PromptId, createUserId, createPromptId, ConversationData, FeedbackEvent, JourneyStep } from './types'
 import { LocalStorageAdapter } from './storage/local-storage'
 import { BasicAnalytics } from './analytics/basic-analytics'
 import { initTelemetry, trackVote, trackStatsRequest, trackError } from './telemetry'

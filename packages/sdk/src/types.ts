@@ -115,6 +115,52 @@ export interface StorageAdapter {
 }
 
 /**
+ * Basic conversation tracking data.
+ */
+export interface ConversationData {
+  /** Unique identifier for the conversation */
+  id: string
+  /** User who participated in the conversation */
+  userId: string
+  /** When the conversation started (milliseconds since epoch) */
+  startedAt: number
+  /** When the conversation ended (milliseconds since epoch) */
+  endedAt?: number
+  /** Number of messages in the conversation */
+  messageCount: number
+  /** Final outcome of the conversation */
+  outcome?: 'completed' | 'abandoned'
+}
+
+/**
+ * Simple feedback events for quality signals.
+ */
+export interface FeedbackEvent {
+  /** Conversation this feedback belongs to */
+  conversationId: string
+  /** Type of feedback event */
+  type: 'frustration' | 'regeneration' | 'explicit_feedback'
+  /** Feedback value (only for explicit feedback) */
+  value?: 1 | -1
+  /** When the feedback was recorded (milliseconds since epoch) */
+  timestamp: number
+}
+
+/**
+ * Journey step tracking data.
+ */
+export interface JourneyStep {
+  /** Name of the journey (e.g., 'email-agent', 'code-assistant') */
+  journeyName: string
+  /** Name of the step within the journey */
+  stepName: string
+  /** User who completed this step */
+  userId: string
+  /** When the step was completed (milliseconds since epoch) */
+  timestamp: number
+}
+
+/**
  * Helper function to create a branded UserId from a string.
  * 
  * @param id - The user identifier string
