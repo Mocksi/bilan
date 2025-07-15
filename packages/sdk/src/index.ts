@@ -1,4 +1,4 @@
-import { InitConfig, VoteEvent, BasicStats, PromptStats, StorageAdapter, TrendConfig, UserId, PromptId, createUserId, createPromptId, ConversationData, FeedbackEvent, JourneyStep } from './types'
+import { InitConfig, VoteEvent, BasicStats, PromptStats, StorageAdapter, TrendConfig, UserId, PromptId, ConversationId, createUserId, createPromptId, createConversationId, ConversationData, FeedbackEvent, JourneyStep } from './types'
 import { LocalStorageAdapter } from './storage/local-storage'
 import { BasicAnalytics } from './analytics/basic-analytics'
 import { initTelemetry, trackVote, trackStatsRequest, trackError } from './telemetry'
@@ -385,10 +385,10 @@ class BilanSDK {
   }
 
   /** Start a conversation session */
-  async startConversation(userId: string): Promise<string> {
-    if (!this.checkInit()) return 'fallback-conversation-id'
+  async startConversation(userId: UserId): Promise<ConversationId> {
+    if (!this.checkInit()) return createConversationId('fallback-conversation-id')
     
-    const conversationId = `conv-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    const conversationId = createConversationId(`conv-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`)
     const data: ConversationData = { id: conversationId, userId, startedAt: Date.now(), messageCount: 0 }
 
     if (this.config!.mode === 'local') {
@@ -398,7 +398,7 @@ class BilanSDK {
   }
 
   /** Add a message to a conversation */
-  async addMessage(conversationId: string): Promise<void> {
+  async addMessage(conversationId: ConversationId): Promise<void> {
     if (!this.checkInit()) return
     
     if (this.config!.mode === 'local') {
@@ -410,25 +410,25 @@ class BilanSDK {
   }
 
   /** Record user frustration */
-  async recordFrustration(conversationId: string): Promise<void> {
+  async recordFrustration(conversationId: ConversationId): Promise<void> {
     if (!this.checkInit()) return
     await this.recordFeedbackEvent({ conversationId, type: 'frustration', timestamp: Date.now() })
   }
 
   /** Record AI regeneration */
-  async recordRegeneration(conversationId: string): Promise<void> {
+  async recordRegeneration(conversationId: ConversationId): Promise<void> {
     if (!this.checkInit()) return
     await this.recordFeedbackEvent({ conversationId, type: 'regeneration', timestamp: Date.now() })
   }
 
   /** Record explicit feedback */
-  async recordFeedback(conversationId: string, value: 1 | -1): Promise<void> {
+  async recordFeedback(conversationId: ConversationId, value: 1 | -1): Promise<void> {
     if (!this.checkInit()) return
     await this.recordFeedbackEvent({ conversationId, type: 'explicit_feedback', value, timestamp: Date.now() })
   }
 
   /** End a conversation */
-  async endConversation(conversationId: string, outcome: 'completed' | 'abandoned'): Promise<void> {
+  async endConversation(conversationId: ConversationId, outcome: 'completed' | 'abandoned'): Promise<void> {
     if (!this.checkInit()) return
     
     if (this.config!.mode === 'local') {
@@ -443,7 +443,7 @@ class BilanSDK {
   }
 
   /** Track a journey step */
-  async trackJourneyStep(journeyName: string, stepName: string, userId: string): Promise<void> {
+  async trackJourneyStep(journeyName: string, stepName: string, userId: UserId): Promise<void> {
     if (!this.checkInit()) return
     
     const step: JourneyStep = { journeyName, stepName, userId, timestamp: Date.now() }
@@ -453,7 +453,7 @@ class BilanSDK {
   }
 
   /** Complete a journey */
-  async completeJourney(journeyName: string, userId: string): Promise<void> {
+  async completeJourney(journeyName: string, userId: UserId): Promise<void> {
     await this.trackJourneyStep(journeyName, 'completed', userId)
   }
 
