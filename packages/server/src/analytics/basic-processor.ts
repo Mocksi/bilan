@@ -4,14 +4,14 @@ import { BilanDatabase } from '../database/schema.js'
 export interface DashboardData {
   conversationStats: {
     totalConversations: number
-    successRate: number
-    averageMessages: number
-    completionRate: number
+    successRate: number | null // null when we don't have real conversation data
+    averageMessages: number | null
+    completionRate: number | null
   }
   journeyStats: {
-    totalJourneys: number
-    completionRate: number
-    popularJourneys: { name: string; count: number }[]
+    totalJourneys: number | null // null when we don't have real journey data
+    completionRate: number | null
+    popularJourneys: { name: string; count: number; completionRate: number }[]
   }
   feedbackStats: {
     totalFeedback: number
@@ -19,8 +19,28 @@ export interface DashboardData {
     recentTrend: 'improving' | 'declining' | 'stable'
     topComments: string[]
   }
+  qualitySignals: {
+    positive: number
+    negative: number
+    regenerations: number // We don't have this data yet
+    frustration: number // We don't have this data yet
+  }
+  timeSeriesData: {
+    date: string
+    trustScore: number
+    totalVotes: number
+    positiveVotes: number
+  }[]
   recentActivity: {
-    conversations: any[]
+    conversations: any[] // empty when we don't have real conversations
+    recentVotes: { 
+      promptId: string; 
+      userId: string; 
+      value: number; 
+      timestamp: number;
+      comment?: string;
+      metadata?: any;
+    }[]
     totalEvents: number
   }
 }
@@ -42,76 +62,77 @@ export class BasicAnalyticsProcessor {
       conversationStats: this.calculateConversationStats(events),
       journeyStats: this.calculateJourneyStats(events),
       feedbackStats: this.calculateFeedbackStats(events),
+      qualitySignals: this.calculateQualitySignals(events),
+      timeSeriesData: this.calculateTimeSeriesData(events),
       recentActivity: this.calculateRecentActivity(events)
     }
   }
 
   /**
-   * Calculate conversation success rates and metrics
+   * Calculate conversation stats - but be honest about what we actually have
    */
   private calculateConversationStats(events: VoteEvent[]): DashboardData['conversationStats'] {
-    // For now, treat each unique promptId as a "conversation"
-    // In a full implementation, we'd have separate conversation tracking
-    const conversationMap = new Map<string, { messages: number; outcome: 'positive' | 'negative' | 'neutral' }>()
+    // We don't actually have conversation tracking, just individual votes
+    // So we can't accurately calculate conversation success rates
+    const uniquePrompts = new Set(events.map(e => e.promptId)).size
     
-    events.forEach(event => {
-      if (!conversationMap.has(event.promptId)) {
-        conversationMap.set(event.promptId, { messages: 0, outcome: 'neutral' })
-      }
-      const conv = conversationMap.get(event.promptId)!
-      conv.messages++
-      
-      // Determine outcome based on feedback
-      if (event.value > 0) {
-        conv.outcome = 'positive'
-      } else if (event.value < 0 && conv.outcome === 'neutral') {
-        conv.outcome = 'negative'
-      }
-    })
-
-    const totalConversations = conversationMap.size
-    const successfulConversations = Array.from(conversationMap.values()).filter(c => c.outcome === 'positive').length
-    const averageMessages = totalConversations > 0 
-      ? Array.from(conversationMap.values()).reduce((sum, c) => sum + c.messages, 0) / totalConversations
-      : 0
-
     return {
-      totalConversations,
-      successRate: totalConversations > 0 ? successfulConversations / totalConversations : 0,
-      averageMessages,
-      completionRate: totalConversations > 0 ? successfulConversations / totalConversations : 0
+      totalConversations: uniquePrompts, // These are prompts, not actual conversations
+      successRate: null, // We don't have real conversation outcomes
+      averageMessages: null, // We don't track messages per conversation
+      completionRate: null // We don't track conversation completion
     }
   }
 
   /**
-   * Calculate journey completion rates
+   * Calculate journey stats - show what we can detect from metadata
    */
   private calculateJourneyStats(events: VoteEvent[]): DashboardData['journeyStats'] {
-    // For now, simulate journey data from event metadata
-    // In a full implementation, we'd have separate journey tracking
-    const journeyMap = new Map<string, number>()
+    // Extract journey data from metadata where available
+    const journeyMap = new Map<string, { count: number; positiveCount: number }>()
     
     events.forEach(event => {
-      const journeyName = event.metadata?.journeyName || 'default'
-      journeyMap.set(journeyName, (journeyMap.get(journeyName) || 0) + 1)
+      const journeyName = event.metadata?.journeyName
+      // Only track journeys that have explicit journey names, not default fallback
+      if (journeyName) {
+        if (!journeyMap.has(journeyName)) {
+          journeyMap.set(journeyName, { count: 0, positiveCount: 0 })
+        }
+        const journey = journeyMap.get(journeyName)!
+        journey.count++
+        if (event.value > 0) {
+          journey.positiveCount++
+        }
+      }
     })
 
-    const totalJourneys = journeyMap.size
-    const completedJourneys = Array.from(journeyMap.values()).filter(count => count > 1).length
+    // Only return journey data if we have actual named journeys
+    if (journeyMap.size === 0) {
+      return {
+        totalJourneys: null,
+        completionRate: null,
+        popularJourneys: []
+      }
+    }
+
     const popularJourneys = Array.from(journeyMap.entries())
-      .map(([name, count]) => ({ name, count }))
+      .map(([name, data]) => ({
+        name,
+        count: data.count,
+        completionRate: data.count > 0 ? data.positiveCount / data.count : 0
+      }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 5)
 
     return {
-      totalJourneys,
-      completionRate: totalJourneys > 0 ? completedJourneys / totalJourneys : 0,
+      totalJourneys: popularJourneys.length,
+      completionRate: popularJourneys.reduce((sum, j) => sum + j.completionRate, 0) / popularJourneys.length,
       popularJourneys
     }
   }
 
   /**
-   * Calculate feedback statistics and trends
+   * Calculate feedback stats - this is what we actually have
    */
   private calculateFeedbackStats(events: VoteEvent[]): DashboardData['feedbackStats'] {
     if (events.length === 0) {
@@ -130,7 +151,7 @@ export class BasicAnalyticsProcessor {
     // Calculate trend by comparing recent vs older events
     const recentTrend = this.calculateTrendDirection(events)
 
-    // Get top comments
+    // Get top comments (most are null in our current data)
     const topComments = events
       .filter(e => e.comment && e.comment.length > 0)
       .map(e => e.comment!)
@@ -145,39 +166,86 @@ export class BasicAnalyticsProcessor {
   }
 
   /**
-   * Calculate recent activity summary
+   * Calculate quality signals from our vote data
    */
-  private calculateRecentActivity(events: VoteEvent[]): DashboardData['recentActivity'] {
-    // Get recent conversations (last 50 events grouped by promptId)
-    const recentConversations = events
-      .slice(0, 50)
-      .reduce((acc, event) => {
-        const existing = acc.find(c => c.promptId === event.promptId)
-        if (existing) {
-          existing.lastActivity = Math.max(existing.lastActivity, event.timestamp)
-          existing.feedbackCount++
-        } else {
-          acc.push({
-            promptId: event.promptId,
-            userId: event.userId,
-            lastActivity: event.timestamp,
-            feedbackCount: 1,
-            outcome: event.value > 0 ? 'positive' : 'negative'
-          })
-        }
-        return acc
-      }, [] as any[])
-      .sort((a, b) => b.lastActivity - a.lastActivity)
-      .slice(0, 10)
+  private calculateQualitySignals(events: VoteEvent[]): DashboardData['qualitySignals'] {
+    const positive = events.filter(e => e.value > 0).length
+    const negative = events.filter(e => e.value < 0).length
+    
+    // We don't have regeneration or frustration data yet, so we'll show 0
+    // In the future, these could come from different event types or metadata
+    const regenerations = events.filter(e => e.metadata?.action === 'regenerate').length
+    const frustration = events.filter(e => e.metadata?.sentiment === 'frustrated').length
 
     return {
-      conversations: recentConversations,
+      positive,
+      negative,
+      regenerations,
+      frustration
+    }
+  }
+
+  /**
+   * Calculate time-series data for trust score trends
+   */
+  private calculateTimeSeriesData(events: VoteEvent[]): DashboardData['timeSeriesData'] {
+    if (events.length === 0) return []
+
+    // Group events by date
+    const dateMap = new Map<string, { total: number; positive: number }>()
+    
+    events.forEach(event => {
+      const date = new Date(event.timestamp).toISOString().split('T')[0]
+      if (!dateMap.has(date)) {
+        dateMap.set(date, { total: 0, positive: 0 })
+      }
+      const dayData = dateMap.get(date)!
+      dayData.total++
+      if (event.value > 0) {
+        dayData.positive++
+      }
+    })
+
+    // Convert to array and calculate trust scores
+    const timeSeriesData = Array.from(dateMap.entries())
+      .map(([date, data]) => ({
+        date,
+        trustScore: data.total > 0 ? data.positive / data.total : 0,
+        totalVotes: data.total,
+        positiveVotes: data.positive
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date))
+
+    return timeSeriesData
+  }
+
+  /**
+   * Calculate recent activity - show what we actually have
+   */
+  private calculateRecentActivity(events: VoteEvent[]): DashboardData['recentActivity'] {
+    // We don't have real conversations, just individual votes
+    // So let's show recent votes instead of fabricated conversations
+    const recentVotes = events
+      .sort((a, b) => b.timestamp - a.timestamp)
+      .slice(0, 10)
+      .map(event => ({
+        promptId: event.promptId,
+        userId: event.userId,
+        value: event.value,
+        timestamp: event.timestamp,
+        comment: event.comment,
+        metadata: event.metadata
+      }))
+
+    return {
+      conversations: [], // No real conversations to show
+      recentVotes,
       totalEvents: events.length
     }
   }
 
   /**
-   * Simple trend calculation
+   * Simple trend calculation - this is accurate
    */
   private calculateTrendDirection(events: VoteEvent[]): 'improving' | 'declining' | 'stable' {
     if (events.length < 10) return 'stable'

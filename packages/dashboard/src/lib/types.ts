@@ -4,14 +4,14 @@
 export interface DashboardData {
   conversationStats: {
     totalConversations: number
-    successRate: number
-    averageMessages: number
-    completionRate: number
+    successRate: number | null // null when we don't have real conversation data
+    averageMessages: number | null
+    completionRate: number | null
   }
   journeyStats: {
-    totalJourneys: number
-    completionRate: number
-    popularJourneys: { name: string; count: number }[]
+    totalJourneys: number | null // null when we don't have real journey data
+    completionRate: number | null
+    popularJourneys: { name: string; count: number; completionRate: number }[]
   }
   feedbackStats: {
     totalFeedback: number
@@ -19,8 +19,28 @@ export interface DashboardData {
     recentTrend: 'improving' | 'declining' | 'stable'
     topComments: string[]
   }
+  qualitySignals: {
+    positive: number
+    negative: number
+    regenerations: number // We don't have this data yet
+    frustration: number // We don't have this data yet
+  }
+  timeSeriesData: {
+    date: string
+    trustScore: number
+    totalVotes: number
+    positiveVotes: number
+  }[]
   recentActivity: {
-    conversations: ConversationSummary[]
+    conversations: ConversationSummary[] // empty when we don't have real conversations
+    recentVotes: { 
+      promptId: string; 
+      userId: string; 
+      value: number; 
+      timestamp: number;
+      comment?: string;
+      metadata?: any;
+    }[]
     totalEvents: number
   }
 }
@@ -43,6 +63,16 @@ export interface ApiResponse<T> {
   success: boolean
   data?: T
   error?: {
+    code: string
+    message: string
+  }
+}
+
+/**
+ * Error response structure
+ */
+export interface ErrorResponse {
+  error: {
     code: string
     message: string
   }
