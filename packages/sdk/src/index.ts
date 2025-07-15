@@ -827,6 +827,91 @@ export const getStats = defaultBilan.getStats.bind(defaultBilan)
  */
 export const getPromptStats = defaultBilan.getPromptStats.bind(defaultBilan)
 
+/**
+ * Start a new conversation session.
+ * Uses the default SDK instance for convenience.
+ * 
+ * @param userId - User identifier for the conversation
+ * @returns Promise resolving to the conversation ID
+ * @see BilanSDK.startConversation for detailed parameter and return value documentation
+ */
+export const startConversation = defaultBilan.startConversation.bind(defaultBilan)
+
+/**
+ * Add a message to an existing conversation.
+ * Uses the default SDK instance for convenience.
+ * 
+ * @param conversationId - The conversation to add message to
+ * @returns Promise that resolves when message is recorded
+ * @see BilanSDK.addMessage for detailed parameter documentation
+ */
+export const addMessage = defaultBilan.addMessage.bind(defaultBilan)
+
+/**
+ * Record user frustration in a conversation.
+ * Uses the default SDK instance for convenience.
+ * 
+ * @param conversationId - The conversation where frustration occurred
+ * @returns Promise that resolves when frustration is recorded
+ * @see BilanSDK.recordFrustration for detailed parameter documentation
+ */
+export const recordFrustration = defaultBilan.recordFrustration.bind(defaultBilan)
+
+/**
+ * Record AI response regeneration in a conversation.
+ * Uses the default SDK instance for convenience.
+ * 
+ * @param conversationId - The conversation where regeneration occurred
+ * @returns Promise that resolves when regeneration is recorded
+ * @see BilanSDK.recordRegeneration for detailed parameter documentation
+ */
+export const recordRegeneration = defaultBilan.recordRegeneration.bind(defaultBilan)
+
+/**
+ * Record explicit user feedback in a conversation.
+ * Uses the default SDK instance for convenience.
+ * 
+ * @param conversationId - The conversation to record feedback for
+ * @param value - Feedback value: 1 for positive, -1 for negative
+ * @returns Promise that resolves when feedback is recorded
+ * @see BilanSDK.recordFeedback for detailed parameter documentation
+ */
+export const recordFeedback = defaultBilan.recordFeedback.bind(defaultBilan)
+
+/**
+ * End a conversation with a final outcome.
+ * Uses the default SDK instance for convenience.
+ * 
+ * @param conversationId - The conversation to end
+ * @param outcome - Final outcome: 'completed' or 'abandoned'
+ * @returns Promise that resolves when conversation is ended
+ * @see BilanSDK.endConversation for detailed parameter documentation
+ */
+export const endConversation = defaultBilan.endConversation.bind(defaultBilan)
+
+/**
+ * Track a step in a user journey.
+ * Uses the default SDK instance for convenience.
+ * 
+ * @param journeyName - Name of the journey (e.g., 'email-agent', 'code-assistant')
+ * @param stepName - Name of the step within the journey
+ * @param userId - User who completed this step
+ * @returns Promise that resolves when step is recorded
+ * @see BilanSDK.trackJourneyStep for detailed parameter documentation
+ */
+export const trackJourneyStep = defaultBilan.trackJourneyStep.bind(defaultBilan)
+
+/**
+ * Mark a user journey as complete.
+ * Uses the default SDK instance for convenience.
+ * 
+ * @param journeyName - Name of the journey to complete
+ * @param userId - User who completed the journey
+ * @returns Promise that resolves when completion is recorded
+ * @see BilanSDK.completeJourney for detailed parameter documentation
+ */
+export const completeJourney = defaultBilan.completeJourney.bind(defaultBilan)
+
 // Export the class for creating custom instances
 export { BilanSDK }
 export { LocalStorageAdapter } from './storage/local-storage'
