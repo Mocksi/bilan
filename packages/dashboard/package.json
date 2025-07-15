@@ -31,6 +31,7 @@
   },
   "dependencies": {
     "@mocksi/bilan-sdk": "file:../sdk",
+    "@radix-ui/react-progress": "^1.1.7",
     "@radix-ui/react-slot": "^1.2.3",
     "@tailwindcss/postcss": "^4.1.11",
     "class-variance-authority": "^0.7.1",
