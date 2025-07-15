@@ -34,6 +34,7 @@ interface EventsResponse {
 
 export default function Dashboard() {
   const [events, setEvents] = useState<Event[]>([])
+  const [totalEvents, setTotalEvents] = useState<number>(0)
   const [loading, setLoading] = useState(true)
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
   const [userStats, setUserStats] = useState<UserStats | null>(null)
@@ -49,7 +50,8 @@ export default function Dashboard() {
   const fetchEvents = async () => {
     try {
       setError(null)
-      const response = await fetch(`${API_BASE_URL}/api/events?limit=50`)
+      // Fetch all events for accurate statistics (up to server limit of 1000)
+      const response = await fetch(`${API_BASE_URL}/api/events?limit=1000`)
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`)
@@ -57,7 +59,11 @@ export default function Dashboard() {
       
       const data: EventsResponse = await response.json()
       setEvents(data.events || [])
-      logger.log('Events fetched successfully', data.events?.length || 0)
+      setTotalEvents(data.total || 0)
+      logger.log('Events fetched successfully', { 
+        fetchedEvents: data.events?.length || 0, 
+        totalEvents: data.total || 0 
+      })
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
       setError(`Failed to fetch events: ${errorMessage}`)
@@ -230,6 +236,20 @@ export default function Dashboard() {
         </div>
       )}
 
+      {totalEvents > events.length && (
+        <div style={{ 
+          marginBottom: '20px', 
+          padding: '15px', 
+          backgroundColor: '#fff3cd', 
+          border: '1px solid #ffeaa7',
+          borderRadius: '5px',
+          color: '#856404'
+        }}>
+          <strong>Note:</strong> Showing statistics for the most recent {events.length} events out of {totalEvents} total events. 
+          The vote counts and user statistics below reflect recent activity only.
+        </div>
+      )}
+
       <div style={{ marginBottom: '25px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px' }}>
           <div style={{ 
@@ -240,7 +260,7 @@ export default function Dashboard() {
             textAlign: 'center'
           }}>
             <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#007bff', marginBottom: '5px' }}>
-              {events.length}
+              {totalEvents}
             </div>
             <div style={{ fontSize: '14px', color: '#6c757d' }}>Total Events</div>
           </div>
@@ -254,7 +274,9 @@ export default function Dashboard() {
             <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#28a745', marginBottom: '5px' }}>
               {events.filter(e => e.value > 0).length}
             </div>
-            <div style={{ fontSize: '14px', color: '#6c757d' }}>Positive Votes</div>
+            <div style={{ fontSize: '14px', color: '#6c757d' }}>
+              Positive Votes{totalEvents > events.length ? ' (Recent)' : ''}
+            </div>
           </div>
           <div style={{ 
             backgroundColor: '#fff', 
@@ -266,7 +288,9 @@ export default function Dashboard() {
             <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#dc3545', marginBottom: '5px' }}>
               {events.filter(e => e.value < 0).length}
             </div>
-            <div style={{ fontSize: '14px', color: '#6c757d' }}>Negative Votes</div>
+            <div style={{ fontSize: '14px', color: '#6c757d' }}>
+              Negative Votes{totalEvents > events.length ? ' (Recent)' : ''}
+            </div>
           </div>
           <div style={{ 
             backgroundColor: '#fff', 
@@ -278,7 +302,9 @@ export default function Dashboard() {
             <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#6f42c1', marginBottom: '5px' }}>
               {new Set(events.map(e => e.userId)).size}
             </div>
-            <div style={{ fontSize: '14px', color: '#6c757d' }}>Unique Users</div>
+            <div style={{ fontSize: '14px', color: '#6c757d' }}>
+              Unique Users{totalEvents > events.length ? ' (Recent)' : ''}
+            </div>
           </div>
         </div>
       </div>
@@ -395,7 +421,7 @@ export default function Dashboard() {
           </div>
           <div style={{ textAlign: 'right' }}>
             <p style={{ margin: 0, color: '#28a745' }}>
-              ● Active ({events.length} events loaded)
+              ● Active ({totalEvents} events loaded)
             </p>
           </div>
         </div>
