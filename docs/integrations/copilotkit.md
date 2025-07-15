@@ -64,16 +64,24 @@ export function useCopilotChatWithBilan(options: any) {
   // Initialize Bilan - SECURE VERSION
   useEffect(() => {
     const initBilan = async () => {
-      const bilanInstance = await init({
+      const initOptions: any = {
         mode: process.env.NEXT_PUBLIC_BILAN_MODE || 'local',
-        // 🔒 SECURITY: API key should be handled server-side
-        // Option 1: Use public key with limited permissions
-        apiKey: process.env.NEXT_PUBLIC_BILAN_API_KEY, // Only if using public key
-        // Option 2: Get token from your API route (recommended)
-        // token: await getClientToken(), // Implement this function
         userId: process.env.NEXT_PUBLIC_BILAN_USER_ID || 'anonymous',
         telemetry: { enabled: process.env.NEXT_PUBLIC_BILAN_TELEMETRY !== 'false' }
-      })
+      }
+
+      // 🔒 SECURITY: Only include apiKey if environment variable is set
+      // This prevents overriding token-based authentication
+      if (process.env.NEXT_PUBLIC_BILAN_API_KEY) {
+        initOptions.apiKey = process.env.NEXT_PUBLIC_BILAN_API_KEY
+      }
+      
+      // Option 2: Get token from your API route (recommended)
+      // if (!process.env.NEXT_PUBLIC_BILAN_API_KEY) {
+      //   initOptions.token = await getClientToken()
+      // }
+
+      const bilanInstance = await init(initOptions)
       setBilan(bilanInstance)
     }
     initBilan()
@@ -156,6 +164,68 @@ export async function POST(request: Request) {
   } catch (error) {
     return NextResponse.json({ error: 'Failed to generate token' }, { status: 500 })
   }
+}
+```
+
+```typescript
+// lib/copilot-bilan-token.ts (Token-based version)
+import { useCopilotChat } from '@copilotkit/react-core'
+import { init, vote } from '@mocksi/bilan-sdk'
+import { useEffect, useState } from 'react'
+
+// Cross-platform UUID generation
+function generateId(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID()
+  }
+  return Math.random().toString(36).substring(2) + Date.now().toString(36)
+}
+
+async function getClientToken(userId: string): Promise<string> {
+  const response = await fetch('/api/bilan-token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId })
+  })
+  
+  if (!response.ok) {
+    throw new Error('Failed to get client token')
+  }
+  
+  const { token } = await response.json()
+  return token
+}
+
+export function useCopilotChatWithBilan(options: any) {
+  const [bilan, setBilan] = useState<any>(null)
+  const [messagePromptIds, setMessagePromptIds] = useState<Record<string, string>>({})
+
+  // Initialize Bilan with server-generated token
+  useEffect(() => {
+    const initBilan = async () => {
+      const userId = process.env.NEXT_PUBLIC_BILAN_USER_ID || 'anonymous'
+      
+      const initOptions: any = {
+        mode: 'client',
+        userId,
+        telemetry: { enabled: process.env.NEXT_PUBLIC_BILAN_TELEMETRY !== 'false' }
+      }
+
+      // Use token-based authentication (recommended)
+      try {
+        initOptions.token = await getClientToken(userId)
+      } catch (error) {
+        console.error('Failed to get client token:', error)
+        return
+      }
+
+      const bilanInstance = await init(initOptions)
+      setBilan(bilanInstance)
+    }
+    initBilan()
+  }, [])
+
+  // ... rest of the hook implementation
 }
 ```
 
