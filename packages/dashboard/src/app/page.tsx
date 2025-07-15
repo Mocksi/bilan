@@ -8,11 +8,20 @@ import { TimeRangeSelector, useTimeRange } from '@/components/TimeRangeSelector'
 import { TrendIndicator, WeekOverWeekComparison } from '@/components/TrendIndicator'
 import { formatDateRange } from '@/lib/time-utils'
 import { calculateMetricComparisons } from '@/lib/comparison-utils'
+import { ConversationFilter, ConversationFilterState } from '@/components/ConversationFilter'
+import { ConversationTable } from '@/components/ConversationTable'
+import { filterConversations } from '@/lib/filter-utils'
 
 export default function Dashboard() {
   const { timeRange, setTimeRange } = useTimeRange()
   const { data, loading, error, refresh } = useDashboardData(timeRange, true)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const [conversationFilters, setConversationFilters] = useState<ConversationFilterState>({
+    search: '',
+    outcome: 'all',
+    journey: '',
+    user: ''
+  })
 
   useEffect(() => {
     if (data) {
@@ -435,6 +444,27 @@ export default function Dashboard() {
                         )}
                       </div>
                     </div>
+                  </div>
+
+                  {/* Conversation Filtering */}
+                  <div className="col-12">
+                    <ConversationFilter
+                      onFilterChange={setConversationFilters}
+                      className="mb-4"
+                    />
+                  </div>
+
+                  {/* Recent Conversations */}
+                  <div className="col-12">
+                    <ConversationTable
+                      conversations={data.recentActivity.conversations}
+                      filteredConversations={filterConversations(data.recentActivity.conversations, conversationFilters)}
+                      filterState={conversationFilters}
+                      onConversationClick={(conversation) => {
+                        // TODO: Open conversation detail modal in next commit
+                        console.log('Conversation clicked:', conversation)
+                      }}
+                    />
                   </div>
                 </div>
               </div>

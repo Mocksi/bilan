@@ -54,6 +54,16 @@ export interface ConversationSummary {
   lastActivity: number
   feedbackCount: number
   outcome: 'positive' | 'negative'
+  // Extended context for filtering and analysis
+  promptText?: string
+  aiOutput?: string
+  comment?: string
+  journeyName?: string
+  journeyStep?: string
+  page?: string
+  sessionId?: string
+  metadata?: Record<string, any>
+  tags?: string[]
 }
 
 /**

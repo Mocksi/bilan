@@ -1,92 +1,142 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { ConversationSummary } from '@/lib/types'
+import { ConversationFilterState } from './ConversationFilter'
+import { highlightSearchTerm } from '@/lib/filter-utils'
+import { TagDisplay } from './ConversationTags'
 
 export interface ConversationTableProps {
   conversations: ConversationSummary[]
+  filteredConversations: ConversationSummary[]
+  filterState: ConversationFilterState
+  onConversationClick?: (conversation: ConversationSummary) => void
   className?: string
 }
 
 export const ConversationTable: React.FC<ConversationTableProps> = ({
   conversations,
+  filteredConversations,
+  filterState,
+  onConversationClick,
   className = ''
 }) => {
   const formatTimestamp = (timestamp: number) => {
     return new Date(timestamp).toLocaleString()
   }
 
-  const getOutcomeBadge = (outcome: 'positive' | 'negative') => {
-    const baseClasses = "inline-flex px-2 py-1 text-xs font-semibold rounded-full"
-    const colorClasses = outcome === 'positive' 
-      ? 'bg-green-100 text-green-800' 
-      : 'bg-red-100 text-red-800'
-    
-    return `${baseClasses} ${colorClasses}`
-  }
 
+
+  const hasActiveFilters = filterState.search || filterState.outcome !== 'all' || filterState.journey || filterState.user
+  const displayConversations = filteredConversations || conversations
+  
   if (!conversations || conversations.length === 0) {
     return (
-      <div className={`bg-white rounded-lg shadow-sm border ${className}`}>
-        <div className="px-6 py-4 border-b">
-          <h3 className="text-lg font-medium text-gray-900">Recent Conversations</h3>
+      <div className={`card ${className}`}>
+        <div className="card-header">
+          <h3 className="card-title">Recent Conversations</h3>
         </div>
-        <div className="p-8 text-center">
-          <div className="text-gray-500">No conversations yet</div>
+        <div className="card-body text-center">
+          <div className="text-muted">No conversations yet</div>
+        </div>
+      </div>
+    )
+  }
+
+  if (hasActiveFilters && displayConversations.length === 0) {
+    return (
+      <div className={`card ${className}`}>
+        <div className="card-header">
+          <h3 className="card-title">Recent Conversations</h3>
+          <div className="card-subtitle">
+            No conversations match your filters. {conversations.length} total conversations available.
+          </div>
+        </div>
+        <div className="card-body text-center">
+          <div className="text-muted">Try adjusting your filters</div>
         </div>
       </div>
     )
   }
 
   return (
-    <div className={`bg-white rounded-lg shadow-sm border ${className}`}>
-      <div className="px-6 py-4 border-b">
-        <h3 className="text-lg font-medium text-gray-900">Recent Conversations</h3>
+    <div className={`card ${className}`}>
+      <div className="card-header">
+        <h3 className="card-title">Recent Conversations</h3>
+        <div className="card-subtitle">
+          {hasActiveFilters ? (
+            <span>
+              Showing {displayConversations.length} of {conversations.length} conversations
+              {filterState.search && <span> • Search: "{filterState.search}"</span>}
+              {filterState.outcome !== 'all' && <span> • Outcome: {filterState.outcome}</span>}
+              {filterState.journey && <span> • Journey: "{filterState.journey}"</span>}
+              {filterState.user && <span> • User: "{filterState.user}"</span>}
+            </span>
+          ) : (
+            <span>Showing all {conversations.length} conversations</span>
+          )}
+        </div>
       </div>
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+      <div className="table-responsive">
+        <table className="table table-vcenter">
+          <thead>
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Conversation
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Feedback
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Outcome
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Last Activity
-              </th>
+              <th>Conversation</th>
+              <th>Feedback</th>
+              <th>Outcome</th>
+              <th>Last Activity</th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {conversations.map((conversation) => (
-              <tr key={conversation.promptId} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex flex-col">
-                    <div className="text-sm font-medium text-gray-900 truncate max-w-xs">
-                      {conversation.promptId}
+          <tbody>
+            {displayConversations.map((conversation) => (
+              <tr 
+                key={conversation.promptId} 
+                className={onConversationClick ? 'cursor-pointer' : ''}
+                onClick={() => onConversationClick?.(conversation)}
+              >
+                <td>
+                  <div className="d-flex flex-column">
+                    <div className="fw-medium">
+                      {filterState.search ? (
+                        <span dangerouslySetInnerHTML={{
+                          __html: highlightSearchTerm(conversation.promptId, filterState.search)
+                        }} />
+                      ) : (
+                        conversation.promptId
+                      )}
                     </div>
-                    <div className="text-sm text-gray-500">
-                      {conversation.userId}
+                    <div className="text-muted small">
+                      User: {conversation.userId}
                     </div>
+                    {conversation.journeyName && (
+                      <div className="text-muted small">
+                        Journey: {conversation.journeyName}
+                        {conversation.journeyStep && ` → ${conversation.journeyStep}`}
+                      </div>
+                    )}
+                    {conversation.tags && conversation.tags.length > 0 && (
+                      <div className="mt-1">
+                        {conversation.tags.map((tag, index) => (
+                          <span key={index} className="badge badge-secondary me-1">
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">
-                    {conversation.feedbackCount} 
-                    <span className="text-gray-500 ml-1">
-                      {conversation.feedbackCount === 1 ? 'response' : 'responses'}
-                    </span>
-                  </div>
+                <td>
+                  <span className="badge badge-outline">
+                    {conversation.feedbackCount}
+                  </span>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={getOutcomeBadge(conversation.outcome)}>
+                <td>
+                  <span className={`badge ${conversation.outcome === 'positive' ? 'badge-success' : 'badge-danger'}`}>
                     {conversation.outcome}
                   </span>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {formatTimestamp(conversation.lastActivity)}
+                <td>
+                  <div className="text-muted">
+                    {formatTimestamp(conversation.lastActivity)}
+                  </div>
                 </td>
               </tr>
             ))}
