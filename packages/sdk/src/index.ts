@@ -353,306 +353,108 @@ class BilanSDK {
     }
   }
 
-  /**
-   * Start a new conversation session.
-   * 
-   * @param userId - User identifier for the conversation
-   * @returns Promise resolving to the conversation ID
-   * @throws {Error} When in debug mode and conversation creation fails
-   * 
-   * @example
-   * ```typescript
-   * const conversationId = await conversation.start('user-123')
-   * ```
-   */
+  // Helper method to check initialization and handle errors
+  private checkInit(): boolean {
+    if (!this.isInitialized || !this.config) {
+      if (this.config?.debug) {
+        throw new Error('Bilan SDK not initialized. Call init() first.')
+      } else {
+        console.warn('Bilan SDK not initialized. Call init() first.')
+        return false
+      }
+    }
+    return true
+  }
+
+  // Storage helper
+  private async storeData(key: string, data: any, updateFn?: (items: any[]) => void): Promise<void> {
+    if (!this.storage || !this.config) return
+    try {
+      const existing = await this.storage.get(key)
+      const items = existing ? JSON.parse(existing) : []
+      if (updateFn) {
+        updateFn(items)
+      } else {
+        items.push(data)
+      }
+      await this.storage.set(key, JSON.stringify(items))
+    } catch (error) {
+      if (this.config.debug) throw error
+      console.warn('Storage failed:', error)
+    }
+  }
+
+  /** Start a conversation session */
   async startConversation(userId: string): Promise<string> {
-    if (!this.isInitialized || !this.config) {
-      const error = new Error('Bilan SDK not initialized. Call init() first.')
-      
-      if (this.config && this.config.debug) {
-        throw error
-      } else {
-        console.warn('Bilan SDK not initialized. Call init() first.')
-        return 'fallback-conversation-id'
-      }
-    }
-
-    const conversationId = `conv-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    if (!this.checkInit()) return 'fallback-conversation-id'
     
-    const conversationData: ConversationData = {
-      id: conversationId,
-      userId,
-      startedAt: Date.now(),
-      messageCount: 0
-    }
+    const conversationId = `conv-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    const data: ConversationData = { id: conversationId, userId, startedAt: Date.now(), messageCount: 0 }
 
-    try {
-      if (this.config.mode === 'local') {
-        await this.storeConversationLocally(conversationData)
-      } else if (this.config.mode === 'server') {
-        await this.sendConversationToServer(conversationData)
-      }
-
-      return conversationId
-    } catch (error) {
-      if (this.config.debug) {
-        throw error
-      } else {
-        console.warn('Failed to start conversation:', error)
-        return conversationId // Return ID anyway for graceful degradation
-      }
+    if (this.config!.mode === 'local') {
+      await this.storeData(`conversations:${this.config!.userId}`, data)
     }
+    return conversationId
   }
 
-  /**
-   * Add a message to an existing conversation.
-   * 
-   * @param conversationId - The conversation to add message to
-   * @returns Promise that resolves when message is recorded
-   * 
-   * @example
-   * ```typescript
-   * await conversation.addMessage('conv-123')
-   * ```
-   */
+  /** Add a message to a conversation */
   async addMessage(conversationId: string): Promise<void> {
-    if (!this.isInitialized || !this.config) {
-      if (this.config && this.config.debug) {
-        throw new Error('Bilan SDK not initialized. Call init() first.')
-      } else {
-        console.warn('Bilan SDK not initialized. Call init() first.')
-        return
-      }
-    }
-
-    try {
-      if (this.config.mode === 'local') {
-        await this.incrementMessageCountLocally(conversationId)
-      } else if (this.config.mode === 'server') {
-        await this.sendMessageUpdateToServer(conversationId)
-      }
-    } catch (error) {
-      if (this.config.debug) {
-        throw error
-      } else {
-        console.warn('Failed to add message:', error)
-      }
+    if (!this.checkInit()) return
+    
+    if (this.config!.mode === 'local') {
+      await this.storeData(`conversations:${this.config!.userId}`, null, (conversations) => {
+        const conv = conversations.find(c => c.id === conversationId)
+        if (conv) conv.messageCount++
+      })
     }
   }
 
-  /**
-   * Record user frustration in a conversation.
-   * 
-   * @param conversationId - The conversation where frustration occurred
-   * @returns Promise that resolves when frustration is recorded
-   * 
-   * @example
-   * ```typescript
-   * await conversation.recordFrustration('conv-123')
-   * ```
-   */
+  /** Record user frustration */
   async recordFrustration(conversationId: string): Promise<void> {
-    const feedbackEvent: FeedbackEvent = {
-      conversationId,
-      type: 'frustration',
-      timestamp: Date.now()
-    }
-
-    try {
-      await this.recordFeedbackEvent(feedbackEvent)
-    } catch (error) {
-      if (this.config && this.config.debug) {
-        throw error
-      } else {
-        console.warn('Failed to record frustration:', error)
-      }
-    }
+    if (!this.checkInit()) return
+    await this.recordFeedbackEvent({ conversationId, type: 'frustration', timestamp: Date.now() })
   }
 
-  /**
-   * Record AI response regeneration in a conversation.
-   * 
-   * @param conversationId - The conversation where regeneration occurred
-   * @returns Promise that resolves when regeneration is recorded
-   * 
-   * @example
-   * ```typescript
-   * await conversation.recordRegeneration('conv-123')
-   * ```
-   */
+  /** Record AI regeneration */
   async recordRegeneration(conversationId: string): Promise<void> {
-    const feedbackEvent: FeedbackEvent = {
-      conversationId,
-      type: 'regeneration',
-      timestamp: Date.now()
-    }
-
-    try {
-      await this.recordFeedbackEvent(feedbackEvent)
-    } catch (error) {
-      if (this.config && this.config.debug) {
-        throw error
-      } else {
-        console.warn('Failed to record regeneration:', error)
-      }
-    }
+    if (!this.checkInit()) return
+    await this.recordFeedbackEvent({ conversationId, type: 'regeneration', timestamp: Date.now() })
   }
 
-  /**
-   * Record explicit user feedback in a conversation.
-   * 
-   * @param conversationId - The conversation to record feedback for
-   * @param value - Feedback value: 1 for positive, -1 for negative
-   * @returns Promise that resolves when feedback is recorded
-   * 
-   * @example
-   * ```typescript
-   * await conversation.recordFeedback('conv-123', 1)
-   * ```
-   */
+  /** Record explicit feedback */
   async recordFeedback(conversationId: string, value: 1 | -1): Promise<void> {
-    const feedbackEvent: FeedbackEvent = {
-      conversationId,
-      type: 'explicit_feedback',
-      value,
-      timestamp: Date.now()
-    }
-
-    try {
-      await this.recordFeedbackEvent(feedbackEvent)
-    } catch (error) {
-      if (this.config && this.config.debug) {
-        throw error
-      } else {
-        console.warn('Failed to record feedback:', error)
-      }
-    }
+    if (!this.checkInit()) return
+    await this.recordFeedbackEvent({ conversationId, type: 'explicit_feedback', value, timestamp: Date.now() })
   }
 
-  /**
-   * End a conversation with a final outcome.
-   * 
-   * @param conversationId - The conversation to end
-   * @param outcome - Final outcome: 'completed' or 'abandoned'
-   * @returns Promise that resolves when conversation is ended
-   * 
-   * @example
-   * ```typescript
-   * await conversation.end('conv-123', 'completed')
-   * ```
-   */
+  /** End a conversation */
   async endConversation(conversationId: string, outcome: 'completed' | 'abandoned'): Promise<void> {
-    if (!this.isInitialized || !this.config) {
-      if (this.config && this.config.debug) {
-        throw new Error('Bilan SDK not initialized. Call init() first.')
-      } else {
-        console.warn('Bilan SDK not initialized. Call init() first.')
-        return
-      }
-    }
-
-    try {
-      if (this.config.mode === 'local') {
-        await this.endConversationLocally(conversationId, outcome)
-      } else if (this.config.mode === 'server') {
-        await this.sendConversationEndToServer(conversationId, outcome)
-      }
-    } catch (error) {
-      if (this.config.debug) {
-        throw error
-      } else {
-        console.warn('Failed to end conversation:', error)
-      }
+    if (!this.checkInit()) return
+    
+    if (this.config!.mode === 'local') {
+      await this.storeData(`conversations:${this.config!.userId}`, null, (conversations) => {
+        const conv = conversations.find(c => c.id === conversationId)
+        if (conv) {
+          conv.endedAt = Date.now()
+          conv.outcome = outcome
+        }
+      })
     }
   }
 
-  /**
-   * Track a step in a user journey.
-   * 
-   * @param journeyName - Name of the journey (e.g., 'email-agent', 'code-assistant')
-   * @param stepName - Name of the step within the journey
-   * @param userId - User who completed this step
-   * @returns Promise that resolves when step is recorded
-   * 
-   * @example
-   * ```typescript
-   * await journey.trackStep('email-agent', 'query-sent', 'user-123')
-   * ```
-   */
+  /** Track a journey step */
   async trackJourneyStep(journeyName: string, stepName: string, userId: string): Promise<void> {
-    if (!this.isInitialized || !this.config) {
-      if (this.config && this.config.debug) {
-        throw new Error('Bilan SDK not initialized. Call init() first.')
-      } else {
-        console.warn('Bilan SDK not initialized. Call init() first.')
-        return
-      }
-    }
-
-    const journeyStep: JourneyStep = {
-      journeyName,
-      stepName,
-      userId,
-      timestamp: Date.now()
-    }
-
-    try {
-      if (this.config.mode === 'local') {
-        await this.storeJourneyStepLocally(journeyStep)
-      } else if (this.config.mode === 'server') {
-        await this.sendJourneyStepToServer(journeyStep)
-      }
-    } catch (error) {
-      if (this.config.debug) {
-        throw error
-      } else {
-        console.warn('Failed to track journey step:', error)
-      }
+    if (!this.checkInit()) return
+    
+    const step: JourneyStep = { journeyName, stepName, userId, timestamp: Date.now() }
+    if (this.config!.mode === 'local') {
+      await this.storeData(`journey:${this.config!.userId}`, step)
     }
   }
 
-  /**
-   * Mark a user journey as complete.
-   * 
-   * @param journeyName - Name of the journey to complete
-   * @param userId - User who completed the journey
-   * @returns Promise that resolves when completion is recorded
-   * 
-   * @example
-   * ```typescript
-   * await journey.complete('email-agent', 'user-123')
-   * ```
-   */
+  /** Complete a journey */
   async completeJourney(journeyName: string, userId: string): Promise<void> {
-    if (!this.isInitialized || !this.config) {
-      if (this.config && this.config.debug) {
-        throw new Error('Bilan SDK not initialized. Call init() first.')
-      } else {
-        console.warn('Bilan SDK not initialized. Call init() first.')
-        return
-      }
-    }
-
-    const completionStep: JourneyStep = {
-      journeyName,
-      stepName: 'completed',
-      userId,
-      timestamp: Date.now()
-    }
-
-    try {
-      if (this.config.mode === 'local') {
-        await this.storeJourneyStepLocally(completionStep)
-      } else if (this.config.mode === 'server') {
-        await this.sendJourneyStepToServer(completionStep)
-      }
-    } catch (error) {
-      if (this.config.debug) {
-        throw error
-      } else {
-        console.warn('Failed to complete journey:', error)
-      }
-    }
+    await this.trackJourneyStep(journeyName, 'completed', userId)
   }
 
   private async storeEventLocally(event: VoteEvent): Promise<void> {
@@ -728,215 +530,32 @@ class BilanSDK {
     return data ? JSON.parse(data) : []
   }
 
-  private async storeConversationLocally(conversation: ConversationData): Promise<void> {
-    if (!this.storage || !this.config) throw new Error('Storage adapter not available')
-
-    const key = `conversations:${this.config.userId}`
-    const existingData = await this.storage.get(key)
-    const conversations: ConversationData[] = existingData ? JSON.parse(existingData) : []
-    
-    conversations.push(conversation)
-    await this.storage.set(key, JSON.stringify(conversations))
-  }
-
-  private async incrementMessageCountLocally(conversationId: string): Promise<void> {
-    if (!this.storage || !this.config) throw new Error('Storage adapter not available')
-
-    const key = `conversations:${this.config.userId}`
-    const existingData = await this.storage.get(key)
-    const conversations: ConversationData[] = existingData ? JSON.parse(existingData) : []
-    
-    const conversation = conversations.find(c => c.id === conversationId)
-    if (conversation) {
-      conversation.messageCount++
-      await this.storage.set(key, JSON.stringify(conversations))
-    }
-  }
-
   private async recordFeedbackEvent(event: FeedbackEvent): Promise<void> {
-    if (!this.storage || !this.config) throw new Error('Storage adapter not available')
-
-    const key = `feedback:${this.config.userId}`
-    const existingData = await this.storage.get(key)
-    const events: FeedbackEvent[] = existingData ? JSON.parse(existingData) : []
-    
-    events.push(event)
-    await this.storage.set(key, JSON.stringify(events))
-  }
-
-  private async endConversationLocally(conversationId: string, outcome: 'completed' | 'abandoned'): Promise<void> {
-    if (!this.storage || !this.config) throw new Error('Storage adapter not available')
-
-    const key = `conversations:${this.config.userId}`
-    const existingData = await this.storage.get(key)
-    const conversations: ConversationData[] = existingData ? JSON.parse(existingData) : []
-    
-    const conversation = conversations.find(c => c.id === conversationId)
-    if (conversation) {
-      conversation.endedAt = Date.now()
-      conversation.outcome = outcome
-      await this.storage.set(key, JSON.stringify(conversations))
+    if (this.config!.mode === 'local') {
+      await this.storeData(`feedback:${this.config!.userId}`, event)
     }
-  }
-
-  private async sendConversationToServer(conversation: ConversationData): Promise<void> {
-    // TODO: Implement server API calls in later commits
-    throw new Error('Server mode not implemented yet')
-  }
-
-  private async sendMessageUpdateToServer(conversationId: string): Promise<void> {
-    // TODO: Implement server API calls in later commits
-    throw new Error('Server mode not implemented yet')
-  }
-
-  private async sendConversationEndToServer(conversationId: string, outcome: 'completed' | 'abandoned'): Promise<void> {
-    // TODO: Implement server API calls in later commits
-    throw new Error('Server mode not implemented yet')
-  }
-
-  private async storeJourneyStepLocally(step: JourneyStep): Promise<void> {
-    if (!this.storage || !this.config) throw new Error('Storage adapter not available')
-
-    const key = `journey:${this.config.userId}`
-    const existingData = await this.storage.get(key)
-    const steps: JourneyStep[] = existingData ? JSON.parse(existingData) : []
-    
-    steps.push(step)
-    await this.storage.set(key, JSON.stringify(steps))
-  }
-
-  private async sendJourneyStepToServer(step: JourneyStep): Promise<void> {
-    // TODO: Implement server API calls in later commits
-    throw new Error('Server mode not implemented yet')
   }
 }
 
 // Create a default instance for convenience
 const defaultBilan = new BilanSDK()
 
-/**
- * Initialize the Bilan SDK with configuration options.
- * Uses the default SDK instance for convenience.
- * 
- * @param config - Configuration object for the SDK
- * @see BilanSDK.init for detailed parameter documentation
- */
+// Core SDK methods
 export const init = defaultBilan.init.bind(defaultBilan)
-
-/**
- * Record user feedback on an AI suggestion.
- * Uses the default SDK instance for convenience.
- * 
- * @param promptId - Unique identifier for the AI prompt/suggestion
- * @param value - User feedback: 1 for positive (👍), -1 for negative (👎)
- * @param comment - Optional text comment from the user
- * @param options - Additional context about the AI interaction
- * @see BilanSDK.vote for detailed parameter documentation
- */
 export const vote = defaultBilan.vote.bind(defaultBilan)
-
-/**
- * Get aggregate statistics for all user feedback.
- * Uses the default SDK instance for convenience.
- * 
- * @returns Promise resolving to basic analytics
- * @see BilanSDK.getStats for detailed return value documentation
- */
 export const getStats = defaultBilan.getStats.bind(defaultBilan)
-
-/**
- * Get statistics for a specific AI prompt/suggestion.
- * Uses the default SDK instance for convenience.
- * 
- * @param promptId - Unique identifier for the prompt to analyze
- * @returns Promise resolving to prompt-specific analytics
- * @see BilanSDK.getPromptStats for detailed parameter and return value documentation
- */
 export const getPromptStats = defaultBilan.getPromptStats.bind(defaultBilan)
 
-/**
- * Start a new conversation session.
- * Uses the default SDK instance for convenience.
- * 
- * @param userId - User identifier for the conversation
- * @returns Promise resolving to the conversation ID
- * @see BilanSDK.startConversation for detailed parameter and return value documentation
- */
+// Conversation tracking methods
 export const startConversation = defaultBilan.startConversation.bind(defaultBilan)
-
-/**
- * Add a message to an existing conversation.
- * Uses the default SDK instance for convenience.
- * 
- * @param conversationId - The conversation to add message to
- * @returns Promise that resolves when message is recorded
- * @see BilanSDK.addMessage for detailed parameter documentation
- */
 export const addMessage = defaultBilan.addMessage.bind(defaultBilan)
-
-/**
- * Record user frustration in a conversation.
- * Uses the default SDK instance for convenience.
- * 
- * @param conversationId - The conversation where frustration occurred
- * @returns Promise that resolves when frustration is recorded
- * @see BilanSDK.recordFrustration for detailed parameter documentation
- */
 export const recordFrustration = defaultBilan.recordFrustration.bind(defaultBilan)
-
-/**
- * Record AI response regeneration in a conversation.
- * Uses the default SDK instance for convenience.
- * 
- * @param conversationId - The conversation where regeneration occurred
- * @returns Promise that resolves when regeneration is recorded
- * @see BilanSDK.recordRegeneration for detailed parameter documentation
- */
 export const recordRegeneration = defaultBilan.recordRegeneration.bind(defaultBilan)
-
-/**
- * Record explicit user feedback in a conversation.
- * Uses the default SDK instance for convenience.
- * 
- * @param conversationId - The conversation to record feedback for
- * @param value - Feedback value: 1 for positive, -1 for negative
- * @returns Promise that resolves when feedback is recorded
- * @see BilanSDK.recordFeedback for detailed parameter documentation
- */
 export const recordFeedback = defaultBilan.recordFeedback.bind(defaultBilan)
-
-/**
- * End a conversation with a final outcome.
- * Uses the default SDK instance for convenience.
- * 
- * @param conversationId - The conversation to end
- * @param outcome - Final outcome: 'completed' or 'abandoned'
- * @returns Promise that resolves when conversation is ended
- * @see BilanSDK.endConversation for detailed parameter documentation
- */
 export const endConversation = defaultBilan.endConversation.bind(defaultBilan)
 
-/**
- * Track a step in a user journey.
- * Uses the default SDK instance for convenience.
- * 
- * @param journeyName - Name of the journey (e.g., 'email-agent', 'code-assistant')
- * @param stepName - Name of the step within the journey
- * @param userId - User who completed this step
- * @returns Promise that resolves when step is recorded
- * @see BilanSDK.trackJourneyStep for detailed parameter documentation
- */
+// Journey tracking methods
 export const trackJourneyStep = defaultBilan.trackJourneyStep.bind(defaultBilan)
-
-/**
- * Mark a user journey as complete.
- * Uses the default SDK instance for convenience.
- * 
- * @param journeyName - Name of the journey to complete
- * @param userId - User who completed the journey
- * @returns Promise that resolves when completion is recorded
- * @see BilanSDK.completeJourney for detailed parameter documentation
- */
 export const completeJourney = defaultBilan.completeJourney.bind(defaultBilan)
 
 // Export the class for creating custom instances
