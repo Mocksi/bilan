@@ -4,6 +4,7 @@
  */
 export type UserId = string & { __brand: 'UserId' }
 export type PromptId = string & { __brand: 'PromptId' }
+export type ConversationId = string & { __brand: 'ConversationId' }
 
 /**
  * Configuration options for initializing the Bilan SDK.
@@ -119,9 +120,9 @@ export interface StorageAdapter {
  */
 export interface ConversationData {
   /** Unique identifier for the conversation */
-  id: string
+  id: ConversationId
   /** User who participated in the conversation */
-  userId: string
+  userId: UserId
   /** When the conversation started (milliseconds since epoch) */
   startedAt: number
   /** When the conversation ended (milliseconds since epoch) */
@@ -137,7 +138,7 @@ export interface ConversationData {
  */
 export interface FeedbackEvent {
   /** Conversation this feedback belongs to */
-  conversationId: string
+  conversationId: ConversationId
   /** Type of feedback event */
   type: 'frustration' | 'regeneration' | 'explicit_feedback'
   /** Feedback value (only for explicit feedback) */
@@ -155,7 +156,7 @@ export interface JourneyStep {
   /** Name of the step within the journey */
   stepName: string
   /** User who completed this step */
-  userId: string
+  userId: UserId
   /** When the step was completed (milliseconds since epoch) */
   timestamp: number
 }
@@ -186,4 +187,18 @@ export const createUserId = (id: string): UserId => id as UserId
  * await vote(promptId, 1, 'Great response!')
  * ```
  */
-export const createPromptId = (id: string): PromptId => id as PromptId 
+export const createPromptId = (id: string): PromptId => id as PromptId
+
+/**
+ * Helper function to create a branded ConversationId from a string.
+ * 
+ * @param id - The conversation identifier string
+ * @returns Branded ConversationId type
+ * 
+ * @example
+ * ```typescript
+ * const conversationId = createConversationId('conv-123')
+ * await addMessage(conversationId)
+ * ```
+ */
+export const createConversationId = (id: string): ConversationId => id as ConversationId 
