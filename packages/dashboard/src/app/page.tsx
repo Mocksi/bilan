@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useDashboardData } from '@/lib/api-client'
 import { DashboardData } from '@/lib/types'
+import { SimpleLineChart } from '@/components/SimpleLineChart'
 
 export default function Dashboard() {
   const { data, loading, error, refresh } = useDashboardData()
@@ -18,42 +19,22 @@ export default function Dashboard() {
     return new Date(timestamp).toLocaleString()
   }
 
-  const getTrendColor = (trend: 'improving' | 'declining' | 'stable') => {
-    switch (trend) {
-      case 'improving':
-        return 'text-green-600'
-      case 'declining':
-        return 'text-red-600'
-      case 'stable':
-        return 'text-gray-600'
-      default:
-        return 'text-gray-600'
-    }
-  }
-
-  const getTrendIcon = (trend: 'improving' | 'declining' | 'stable') => {
-    switch (trend) {
-      case 'improving':
-        return '↗'
-      case 'declining':
-        return '↘'
-      case 'stable':
-        return '→'
-      default:
-        return '→'
-    }
-  }
-
   const handleRefresh = () => {
     refresh()
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading dashboard...</p>
+      <div className="page">
+        <div className="container-xl">
+          <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '100vh' }}>
+            <div className="text-center">
+              <div className="spinner-border text-primary mb-3" role="status">
+                <span className="visually-hidden">Loading...</span>
+              </div>
+              <p className="text-muted">Loading dashboard...</p>
+            </div>
+          </div>
         </div>
       </div>
     )
@@ -61,17 +42,22 @@ export default function Dashboard() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-red-600 text-6xl mb-4">⚠</div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Error Loading Dashboard</h2>
-          <p className="text-gray-600 mb-4">{error}</p>
-          <button
-            onClick={handleRefresh}
-            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
-          >
-            Try Again
-          </button>
+      <div className="page">
+        <div className="container-xl">
+          <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '100vh' }}>
+            <div className="text-center">
+              <div className="text-danger mb-3">
+                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
+                </svg>
+              </div>
+              <h3 className="text-danger mb-3">Error Loading Dashboard</h3>
+              <p className="text-muted mb-4">{error}</p>
+              <button onClick={handleRefresh} className="btn btn-primary">
+                Try Again
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     )
@@ -79,211 +65,333 @@ export default function Dashboard() {
 
   if (!data) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-gray-600">No data available</p>
+      <div className="page">
+        <div className="container-xl">
+          <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '100vh' }}>
+            <div className="text-center">
+              <p className="text-muted">No data available</p>
+            </div>
+          </div>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="page">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Bilan Analytics</h1>
-              <p className="text-sm text-gray-600">Trust analytics for your AI-powered application</p>
-            </div>
-            <div className="flex items-center space-x-4">
-              {lastUpdated && (
-                <span className="text-sm text-gray-500">
-                  Updated: {lastUpdated.toLocaleTimeString()}
-                </span>
-              )}
-              <button
-                onClick={handleRefresh}
-                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors text-sm"
-              >
-                Refresh
-              </button>
-            </div>
+      <header className="navbar navbar-expand-md d-print-none">
+        <div className="container-xl">
+          <div className="navbar-brand">
+            <h1 className="navbar-brand-text">Bilan Analytics</h1>
+          </div>
+          <div className="navbar-nav flex-row order-md-last">
+            {lastUpdated && (
+              <span className="navbar-text me-3">
+                <small className="text-muted">Updated: {lastUpdated.toLocaleTimeString()}</small>
+              </span>
+            )}
+            <button onClick={handleRefresh} className="btn btn-primary">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="me-1">
+                <polyline points="23 4 23 10 17 10"></polyline>
+                <polyline points="1 20 1 14 7 14"></polyline>
+                <path d="m3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+              </svg>
+              Refresh
+            </button>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Metrics Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {/* Conversation Success Rate */}
-          <div className="bg-white p-6 rounded-lg shadow-sm border">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="text-3xl">💬</div>
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Conversation Success Rate</dt>
-                  <dd className="text-2xl font-semibold text-gray-900">
-                    {(data.conversationStats.successRate * 100).toFixed(1)}%
-                  </dd>
-                </dl>
-              </div>
-            </div>
-            <div className="mt-4 text-sm text-gray-600">
-              {data.conversationStats.totalConversations} total conversations
-            </div>
-          </div>
-
-          {/* Journey Completion Rate */}
-          <div className="bg-white p-6 rounded-lg shadow-sm border">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="text-3xl">🚀</div>
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Journey Completion</dt>
-                  <dd className="text-2xl font-semibold text-gray-900">
-                    {(data.journeyStats.completionRate * 100).toFixed(1)}%
-                  </dd>
-                </dl>
-              </div>
-            </div>
-            <div className="mt-4 text-sm text-gray-600">
-              {data.journeyStats.totalJourneys} active journeys
-            </div>
-          </div>
-
-          {/* Feedback Positive Rate */}
-          <div className="bg-white p-6 rounded-lg shadow-sm border">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="text-3xl">👍</div>
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Positive Feedback</dt>
-                  <dd className="text-2xl font-semibold text-gray-900">
-                    {(data.feedbackStats.positiveRate * 100).toFixed(1)}%
-                  </dd>
-                </dl>
-              </div>
-            </div>
-            <div className="mt-4 text-sm text-gray-600">
-              {data.feedbackStats.totalFeedback} total feedback
-            </div>
-          </div>
-
-          {/* Trend Indicator */}
-          <div className="bg-white p-6 rounded-lg shadow-sm border">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="text-3xl">📈</div>
-              </div>
-              <div className="ml-5 w-0 flex-1">
-                <dl>
-                  <dt className="text-sm font-medium text-gray-500 truncate">Recent Trend</dt>
-                  <dd className={`text-2xl font-semibold capitalize ${getTrendColor(data.feedbackStats.recentTrend)}`}>
-                    {getTrendIcon(data.feedbackStats.recentTrend)} {data.feedbackStats.recentTrend}
-                  </dd>
-                </dl>
-              </div>
-            </div>
-            <div className="mt-4 text-sm text-gray-600">
-              Based on recent feedback
-            </div>
-          </div>
-        </div>
-
-        {/* Two Column Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Recent Conversations */}
-          <div className="bg-white rounded-lg shadow-sm border">
-            <div className="px-6 py-4 border-b">
-              <h3 className="text-lg font-medium text-gray-900">Recent Conversations</h3>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Conversation
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Outcome
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Activity
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {data.recentActivity.conversations.map((conversation, index) => (
-                    <tr key={index}>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{conversation.promptId}</div>
-                        <div className="text-sm text-gray-500">{conversation.userId}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          conversation.outcome === 'positive' 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-red-100 text-red-800'
-                        }`}>
-                          {conversation.outcome}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatTimestamp(conversation.lastActivity)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Popular Journeys & Top Comments */}
-          <div className="space-y-6">
-            {/* Popular Journeys */}
-            <div className="bg-white rounded-lg shadow-sm border">
-              <div className="px-6 py-4 border-b">
-                <h3 className="text-lg font-medium text-gray-900">Popular Journeys</h3>
-              </div>
-              <div className="p-6">
-                <div className="space-y-4">
-                  {data.journeyStats.popularJourneys.map((journey, index) => (
-                    <div key={index} className="flex items-center justify-between">
-                      <div className="text-sm font-medium text-gray-900">{journey.name}</div>
-                      <div className="text-sm text-gray-500">{journey.count} events</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Top Comments */}
-            <div className="bg-white rounded-lg shadow-sm border">
-              <div className="px-6 py-4 border-b">
-                <h3 className="text-lg font-medium text-gray-900">Recent Comments</h3>
-              </div>
-              <div className="p-6">
-                <div className="space-y-4">
-                  {data.feedbackStats.topComments.map((comment, index) => (
-                    <div key={index} className="text-sm text-gray-700 border-l-4 border-blue-200 pl-4">
-                      "{comment}"
-                    </div>
-                  ))}
-                </div>
+      <div className="page-wrapper">
+        <div className="page-header d-print-none">
+          <div className="container-xl">
+            <div className="row g-2 align-items-center">
+              <div className="col">
+                <h2 className="page-title">Dashboard</h2>
+                <div className="text-muted mt-1">Trust analytics for your AI-powered application</div>
               </div>
             </div>
           </div>
         </div>
-      </main>
+
+        <div className="page-body">
+          <div className="container-xl">
+            {/* Stats Cards */}
+            <div className="row row-deck row-cards">
+              <div className="col-sm-6 col-lg-3">
+                <div className="card">
+                  <div className="card-body">
+                    <div className="d-flex align-items-center">
+                      <div className="subheader">Conversation Success Rate</div>
+                    </div>
+                    <div className="d-flex align-items-baseline">
+                      {data.conversationStats.successRate !== null ? (
+                        <div className="h1 mb-0 me-2">{(data.conversationStats.successRate * 100).toFixed(1)}%</div>
+                      ) : (
+                        <div className="h1 mb-0 me-2 text-muted">N/A</div>
+                      )}
+                    </div>
+                    <div className="mt-2">
+                      {data.conversationStats.successRate !== null ? (
+                        <small className="text-muted">{data.conversationStats.totalConversations} total conversations</small>
+                      ) : (
+                        <small className="text-muted">No conversation tracking implemented</small>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="col-sm-6 col-lg-3">
+                <div className="card">
+                  <div className="card-body">
+                    <div className="d-flex align-items-center">
+                      <div className="subheader">Journey Completion</div>
+                    </div>
+                    <div className="d-flex align-items-baseline">
+                      {data.journeyStats.completionRate !== null ? (
+                        <div className="h1 mb-0 me-2">{(data.journeyStats.completionRate * 100).toFixed(1)}%</div>
+                      ) : (
+                        <div className="h1 mb-0 me-2 text-muted">N/A</div>
+                      )}
+                    </div>
+                    <div className="mt-2">
+                      {data.journeyStats.totalJourneys !== null ? (
+                        <small className="text-muted">{data.journeyStats.totalJourneys} active journeys</small>
+                      ) : (
+                        <small className="text-muted">No journey tracking implemented</small>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="col-sm-6 col-lg-3">
+                <div className="card">
+                  <div className="card-body">
+                    <div className="d-flex align-items-center">
+                      <div className="subheader">Positive Feedback</div>
+                    </div>
+                    <div className="d-flex align-items-baseline">
+                      <div className="h1 mb-0 me-2">{(data.feedbackStats.positiveRate * 100).toFixed(1)}%</div>
+                    </div>
+                    <div className="mt-2">
+                      <small className="text-muted">{data.feedbackStats.totalFeedback} total feedback</small>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="col-sm-6 col-lg-3">
+                <div className="card">
+                  <div className="card-body">
+                    <div className="d-flex align-items-center">
+                      <div className="subheader">Recent Trend</div>
+                    </div>
+                    <div className="d-flex align-items-baseline">
+                      <div className={`h1 mb-0 me-2 ${data.feedbackStats.recentTrend === 'improving' ? 'text-success' : data.feedbackStats.recentTrend === 'declining' ? 'text-danger' : 'text-muted'}`}>
+                        {data.feedbackStats.recentTrend === 'improving' ? '↗' : data.feedbackStats.recentTrend === 'declining' ? '↘' : '→'} {data.feedbackStats.recentTrend}
+                      </div>
+                    </div>
+                    <div className="mt-2">
+                      <small className="text-muted">Based on recent feedback</small>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Time Series Chart */}
+            <div className="row row-deck row-cards mt-4">
+              <div className="col-12">
+                <div className="card">
+                  <div className="card-header">
+                    <h3 className="card-title">Trust Score Trend</h3>
+                  </div>
+                  <div className="card-body">
+                    {data.timeSeriesData.length > 0 ? (
+                      <SimpleLineChart data={data.timeSeriesData} height={200} />
+                    ) : (
+                      <div className="text-muted text-center py-5">
+                        No time-series data available
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Main Content Grid */}
+            <div className="row row-deck row-cards mt-4">
+              {/* Left Column - Recent Votes */}
+              <div className="col-12 col-lg-8">
+                <div className="card">
+                  <div className="card-header">
+                    <h3 className="card-title">Recent Votes</h3>
+                  </div>
+                  <div className="card-body">
+                    {data.recentActivity.recentVotes.length > 0 ? (
+                      <div className="table-responsive">
+                        <table className="table table-vcenter">
+                          <thead>
+                            <tr>
+                              <th>Prompt ID</th>
+                              <th>User</th>
+                              <th>Vote</th>
+                              {data.journeyStats.popularJourneys.length > 0 && <th>Journey</th>}
+                              <th>Timestamp</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {data.recentActivity.recentVotes.map((vote, index) => (
+                              <tr key={index}>
+                                <td>
+                                  <div className="font-weight-medium">{vote.promptId}</div>
+                                  {vote.comment && (
+                                    <div className="text-muted small">"{vote.comment}"</div>
+                                  )}
+                                </td>
+                                <td>
+                                  <div className="text-muted">{vote.userId}</div>
+                                </td>
+                                <td>
+                                  <span className={`badge ${vote.value > 0 ? 'bg-success' : 'bg-danger'}`}>
+                                    {vote.value > 0 ? '+1' : '-1'}
+                                  </span>
+                                </td>
+                                {data.journeyStats.popularJourneys.length > 0 && (
+                                  <td>
+                                    <div className="text-muted small">
+                                      {vote.metadata?.journeyName || 'N/A'}
+                                    </div>
+                                  </td>
+                                )}
+                                <td className="text-muted">
+                                  {formatTimestamp(vote.timestamp)}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="text-muted">No recent votes</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column - Journey Performance + Quality Signals */}
+              <div className="col-12 col-lg-4">
+                <div className="row row-cards">
+                  {/* Journey Performance - Only show if we have actual journey data */}
+                  {data.journeyStats.popularJourneys.length > 0 && (
+                    <div className="col-12">
+                      <div className="card">
+                        <div className="card-header">
+                          <h3 className="card-title">Journey Performance</h3>
+                        </div>
+                        <div className="card-body">
+                          <div className="space-y-3">
+                            {data.journeyStats.popularJourneys.map((journey, index) => (
+                              <div key={index} className="mb-3">
+                                <div className="d-flex justify-content-between align-items-center mb-1">
+                                  <div className="fw-medium">{journey.name}</div>
+                                  <small className="text-muted">{Math.round(journey.completionRate * 100)}%</small>
+                                </div>
+                                <div className="progress" style={{ height: '8px' }}>
+                                  <div 
+                                    className="progress-bar" 
+                                    style={{ width: `${journey.completionRate * 100}%` }}
+                                  ></div>
+                                </div>
+                                <small className="text-muted">{journey.count} events</small>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Quality Signals */}
+                  <div className="col-12">
+                    <div className="card">
+                      <div className="card-header">
+                        <h3 className="card-title">This Week's Signals</h3>
+                      </div>
+                      <div className="card-body">
+                        <div className="row">
+                          <div className="col-6">
+                            <div className="d-flex align-items-center mb-3">
+                              <span className="me-2">👍</span>
+                              <div>
+                                <div className="fw-medium">{data.qualitySignals.positive}</div>
+                                <small className="text-muted">Positive</small>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="col-6">
+                            <div className="d-flex align-items-center mb-3">
+                              <span className="me-2">👎</span>
+                              <div>
+                                <div className="fw-medium">{data.qualitySignals.negative}</div>
+                                <small className="text-muted">Negative</small>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="col-6">
+                            <div className="d-flex align-items-center">
+                              <span className="me-2">🔄</span>
+                              <div>
+                                <div className="fw-medium">{data.qualitySignals.regenerations}</div>
+                                <small className="text-muted">Regenerations</small>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="col-6">
+                            <div className="d-flex align-items-center">
+                              <span className="me-2">😤</span>
+                              <div>
+                                <div className="fw-medium">{data.qualitySignals.frustration}</div>
+                                <small className="text-muted">Frustration</small>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Recent Comments */}
+                  <div className="col-12">
+                    <div className="card">
+                      <div className="card-header">
+                        <h3 className="card-title">Recent Comments</h3>
+                      </div>
+                      <div className="card-body">
+                        {data.feedbackStats.topComments.length > 0 ? (
+                          <div className="space-y-2">
+                            {data.feedbackStats.topComments.map((comment, index) => (
+                              <div key={index} className="text-muted border-start border-4 border-primary ps-3 mb-2">
+                                "{comment}"
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-muted">No comments yet</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   )
 } 

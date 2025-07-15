@@ -1,12 +1,9 @@
-import './globals.css'
-import { Metadata } from 'next'
+import type { Metadata } from 'next'
+import '../assets/css/tabler.min.css'
 
 export const metadata: Metadata = {
   title: 'Bilan Analytics Dashboard',
-  description: 'Trust analytics and insights for your AI-powered application',
-  icons: {
-    icon: '/favicon.ico',
-  }
+  description: 'Trust analytics for your AI-powered application',
 }
 
 export default function RootLayout({
@@ -16,11 +13,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="bg-gray-50 text-gray-900">
-        <div className="min-h-screen">
-          {children}
-        </div>
-      </body>
+      <body>{children}</body>
     </html>
   )
 } 
