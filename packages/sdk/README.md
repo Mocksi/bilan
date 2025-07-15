@@ -31,6 +31,39 @@ console.log(`Trust score: ${(stats.positiveRate * 100).toFixed(1)}%`)
 console.log(`Trend: ${stats.recentTrend}`) // 'improving' | 'declining' | 'stable'
 ```
 
+### Conversation Tracking
+
+Track AI conversation success and quality signals:
+
+```typescript
+import { init, startConversation, addMessage, recordFeedback, endConversation } from '@mocksi/bilan-sdk'
+
+// Initialize the SDK
+await init({ mode: 'local', userId: createUserId('user-123') })
+
+// Track conversation flow
+const conversationId = await startConversation('user-123')
+await addMessage(conversationId)
+await recordFeedback(conversationId, 1)  // 1 for positive, -1 for negative
+await endConversation(conversationId, 'completed')  // or 'abandoned'
+```
+
+### Journey Tracking
+
+Track user progress through AI-powered workflows:
+
+```typescript
+import { init, trackJourneyStep, completeJourney } from '@mocksi/bilan-sdk'
+
+// Initialize the SDK
+await init({ mode: 'local', userId: createUserId('user-123') })
+
+// Track user journey
+await trackJourneyStep('email-agent', 'query-sent', 'user-123')
+await trackJourneyStep('email-agent', 'response-received', 'user-123')
+await completeJourney('email-agent', 'user-123')
+```
+
 ## Features
 
 - **🚀 Lightweight**: 1.7KB gzipped bundle size

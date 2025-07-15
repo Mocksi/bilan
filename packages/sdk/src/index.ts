@@ -21,6 +21,33 @@ import { ErrorHandler, GracefulDegradation } from './error-handling'
  * const stats = await getStats()
  * console.log(`Positive rate: ${(stats.positiveRate * 100).toFixed(1)}%`)
  * ```
+ * 
+ * @example
+ * ```typescript
+ * import { init, startConversation, addMessage, recordFeedback, endConversation } from '@mocksi/bilan-sdk'
+ * 
+ * // Initialize the SDK
+ * await init({ mode: 'local', userId: 'user-123' })
+ * 
+ * // Track conversation flow
+ * const conversationId = await startConversation('user-123')
+ * await addMessage(conversationId)
+ * await recordFeedback(conversationId, 1)
+ * await endConversation(conversationId, 'completed')
+ * ```
+ * 
+ * @example
+ * ```typescript
+ * import { init, trackJourneyStep, completeJourney } from '@mocksi/bilan-sdk'
+ * 
+ * // Initialize the SDK
+ * await init({ mode: 'local', userId: 'user-123' })
+ * 
+ * // Track user journey
+ * await trackJourneyStep('email-agent', 'query-sent', 'user-123')
+ * await trackJourneyStep('email-agent', 'response-received', 'user-123')
+ * await completeJourney('email-agent', 'user-123')
+ * ```
  */
 class BilanSDK {
   private config: InitConfig | null = null
