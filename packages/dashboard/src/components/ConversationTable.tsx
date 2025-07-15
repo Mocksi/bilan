@@ -60,8 +60,8 @@ export const ConversationTable: React.FC<ConversationTableProps> = ({
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {conversations.map((conversation, index) => (
-              <tr key={index} className="hover:bg-gray-50">
+            {conversations.map((conversation) => (
+              <tr key={conversation.promptId} className="hover:bg-gray-50">
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex flex-col">
                     <div className="text-sm font-medium text-gray-900 truncate max-w-xs">
