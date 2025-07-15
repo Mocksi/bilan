@@ -1,431 +1,289 @@
 'use client'
-import { useState, useEffect } from 'react'
-import { logger } from '../lib/logger'
 
-interface Event {
-  promptId: string
-  value: number
-  comment?: string
-  timestamp: number
-  userId: string
-  metadata?: any
-  promptText?: string
-  aiOutput?: string
-  modelUsed?: string
-  responseTime?: number
-}
-
-interface UserStats {
-  totalVotes: number
-  positiveRate: number
-  recentTrend: string
-}
-
-interface ApiResponse<T> {
-  success: boolean
-  data?: T
-  error?: string
-}
-
-interface EventsResponse {
-  events: Event[]
-  total: number
-}
+import { useEffect, useState } from 'react'
+import { useDashboardData } from '@/lib/api-client'
+import { DashboardData } from '@/lib/types'
 
 export default function Dashboard() {
-  const [events, setEvents] = useState<Event[]>([])
-  const [totalEvents, setTotalEvents] = useState<number>(0)
-  const [loading, setLoading] = useState(true)
-  const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
-  const [userStats, setUserStats] = useState<UserStats | null>(null)
-  const [error, setError] = useState<string | null>(null)
-
-  // Get API base URL from environment variables
-  const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3002'
+  const { data, loading, error, refresh } = useDashboardData()
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
 
   useEffect(() => {
-    fetchEvents()
-  }, [])
-
-  const fetchEvents = async () => {
-    try {
-      setError(null)
-      // Fetch all events for accurate statistics (up to server limit of 1000)
-      const response = await fetch(`${API_BASE_URL}/api/events?limit=1000`)
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-      
-      const data: EventsResponse = await response.json()
-      setEvents(data.events || [])
-      setTotalEvents(data.total || 0)
-      logger.log('Events fetched successfully', { 
-        fetchedEvents: data.events?.length || 0, 
-        totalEvents: data.total || 0 
-      })
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
-      setError(`Failed to fetch events: ${errorMessage}`)
-      logger.error('Error fetching events', errorMessage)
-    } finally {
-      setLoading(false)
+    if (data) {
+      setLastUpdated(new Date())
     }
-  }
-
-  const fetchUserStats = async (userId: string) => {
-    try {
-      setError(null)
-      const response = await fetch(`${API_BASE_URL}/api/stats?userId=${userId}`)
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
-      }
-      
-      const data: UserStats = await response.json()
-      setUserStats(data)
-      logger.log('User stats fetched', { userId, totalVotes: data.totalVotes })
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
-      setError(`Failed to fetch user stats: ${errorMessage}`)
-      logger.error('Error fetching user stats', { error: errorMessage, userId })
-    }
-  }
-
-  const handleUserClick = (userId: string) => {
-    setSelectedUserId(userId)
-    fetchUserStats(userId)
-  }
-
-  const clearSelection = () => {
-    setSelectedUserId(null)
-    setUserStats(null)
-    setError(null)
-  }
+  }, [data])
 
   const formatTimestamp = (timestamp: number) => {
     return new Date(timestamp).toLocaleString()
   }
 
-  const getVoteText = (value: number) => {
-    return value > 0 ? '👍 Positive' : '👎 Negative'
+  const getTrendColor = (trend: 'improving' | 'declining' | 'stable') => {
+    switch (trend) {
+      case 'improving':
+        return 'text-green-600'
+      case 'declining':
+        return 'text-red-600'
+      case 'stable':
+        return 'text-gray-600'
+      default:
+        return 'text-gray-600'
+    }
   }
 
-  const getVoteColor = (value: number) => {
-    return value > 0 ? 'green' : 'red'
+  const getTrendIcon = (trend: 'improving' | 'declining' | 'stable') => {
+    switch (trend) {
+      case 'improving':
+        return '↗'
+      case 'declining':
+        return '↘'
+      case 'stable':
+        return '→'
+      default:
+        return '→'
+    }
   }
 
-  const truncateText = (text: string | undefined, maxLength: number = 100) => {
-    if (!text) return '-'
-    if (text.length <= maxLength) return text
-    return text.substring(0, maxLength) + '...'
-  }
-
-  const retryFetch = () => {
-    setError(null)
-    setLoading(true)
-    fetchEvents()
+  const handleRefresh = () => {
+    refresh()
   }
 
   if (loading) {
     return (
-      <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif' }}>
-        <h1>Bilan Analytics - Loading...</h1>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading dashboard...</p>
+        </div>
       </div>
     )
   }
 
-  if (error && events.length === 0) {
+  if (error) {
     return (
-      <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif', maxWidth: '800px', margin: '0 auto' }}>
-        <div style={{ 
-          backgroundColor: '#f8d7da', 
-          border: '1px solid #f5c6cb',
-          borderRadius: '8px',
-          padding: '20px',
-          textAlign: 'center'
-        }}>
-          <h2 style={{ color: '#721c24', marginBottom: '10px' }}>Error Loading Dashboard</h2>
-          <p style={{ color: '#721c24', marginBottom: '20px' }}>{error}</p>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-red-600 text-6xl mb-4">⚠</div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Error Loading Dashboard</h2>
+          <p className="text-gray-600 mb-4">{error}</p>
           <button
-            onClick={retryFetch}
-            style={{
-              backgroundColor: '#007bff',
-              color: 'white',
-              padding: '10px 20px',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontSize: '16px'
-            }}
+            onClick={handleRefresh}
+            className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
           >
-            Retry
+            Try Again
           </button>
+        </div>
+      </div>
+    )
+  }
+
+  if (!data) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-gray-600">No data available</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif', maxWidth: '1400px', margin: '0 auto' }}>
-      <div style={{ marginBottom: '30px', borderBottom: '2px solid #f8f9fa', paddingBottom: '20px' }}>
-        <h1 style={{ margin: 0, color: '#212529', fontSize: '28px' }}>Bilan Analytics</h1>
-        <p style={{ margin: '8px 0 0 0', color: '#6c757d', fontSize: '16px' }}>
-          Trust analytics and user feedback insights for your AI-powered application
-        </p>
-      </div>
-
-      {error && (
-        <div style={{ 
-          marginBottom: '20px', 
-          padding: '15px', 
-          backgroundColor: '#f8d7da', 
-          border: '1px solid #f5c6cb',
-          borderRadius: '5px',
-          color: '#721c24'
-        }}>
-          <strong>Warning:</strong> {error}
-          <button
-            onClick={retryFetch}
-            style={{
-              marginLeft: '10px',
-              backgroundColor: '#007bff',
-              color: 'white',
-              padding: '5px 10px',
-              border: 'none',
-              borderRadius: '3px',
-              cursor: 'pointer',
-              fontSize: '12px'
-            }}
-          >
-            Retry
-          </button>
-        </div>
-      )}
-      
-      {selectedUserId && (
-        <div style={{ 
-          marginBottom: '20px', 
-          padding: '15px', 
-          backgroundColor: '#f0f8ff', 
-          border: '1px solid #ccc',
-          borderRadius: '5px'
-        }}>
-          <h2>User Details: {selectedUserId}</h2>
-          {userStats && (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
             <div>
-              <p><strong>Total Votes:</strong> {userStats.totalVotes}</p>
-              <p><strong>Positive Rate:</strong> {(userStats.positiveRate * 100).toFixed(1)}%</p>
-              <p><strong>Trend:</strong> {userStats.recentTrend}</p>
+              <h1 className="text-2xl font-bold text-gray-900">Bilan Analytics</h1>
+              <p className="text-sm text-gray-600">Trust analytics for your AI-powered application</p>
             </div>
-          )}
-          <button 
-            onClick={clearSelection}
-            style={{
-              marginTop: '10px',
-              padding: '8px 16px',
-              backgroundColor: '#007bff',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer'
-            }}
-          >
-            Back to All Events
-          </button>
+            <div className="flex items-center space-x-4">
+              {lastUpdated && (
+                <span className="text-sm text-gray-500">
+                  Updated: {lastUpdated.toLocaleTimeString()}
+                </span>
+              )}
+              <button
+                onClick={handleRefresh}
+                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors text-sm"
+              >
+                Refresh
+              </button>
+            </div>
+          </div>
         </div>
-      )}
+      </header>
 
-      {totalEvents > events.length && (
-        <div style={{ 
-          marginBottom: '20px', 
-          padding: '15px', 
-          backgroundColor: '#fff3cd', 
-          border: '1px solid #ffeaa7',
-          borderRadius: '5px',
-          color: '#856404'
-        }}>
-          <strong>Note:</strong> Showing statistics for the most recent {events.length} events out of {totalEvents} total events. 
-          The vote counts and user statistics below reflect recent activity only.
-        </div>
-      )}
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Metrics Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {/* Conversation Success Rate */}
+          <div className="bg-white p-6 rounded-lg shadow-sm border">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="text-3xl">💬</div>
+              </div>
+              <div className="ml-5 w-0 flex-1">
+                <dl>
+                  <dt className="text-sm font-medium text-gray-500 truncate">Conversation Success Rate</dt>
+                  <dd className="text-2xl font-semibold text-gray-900">
+                    {(data.conversationStats.successRate * 100).toFixed(1)}%
+                  </dd>
+                </dl>
+              </div>
+            </div>
+            <div className="mt-4 text-sm text-gray-600">
+              {data.conversationStats.totalConversations} total conversations
+            </div>
+          </div>
 
-      <div style={{ marginBottom: '25px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px' }}>
-          <div style={{ 
-            backgroundColor: '#fff', 
-            border: '1px solid #e9ecef', 
-            borderRadius: '8px', 
-            padding: '20px',
-            textAlign: 'center'
-          }}>
-            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#007bff', marginBottom: '5px' }}>
-              {totalEvents}
+          {/* Journey Completion Rate */}
+          <div className="bg-white p-6 rounded-lg shadow-sm border">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="text-3xl">🚀</div>
+              </div>
+              <div className="ml-5 w-0 flex-1">
+                <dl>
+                  <dt className="text-sm font-medium text-gray-500 truncate">Journey Completion</dt>
+                  <dd className="text-2xl font-semibold text-gray-900">
+                    {(data.journeyStats.completionRate * 100).toFixed(1)}%
+                  </dd>
+                </dl>
+              </div>
             </div>
-            <div style={{ fontSize: '14px', color: '#6c757d' }}>Total Events</div>
-          </div>
-          <div style={{ 
-            backgroundColor: '#fff', 
-            border: '1px solid #e9ecef', 
-            borderRadius: '8px', 
-            padding: '20px',
-            textAlign: 'center'
-          }}>
-            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#28a745', marginBottom: '5px' }}>
-              {events.filter(e => e.value > 0).length}
-            </div>
-            <div style={{ fontSize: '14px', color: '#6c757d' }}>
-              Positive Votes{totalEvents > events.length ? ' (Recent)' : ''}
+            <div className="mt-4 text-sm text-gray-600">
+              {data.journeyStats.totalJourneys} active journeys
             </div>
           </div>
-          <div style={{ 
-            backgroundColor: '#fff', 
-            border: '1px solid #e9ecef', 
-            borderRadius: '8px', 
-            padding: '20px',
-            textAlign: 'center'
-          }}>
-            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#dc3545', marginBottom: '5px' }}>
-              {events.filter(e => e.value < 0).length}
-            </div>
-            <div style={{ fontSize: '14px', color: '#6c757d' }}>
-              Negative Votes{totalEvents > events.length ? ' (Recent)' : ''}
-            </div>
-          </div>
-          <div style={{ 
-            backgroundColor: '#fff', 
-            border: '1px solid #e9ecef', 
-            borderRadius: '8px', 
-            padding: '20px',
-            textAlign: 'center'
-          }}>
-            <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#6f42c1', marginBottom: '5px' }}>
-              {new Set(events.map(e => e.userId)).size}
-            </div>
-            <div style={{ fontSize: '14px', color: '#6c757d' }}>
-              Unique Users{totalEvents > events.length ? ' (Recent)' : ''}
-            </div>
-          </div>
-        </div>
-      </div>
 
-      <h2 style={{ color: '#212529', marginBottom: '15px' }}>Recent Events</h2>
-      
-      {events.length === 0 ? (
-        <div style={{ 
-          textAlign: 'center', 
-          padding: '40px', 
-          backgroundColor: '#f8f9fa', 
-          borderRadius: '8px',
-          border: '1px solid #e9ecef'
-        }}>
-          <h3 style={{ color: '#6c757d', marginBottom: '10px' }}>No Events Yet</h3>
-          <p style={{ color: '#6c757d', margin: 0 }}>
-            Once your application starts sending events to the Bilan SDK, they'll appear here.
-          </p>
-        </div>
-      ) : (
-        <table style={{ 
-          width: '100%', 
-          borderCollapse: 'collapse',
-          border: '1px solid #e9ecef',
-          borderRadius: '8px',
-          overflow: 'hidden',
-          backgroundColor: '#fff'
-        }}>
-          <thead>
-            <tr style={{ backgroundColor: '#f8f9fa' }}>
-              <th style={{ padding: '15px 12px', border: '1px solid #e9ecef', textAlign: 'left', fontWeight: '600', color: '#495057' }}>
-                User ID
-              </th>
-              <th style={{ padding: '15px 12px', border: '1px solid #e9ecef', textAlign: 'left', fontWeight: '600', color: '#495057' }}>
-                Prompt Text
-              </th>
-              <th style={{ padding: '15px 12px', border: '1px solid #e9ecef', textAlign: 'left', fontWeight: '600', color: '#495057' }}>
-                AI Output
-              </th>
-              <th style={{ padding: '15px 12px', border: '1px solid #e9ecef', textAlign: 'center', fontWeight: '600', color: '#495057' }}>
-                Vote
-              </th>
-              <th style={{ padding: '15px 12px', border: '1px solid #e9ecef', textAlign: 'left', fontWeight: '600', color: '#495057' }}>
-                Model
-              </th>
-              <th style={{ padding: '15px 12px', border: '1px solid #e9ecef', textAlign: 'left', fontWeight: '600', color: '#495057' }}>
-                Comment
-              </th>
-              <th style={{ padding: '15px 12px', border: '1px solid #e9ecef', textAlign: 'left', fontWeight: '600', color: '#495057' }}>
-                Timestamp
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {events.map((event, index) => (
-              <tr key={index} style={{ 
-                backgroundColor: index % 2 === 0 ? '#fff' : '#f8f9fa',
-                borderBottom: '1px solid #e9ecef',
-                ...(selectedUserId && selectedUserId !== event.userId ? { opacity: 0.3 } : {})
-              }}>
-                <td style={{ padding: '15px 12px', border: '1px solid #e9ecef' }}>
-                  <button
-                    onClick={() => handleUserClick(event.userId)}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      color: '#007bff',
-                      cursor: 'pointer',
-                      textDecoration: 'underline',
-                      fontSize: '14px',
-                      fontWeight: '500'
-                    }}
-                  >
-                    {event.userId}
-                  </button>
-                </td>
-                <td style={{ padding: '15px 12px', border: '1px solid #e9ecef', fontSize: '13px', color: '#495057' }}>
-                  {truncateText(event.promptText)}
-                </td>
-                <td style={{ padding: '15px 12px', border: '1px solid #e9ecef', fontSize: '13px', color: '#495057' }}>
-                  {truncateText(event.aiOutput)}
-                </td>
-                <td style={{ 
-                  padding: '15px 12px', 
-                  border: '1px solid #e9ecef', 
-                  textAlign: 'center',
-                  color: getVoteColor(event.value),
-                  fontWeight: '600',
-                  fontSize: '14px'
-                }}>
-                  {getVoteText(event.value)}
-                </td>
-                <td style={{ padding: '15px 12px', border: '1px solid #e9ecef', fontSize: '13px', color: '#6c757d' }}>
-                  {event.modelUsed || '-'}
-                </td>
-                <td style={{ padding: '15px 12px', border: '1px solid #e9ecef', fontSize: '13px', color: '#495057' }}>
-                  {event.comment || '-'}
-                </td>
-                <td style={{ padding: '15px 12px', border: '1px solid #e9ecef', fontSize: '12px', color: '#6c757d' }}>
-                  {formatTimestamp(event.timestamp)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-      
-      <div style={{ marginTop: '30px', fontSize: '12px', color: '#6c757d', borderTop: '1px solid #e9ecef', paddingTop: '20px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <p style={{ margin: 0 }}>
-              <strong>💡 Tip:</strong> Click on any User ID to view detailed analytics for that user
-            </p>
+          {/* Feedback Positive Rate */}
+          <div className="bg-white p-6 rounded-lg shadow-sm border">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="text-3xl">👍</div>
+              </div>
+              <div className="ml-5 w-0 flex-1">
+                <dl>
+                  <dt className="text-sm font-medium text-gray-500 truncate">Positive Feedback</dt>
+                  <dd className="text-2xl font-semibold text-gray-900">
+                    {(data.feedbackStats.positiveRate * 100).toFixed(1)}%
+                  </dd>
+                </dl>
+              </div>
+            </div>
+            <div className="mt-4 text-sm text-gray-600">
+              {data.feedbackStats.totalFeedback} total feedback
+            </div>
           </div>
-          <div style={{ textAlign: 'right' }}>
-            <p style={{ margin: 0, color: '#28a745' }}>
-              ● Active ({totalEvents} total events)
-            </p>
+
+          {/* Trend Indicator */}
+          <div className="bg-white p-6 rounded-lg shadow-sm border">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="text-3xl">📈</div>
+              </div>
+              <div className="ml-5 w-0 flex-1">
+                <dl>
+                  <dt className="text-sm font-medium text-gray-500 truncate">Recent Trend</dt>
+                  <dd className={`text-2xl font-semibold capitalize ${getTrendColor(data.feedbackStats.recentTrend)}`}>
+                    {getTrendIcon(data.feedbackStats.recentTrend)} {data.feedbackStats.recentTrend}
+                  </dd>
+                </dl>
+              </div>
+            </div>
+            <div className="mt-4 text-sm text-gray-600">
+              Based on recent feedback
+            </div>
           </div>
         </div>
-      </div>
+
+        {/* Two Column Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Recent Conversations */}
+          <div className="bg-white rounded-lg shadow-sm border">
+            <div className="px-6 py-4 border-b">
+              <h3 className="text-lg font-medium text-gray-900">Recent Conversations</h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Conversation
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Outcome
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Activity
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {data.recentActivity.conversations.map((conversation, index) => (
+                    <tr key={index}>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{conversation.promptId}</div>
+                        <div className="text-sm text-gray-500">{conversation.userId}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                          conversation.outcome === 'positive' 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {conversation.outcome}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {formatTimestamp(conversation.lastActivity)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Popular Journeys & Top Comments */}
+          <div className="space-y-6">
+            {/* Popular Journeys */}
+            <div className="bg-white rounded-lg shadow-sm border">
+              <div className="px-6 py-4 border-b">
+                <h3 className="text-lg font-medium text-gray-900">Popular Journeys</h3>
+              </div>
+              <div className="p-6">
+                <div className="space-y-4">
+                  {data.journeyStats.popularJourneys.map((journey, index) => (
+                    <div key={index} className="flex items-center justify-between">
+                      <div className="text-sm font-medium text-gray-900">{journey.name}</div>
+                      <div className="text-sm text-gray-500">{journey.count} events</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Top Comments */}
+            <div className="bg-white rounded-lg shadow-sm border">
+              <div className="px-6 py-4 border-b">
+                <h3 className="text-lg font-medium text-gray-900">Recent Comments</h3>
+              </div>
+              <div className="p-6">
+                <div className="space-y-4">
+                  {data.feedbackStats.topComments.map((comment, index) => (
+                    <div key={index} className="text-sm text-gray-700 border-l-4 border-blue-200 pl-4">
+                      "{comment}"
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
     </div>
   )
 } 

@@ -1,10 +1,12 @@
-import type { Metadata } from 'next'
 import './globals.css'
-import { ErrorBoundary } from '../components/ErrorBoundary'
+import { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Bilan Dashboard',
-  description: 'Trust analytics dashboard for AI products',
+  title: 'Bilan Analytics Dashboard',
+  description: 'Trust analytics and insights for your AI-powered application',
+  icons: {
+    icon: '/favicon.ico',
+  }
 }
 
 export default function RootLayout({
@@ -14,10 +16,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="antialiased">
-        <ErrorBoundary>
+      <body className="bg-gray-50 text-gray-900">
+        <div className="min-h-screen">
           {children}
-        </ErrorBoundary>
+        </div>
       </body>
     </html>
   )
