@@ -356,10 +356,13 @@ class BilanSDK {
   // Helper method to check initialization and handle errors
   private checkInit(): boolean {
     if (!this.isInitialized || !this.config) {
+      const error = new Error('Bilan SDK not initialized. Call init() first.')
+      const bilanError = ErrorHandler.handleInitError(error, this.config || undefined)
+      
       if (this.config?.debug) {
-        throw new Error('Bilan SDK not initialized. Call init() first.')
+        throw bilanError
       } else {
-        console.warn('Bilan SDK not initialized. Call init() first.')
+        ErrorHandler.logError(bilanError)
         return false
       }
     }
