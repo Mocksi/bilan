@@ -1,89 +1,173 @@
 import React from 'react'
 
-export interface SimpleLineChartProps {
-  data: { label: string; value: number }[]
-  height?: number
-  className?: string
-  color?: string
+interface TimeSeriesDataPoint {
+  date: string
+  trustScore: number
+  totalVotes: number
+  positiveVotes: number
 }
 
-export const SimpleLineChart: React.FC<SimpleLineChartProps> = ({
-  data,
-  height = 200,
-  className = '',
-  color = '#3b82f6'
+interface SimpleLineChartProps {
+  data: TimeSeriesDataPoint[]
+  height?: number
+  width?: number
+}
+
+export const SimpleLineChart: React.FC<SimpleLineChartProps> = ({ 
+  data, 
+  height = 200, 
+  width = 800 
 }) => {
-  if (!data || data.length === 0) {
+  if (data.length === 0) {
     return (
-      <div className={`flex items-center justify-center ${className}`} style={{ height }}>
-        <div className="text-gray-500 text-sm">No data available</div>
+      <div className="d-flex justify-content-center align-items-center" style={{ height }}>
+        <div className="text-muted">No data available</div>
       </div>
     )
   }
 
-  const maxValue = Math.max(...data.map(d => d.value))
-  const minValue = Math.min(...data.map(d => d.value))
-  const range = maxValue - minValue || 1
+  if (data.length === 1) {
+    return (
+      <div className="d-flex justify-content-center align-items-center" style={{ height }}>
+        <div className="text-muted">Need at least 2 data points for trend</div>
+      </div>
+    )
+  }
 
-  const width = 300
-  const padding = 20
+  const padding = 40
+  const chartWidth = width - padding * 2
+  const chartHeight = height - padding * 2
 
-  const points = data.map((point, index) => {
-    const x = padding + (index * (width - 2 * padding)) / (data.length - 1)
-    const y = padding + ((maxValue - point.value) / range) * (height - 2 * padding)
-    return { x, y, ...point }
-  })
+  // Calculate scales
+  const xScale = chartWidth / (data.length - 1)
+  const yMin = Math.min(...data.map(d => d.trustScore))
+  const yMax = Math.max(...data.map(d => d.trustScore))
+  const yRange = yMax - yMin || 1
+  const yScale = chartHeight / yRange
 
-  const pathData = points.map((point, index) => {
-    const command = index === 0 ? 'M' : 'L'
-    return `${command} ${point.x} ${point.y}`
+  // Generate path
+  const pathData = data.map((point, index) => {
+    const x = padding + index * xScale
+    const y = padding + chartHeight - ((point.trustScore - yMin) * yScale)
+    return `${index === 0 ? 'M' : 'L'} ${x} ${y}`
   }).join(' ')
 
+  // Format date for display
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr)
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  }
+
   return (
-    <div className={`${className}`}>
-      <svg width={width} height={height} className="overflow-visible">
+    <div className="position-relative">
+      <svg width={width} height={height} style={{ overflow: 'visible' }}>
         {/* Grid lines */}
         <defs>
           <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#f3f4f6" strokeWidth="1"/>
+            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#e9ecef" strokeWidth="1" opacity="0.5"/>
           </pattern>
         </defs>
-        <rect width="100%" height="100%" fill="url(#grid)" />
+        <rect width={width} height={height} fill="url(#grid)" />
         
-        {/* Line */}
-        <path
-          d={pathData}
-          fill="none"
-          stroke={color}
+        {/* Chart area */}
+        <rect 
+          x={padding} 
+          y={padding} 
+          width={chartWidth} 
+          height={chartHeight} 
+          fill="none" 
+          stroke="#dee2e6" 
+          strokeWidth="1"
+        />
+        
+        {/* Y-axis labels */}
+        {[0, 0.25, 0.5, 0.75, 1].map(value => {
+          const y = padding + chartHeight - (value * chartHeight)
+          return (
+            <g key={value}>
+              <line 
+                x1={padding - 5} 
+                y1={y} 
+                x2={padding} 
+                y2={y} 
+                stroke="#6c757d" 
+                strokeWidth="1"
+              />
+              <text 
+                x={padding - 10} 
+                y={y + 4} 
+                textAnchor="end" 
+                fontSize="12" 
+                fill="#6c757d"
+              >
+                {Math.round(value * 100)}%
+              </text>
+            </g>
+          )
+        })}
+        
+        {/* X-axis labels */}
+        {data.map((point, index) => {
+          const x = padding + index * xScale
+          const showLabel = index === 0 || index === data.length - 1 || index % Math.max(1, Math.floor(data.length / 5)) === 0
+          
+          if (!showLabel) return null
+          
+          return (
+            <g key={index}>
+              <line 
+                x1={x} 
+                y1={padding + chartHeight} 
+                x2={x} 
+                y2={padding + chartHeight + 5} 
+                stroke="#6c757d" 
+                strokeWidth="1"
+              />
+              <text 
+                x={x} 
+                y={padding + chartHeight + 18} 
+                textAnchor="middle" 
+                fontSize="12" 
+                fill="#6c757d"
+              >
+                {formatDate(point.date)}
+              </text>
+            </g>
+          )
+        })}
+        
+        {/* Data line */}
+        <path 
+          d={pathData} 
+          fill="none" 
+          stroke="#0d6efd" 
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
         
-        {/* Points */}
-        {points.map((point, index) => (
-          <circle
-            key={index}
-            cx={point.x}
-            cy={point.y}
-            r="4"
-            fill={color}
-            className="hover:r-6 transition-all"
-          />
-        ))}
-        
-        {/* Labels */}
-        {points.map((point, index) => (
-          <text
-            key={index}
-            x={point.x}
-            y={height - 5}
-            textAnchor="middle"
-            className="text-xs fill-gray-500"
-          >
-            {point.label}
-          </text>
-        ))}
+        {/* Data points */}
+        {data.map((point, index) => {
+          const x = padding + index * xScale
+          const y = padding + chartHeight - ((point.trustScore - yMin) * yScale)
+          
+          return (
+            <g key={index}>
+              <circle 
+                cx={x} 
+                cy={y} 
+                r="4" 
+                fill="#0d6efd"
+                stroke="#ffffff"
+                strokeWidth="2"
+              />
+              <title>
+                {formatDate(point.date)}: {Math.round(point.trustScore * 100)}% 
+                ({point.positiveVotes}/{point.totalVotes} votes)
+              </title>
+            </g>
+          )
+        })}
       </svg>
     </div>
   )
