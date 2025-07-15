@@ -1,71 +1,31 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'standalone',
+  reactStrictMode: true,
+  swcMinify: true,
   
-  // Security headers
-  async headers() {
+  // API proxy for development
+  async rewrites() {
     return [
       {
-        source: '/(.*)',
-        headers: [
-          {
-            key: 'X-Frame-Options',
-            value: 'DENY',
-          },
-          {
-            key: 'X-Content-Type-Options',
-            value: 'nosniff',
-          },
-          {
-            key: 'Referrer-Policy',
-            value: 'strict-origin-when-cross-origin',
-          },
-          {
-            key: 'X-XSS-Protection',
-            value: '1; mode=block',
-          },
-          {
-            key: 'Content-Security-Policy',
-            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' http://localhost:*; frame-ancestors 'none';",
-          },
-        ],
-      },
+        source: '/api/:path*',
+        destination: `${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3002'}/api/:path*`
+      }
     ]
   },
   
-  // Performance optimizations
+  // Environment variables for the dashboard
+  env: {
+    NEXT_PUBLIC_API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3002'
+  },
+  
+  // Build optimization
   experimental: {
-    optimizePackageImports: ['@mocksi/bilan-sdk'],
+    optimizeCss: true,
+    optimizePackageImports: ['react', 'react-dom']
   },
   
-  // Bundle optimization
-  webpack: (config, { isServer }) => {
-    if (!isServer) {
-      config.optimization.splitChunks = {
-        chunks: 'all',
-        cacheGroups: {
-          default: {
-            minChunks: 1,
-            priority: -20,
-            reuseExistingChunk: true,
-          },
-          vendor: {
-            test: /[\\/]node_modules[\\/]/,
-            name: 'vendors',
-            priority: -10,
-            chunks: 'all',
-          },
-        },
-      }
-    }
-    return config
-  },
-  
-  // Enable gzip compression
-  compress: true,
-  
-  // Enable source maps in development
-  productionBrowserSourceMaps: process.env.NODE_ENV === 'development',
+  // Output configuration
+  output: 'standalone'
 }
 
 module.exports = nextConfig 

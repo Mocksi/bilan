@@ -1,19 +1,21 @@
 {
   "name": "@bilan/dashboard",
-  "version": "0.3.0",
-  "description": "Dashboard for Bilan trust analytics",
+  "version": "0.3.1",
+  "description": "Fixed analytics dashboard for Bilan trust metrics",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "vitest"
   },
   "keywords": [
     "bilan",
     "dashboard",
     "analytics",
-    "nextjs"
+    "nextjs",
+    "trust-metrics"
   ],
   "author": "",
   "license": "MIT",
@@ -24,7 +26,8 @@
     "autoprefixer": "^10.4.21",
     "postcss": "^8.5.6",
     "tailwindcss": "^4.1.11",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
   },
   "dependencies": {
     "@mocksi/bilan-sdk": "file:../sdk",
