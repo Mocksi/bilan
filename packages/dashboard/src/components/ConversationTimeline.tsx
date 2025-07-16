@@ -9,6 +9,25 @@ interface ConversationTimelineProps {
   className?: string
 }
 
+/**
+ * Sanitizes action details to prevent sensitive data exposure
+ * Only includes safe keys that are appropriate for timeline display
+ */
+const sanitizeActionDetails = (details: Record<string, any>): string => {
+  const safeKeys = ['action', 'elementType', 'duration', 'count', 'status', 'category']
+  
+  const sanitized = Object.keys(details)
+    .filter(key => safeKeys.includes(key))
+    .reduce((acc, key) => {
+      acc[key] = details[key]
+      return acc
+    }, {} as Record<string, any>)
+  
+  return Object.keys(sanitized).length > 0 
+    ? JSON.stringify(sanitized)
+    : 'Action performed'
+}
+
 export const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
   conversation,
   context,
@@ -47,7 +66,7 @@ export const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
       type: 'action',
       timestamp: action.timestamp,
       title: `User ${action.type}`,
-      description: action.details ? JSON.stringify(action.details) : `User performed ${action.type} action`,
+      description: action.details ? sanitizeActionDetails(action.details) : `User performed ${action.type} action`,
       icon: getActionIcon(action.type),
       color: getActionColor(action.type)
     })),
