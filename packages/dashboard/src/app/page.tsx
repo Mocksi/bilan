@@ -8,9 +8,6 @@ import { TimeRangeSelector, useTimeRange, TimeRange } from '@/components/TimeRan
 import { TrendIndicator, WeekOverWeekComparison } from '@/components/TrendIndicator'
 import { formatDateRange } from '@/lib/time-utils'
 import { calculateMetricComparisons } from '@/lib/comparison-utils'
-import { ConversationFilter, ConversationFilterState } from '@/components/ConversationFilter'
-import { ConversationTable } from '@/components/ConversationTable'
-import { filterConversations } from '@/lib/filter-utils'
 import { ConversationDetailModal } from '@/components/ConversationDetailModal'
 
 // Wrapper component for TimeRangeSelector that uses useSearchParams
@@ -30,27 +27,11 @@ function TimeRangeWrapper({ onTimeRangeChange }: { onTimeRangeChange: (range: Ti
   )
 }
 
-// Wrapper component for ConversationFilter that uses useSearchParams
-function ConversationFilterWrapper({ onFilterChange }: { onFilterChange: (filters: ConversationFilterState) => void }) {
-  return (
-    <ConversationFilter
-      onFilterChange={onFilterChange}
-      className="mb-4"
-    />
-  )
-}
-
 // Dashboard content component that uses the time range
 function DashboardContent() {
   const { timeRange, setTimeRange } = useTimeRange()
   const { data, loading, error, refresh } = useDashboardData(timeRange, true)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
-  const [conversationFilters, setConversationFilters] = useState<ConversationFilterState>({
-    search: '',
-    outcome: 'all',
-    journey: '',
-    user: ''
-  })
   const [selectedConversation, setSelectedConversation] = useState<ConversationSummary | null>(null)
 
   useEffect(() => {
@@ -467,24 +448,6 @@ function DashboardContent() {
                         )}
                       </div>
                     </div>
-                  </div>
-
-                  {/* Conversation Filtering */}
-                  <div className="col-12">
-                    <Suspense fallback={<div className="card"><div className="card-body">Loading filters...</div></div>}>
-                      <ConversationFilterWrapper onFilterChange={setConversationFilters} />
-                    </Suspense>
-                  </div>
-
-                  {/* Recent Conversations */}
-                  <div className="col-12">
-                    <ConversationTable
-                      conversations={filterConversations(data.recentActivity.conversations, conversationFilters)}
-                      filterState={conversationFilters}
-                      onConversationClick={(conversation) => {
-                        setSelectedConversation(conversation)
-                      }}
-                    />
                   </div>
                 </div>
               </div>
