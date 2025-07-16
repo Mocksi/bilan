@@ -58,8 +58,7 @@ export const generateConversationExport = (conversation: ConversationSummary, co
       journey: {
         name: conversation.journeyName,
         step: conversation.journeyStep
-      },
-      metadata: conversation.metadata
+      }
     },
     context: context ? {
       sessionId: context.sessionId,
