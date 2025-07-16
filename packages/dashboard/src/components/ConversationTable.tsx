@@ -1,98 +1,151 @@
 import React from 'react'
 import { ConversationSummary } from '@/lib/types'
+import { ConversationFilterState } from './ConversationFilter'
+import { formatTimestamp } from '@/lib/time-utils'
 
-export interface ConversationTableProps {
+interface ConversationTableProps {
   conversations: ConversationSummary[]
+  filterState: ConversationFilterState
+  onConversationClick: (conversation: ConversationSummary) => void
   className?: string
+}
+
+interface HighlightedTextProps {
+  text: string
+  searchTerm: string
+}
+
+const HighlightedText: React.FC<HighlightedTextProps> = ({ text, searchTerm }) => {
+  if (!searchTerm || !text) {
+    return <>{text}</>
+  }
+
+  // Escape regex special characters in search term
+  const escapedSearchTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const regex = new RegExp(`(${escapedSearchTerm})`, 'gi')
+  
+  const parts = text.split(regex)
+  
+  return (
+    <>
+      {parts.map((part, index) => {
+        const isMatch = part.toLowerCase() === searchTerm.toLowerCase()
+        return isMatch ? (
+          <mark key={index}>{part}</mark>
+        ) : (
+          <span key={index}>{part}</span>
+        )
+      })}
+    </>
+  )
 }
 
 export const ConversationTable: React.FC<ConversationTableProps> = ({
   conversations,
+  filterState,
+  onConversationClick,
   className = ''
 }) => {
-  const formatTimestamp = (timestamp: number) => {
-    return new Date(timestamp).toLocaleString()
-  }
-
-  const getOutcomeBadge = (outcome: 'positive' | 'negative') => {
-    const baseClasses = "inline-flex px-2 py-1 text-xs font-semibold rounded-full"
-    const colorClasses = outcome === 'positive' 
-      ? 'bg-green-100 text-green-800' 
-      : 'bg-red-100 text-red-800'
-    
-    return `${baseClasses} ${colorClasses}`
-  }
-
-  if (!conversations || conversations.length === 0) {
+  if (conversations.length === 0) {
     return (
-      <div className={`bg-white rounded-lg shadow-sm border ${className}`}>
-        <div className="px-6 py-4 border-b">
-          <h3 className="text-lg font-medium text-gray-900">Recent Conversations</h3>
-        </div>
-        <div className="p-8 text-center">
-          <div className="text-gray-500">No conversations yet</div>
+      <div className={`text-center py-5 ${className}`}>
+        <div className="text-muted">
+          <i className="fas fa-comments fa-3x mb-3"></i>
+          <h5>No conversations found</h5>
+          <p>Try adjusting your filters or check back later for new conversations.</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className={`bg-white rounded-lg shadow-sm border ${className}`}>
-      <div className="px-6 py-4 border-b">
-        <h3 className="text-lg font-medium text-gray-900">Recent Conversations</h3>
-      </div>
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Conversation
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Feedback
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Outcome
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Last Activity
-              </th>
+    <div className={`table-responsive ${className}`}>
+      <table className="table table-hover">
+        <thead className="table-light">
+          <tr>
+            <th>Conversation</th>
+            <th>Outcome</th>
+            <th>Feedback</th>
+            <th>Activity</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {conversations.map((conversation) => (
+            <tr 
+              key={conversation.promptId}
+              className="cursor-pointer"
+              onClick={() => onConversationClick(conversation)}
+            >
+              <td>
+                <div className="d-flex flex-column">
+                  <div className="fw-medium">
+                    {filterState.search ? (
+                      <HighlightedText 
+                        text={conversation.promptId} 
+                        searchTerm={filterState.search} 
+                      />
+                    ) : (
+                      conversation.promptId
+                    )}
+                  </div>
+                  <div className="text-muted small">
+                    User: {conversation.userId}
+                  </div>
+                  {conversation.journeyName && (
+                    <div className="text-muted small">
+                      Journey: {conversation.journeyName}
+                    </div>
+                  )}
+                </div>
+              </td>
+              <td>
+                <span className={`badge ${
+                  conversation.outcome === 'positive' ? 'bg-success' : 'bg-danger'
+                }`}>
+                  {conversation.outcome}
+                </span>
+              </td>
+              <td>
+                <div className="d-flex flex-column">
+                  <span className="fw-medium">{conversation.feedbackCount}</span>
+                  <span className="text-muted small">feedback items</span>
+                </div>
+              </td>
+              <td>
+                <div className="d-flex flex-column">
+                  <span className="small">{formatTimestamp(conversation.lastActivity)}</span>
+                  <span className="text-muted small">last activity</span>
+                </div>
+              </td>
+              <td>
+                <div className="btn-group btn-group-sm">
+                  <button 
+                    type="button" 
+                    className="btn btn-outline-primary"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onConversationClick(conversation)
+                    }}
+                  >
+                    <i className="fas fa-eye"></i>
+                  </button>
+                  <button 
+                    type="button" 
+                    className="btn btn-outline-secondary"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      // Handle export functionality
+                    }}
+                  >
+                    <i className="fas fa-download"></i>
+                  </button>
+                </div>
+              </td>
             </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {conversations.map((conversation) => (
-              <tr key={conversation.promptId} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex flex-col">
-                    <div className="text-sm font-medium text-gray-900 truncate max-w-xs">
-                      {conversation.promptId}
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      {conversation.userId}
-                    </div>
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">
-                    {conversation.feedbackCount} 
-                    <span className="text-gray-500 ml-1">
-                      {conversation.feedbackCount === 1 ? 'response' : 'responses'}
-                    </span>
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={getOutcomeBadge(conversation.outcome)}>
-                    {conversation.outcome}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {formatTimestamp(conversation.lastActivity)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 } 

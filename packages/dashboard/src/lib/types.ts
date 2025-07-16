@@ -51,9 +51,15 @@ export interface DashboardData {
 export interface ConversationSummary {
   promptId: string
   userId: string
-  lastActivity: number
-  feedbackCount: number
   outcome: 'positive' | 'negative'
+  feedbackCount: number
+  lastActivity: number
+  // Optional fields for conversation context
+  promptText?: string
+  aiOutput?: string
+  comment?: string
+  journeyName?: string
+  journeyStep?: string
 }
 
 /**

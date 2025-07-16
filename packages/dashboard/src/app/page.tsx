@@ -1,13 +1,57 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useDashboardData } from '@/lib/api-client'
-import { DashboardData } from '@/lib/types'
+import { DashboardData, ConversationSummary } from '@/lib/types'
 import { SimpleLineChart } from '@/components/SimpleLineChart'
+import { TimeRangeSelector, useTimeRange, TimeRange } from '@/components/TimeRangeSelector'
+import { TrendIndicator, WeekOverWeekComparison } from '@/components/TrendIndicator'
+import { formatDateRange } from '@/lib/time-utils'
+import { calculateMetricComparisons } from '@/lib/comparison-utils'
+import { ConversationFilter, ConversationFilterState } from '@/components/ConversationFilter'
+import { ConversationTable } from '@/components/ConversationTable'
+import { filterConversations } from '@/lib/filter-utils'
+import { ConversationDetailModal } from '@/components/ConversationDetailModal'
 
-export default function Dashboard() {
-  const { data, loading, error, refresh } = useDashboardData()
+// Wrapper component for TimeRangeSelector that uses useSearchParams
+function TimeRangeWrapper({ onTimeRangeChange }: { onTimeRangeChange: (range: TimeRange) => void }) {
+  const { timeRange, setTimeRange } = useTimeRange()
+  
+  const handleTimeRangeChange = (range: TimeRange) => {
+    setTimeRange(range)
+    onTimeRangeChange(range)
+  }
+
+  return (
+    <TimeRangeSelector 
+      value={timeRange}
+      onChange={handleTimeRangeChange}
+    />
+  )
+}
+
+// Wrapper component for ConversationFilter that uses useSearchParams
+function ConversationFilterWrapper({ onFilterChange }: { onFilterChange: (filters: ConversationFilterState) => void }) {
+  return (
+    <ConversationFilter
+      onFilterChange={onFilterChange}
+      className="mb-4"
+    />
+  )
+}
+
+// Dashboard content component that uses the time range
+function DashboardContent() {
+  const { timeRange, setTimeRange } = useTimeRange()
+  const { data, loading, error, refresh } = useDashboardData(timeRange, true)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const [conversationFilters, setConversationFilters] = useState<ConversationFilterState>({
+    search: '',
+    outcome: 'all',
+    journey: '',
+    user: ''
+  })
+  const [selectedConversation, setSelectedConversation] = useState<ConversationSummary | null>(null)
 
   useEffect(() => {
     if (data) {
@@ -15,13 +59,14 @@ export default function Dashboard() {
     }
   }, [data])
 
-  const formatTimestamp = (timestamp: number) => {
-    return new Date(timestamp).toLocaleString()
-  }
-
   const handleRefresh = () => {
     refresh()
   }
+
+  // Calculate comparisons if comparison data is available
+  const comparisons = data?.comparison ? 
+    calculateMetricComparisons(data, data.comparison.previousPeriod) : 
+    null
 
   if (loading) {
     return (
@@ -69,7 +114,16 @@ export default function Dashboard() {
         <div className="container-xl">
           <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '100vh' }}>
             <div className="text-center">
-              <p className="text-muted">No data available</p>
+              <div className="text-muted mb-3">
+                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 2v6m6-6H6M12 22v-6m6 6H6M2 12h6m6 0H8m0 0v6m0-6V6"/>
+                </svg>
+              </div>
+              <h3 className="text-muted mb-3">No Data Available</h3>
+              <p className="text-muted mb-4">No dashboard data found</p>
+              <button onClick={handleRefresh} className="btn btn-primary">
+                Refresh
+              </button>
             </div>
           </div>
         </div>
@@ -78,7 +132,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="page">
+    <>
       {/* Header */}
       <header className="navbar navbar-expand-md d-print-none">
         <div className="container-xl">
@@ -110,7 +164,15 @@ export default function Dashboard() {
             <div className="row g-2 align-items-center">
               <div className="col">
                 <h2 className="page-title">Dashboard</h2>
-                <div className="text-muted mt-1">Trust analytics for your AI-powered application</div>
+                <div className="text-muted mt-1">
+                  Trust analytics for your AI-powered application
+                  <span className="ms-2 text-primary">({formatDateRange(timeRange)})</span>
+                </div>
+              </div>
+              <div className="col-auto">
+                <Suspense fallback={<div className="btn-group"><div className="btn btn-outline-primary">Loading...</div></div>}>
+                  <TimeRangeWrapper onTimeRangeChange={() => {}} />
+                </Suspense>
               </div>
             </div>
           </div>
@@ -172,13 +234,21 @@ export default function Dashboard() {
                 <div className="card">
                   <div className="card-body">
                     <div className="d-flex align-items-center">
-                      <div className="subheader">Positive Feedback</div>
+                      <div className="subheader">Total Feedback</div>
                     </div>
                     <div className="d-flex align-items-baseline">
-                      <div className="h1 mb-0 me-2">{(data.feedbackStats.positiveRate * 100).toFixed(1)}%</div>
+                      <div className="h1 mb-0 me-2">{data.feedbackStats.totalFeedback}</div>
                     </div>
                     <div className="mt-2">
-                      <small className="text-muted">{data.feedbackStats.totalFeedback} total feedback</small>
+                      <small className="text-muted">{Math.round(data.feedbackStats.positiveRate * 100)}% positive</small>
+                      {comparisons && (
+                        <WeekOverWeekComparison
+                          current={data.feedbackStats.totalFeedback}
+                          previous={data.comparison?.previousPeriod.feedbackStats.totalFeedback || 0}
+                          formatter={(value) => `${value} votes`}
+                          className="mt-1"
+                        />
+                      )}
                     </div>
                   </div>
                 </div>
@@ -191,12 +261,23 @@ export default function Dashboard() {
                       <div className="subheader">Recent Trend</div>
                     </div>
                     <div className="d-flex align-items-baseline">
-                      <div className={`h1 mb-0 me-2 ${data.feedbackStats.recentTrend === 'improving' ? 'text-success' : data.feedbackStats.recentTrend === 'declining' ? 'text-danger' : 'text-muted'}`}>
-                        {data.feedbackStats.recentTrend === 'improving' ? '↗' : data.feedbackStats.recentTrend === 'declining' ? '↘' : '→'} {data.feedbackStats.recentTrend}
+                      <div className="h1 mb-0 me-2">
+                        <TrendIndicator 
+                          trend={data.feedbackStats.recentTrend}
+                          className="h1 mb-0"
+                        />
                       </div>
                     </div>
                     <div className="mt-2">
                       <small className="text-muted">Based on recent feedback</small>
+                      {comparisons && (
+                        <WeekOverWeekComparison
+                          current={data.feedbackStats.totalFeedback}
+                          previous={data.comparison?.previousPeriod.feedbackStats.totalFeedback || 0}
+                          formatter={(value) => `${value} votes`}
+                          className="mt-1"
+                        />
+                      )}
                     </div>
                   </div>
                 </div>
@@ -237,39 +318,38 @@ export default function Dashboard() {
                         <table className="table table-vcenter">
                           <thead>
                             <tr>
-                              <th>Prompt ID</th>
+                              <th>Prompt</th>
                               <th>User</th>
                               <th>Vote</th>
-                              {data.journeyStats.popularJourneys.length > 0 && <th>Journey</th>}
-                              <th>Timestamp</th>
+                              <th>Comment</th>
+                              <th>Time</th>
                             </tr>
                           </thead>
                           <tbody>
                             {data.recentActivity.recentVotes.map((vote, index) => (
                               <tr key={index}>
-                                <td>
-                                  <div className="font-weight-medium">{vote.promptId}</div>
-                                  {vote.comment && (
-                                    <div className="text-muted small">"{vote.comment}"</div>
-                                  )}
+                                <td className="text-muted">
+                                  <code>{vote.promptId}</code>
                                 </td>
-                                <td>
-                                  <div className="text-muted">{vote.userId}</div>
+                                <td className="text-muted">
+                                  <code>{vote.userId}</code>
                                 </td>
                                 <td>
                                   <span className={`badge ${vote.value > 0 ? 'bg-success' : 'bg-danger'}`}>
-                                    {vote.value > 0 ? '+1' : '-1'}
+                                    {vote.value > 0 ? '👍' : '👎'}
                                   </span>
                                 </td>
-                                {data.journeyStats.popularJourneys.length > 0 && (
-                                  <td>
-                                    <div className="text-muted small">
-                                      {vote.metadata?.journeyName || 'N/A'}
-                                    </div>
-                                  </td>
-                                )}
                                 <td className="text-muted">
-                                  {formatTimestamp(vote.timestamp)}
+                                  {vote.comment ? (
+                                    <span title={vote.comment}>
+                                      {vote.comment.length > 30 ? vote.comment.substring(0, 30) + '...' : vote.comment}
+                                    </span>
+                                  ) : (
+                                    '-'
+                                  )}
+                                </td>
+                                <td className="text-muted">
+                                  {new Date(vote.timestamp).toLocaleString()}
                                 </td>
                               </tr>
                             ))}
@@ -277,13 +357,15 @@ export default function Dashboard() {
                         </table>
                       </div>
                     ) : (
-                      <div className="text-muted">No recent votes</div>
+                      <div className="text-muted text-center py-5">
+                        No recent votes
+                      </div>
                     )}
                   </div>
                 </div>
               </div>
 
-              {/* Right Column - Journey Performance + Quality Signals */}
+              {/* Right Column - Stats and Filters */}
               <div className="col-12 col-lg-4">
                 <div className="row row-cards">
                   {/* Journey Performance - Only show if we have actual journey data */}
@@ -320,12 +402,12 @@ export default function Dashboard() {
                   <div className="col-12">
                     <div className="card">
                       <div className="card-header">
-                        <h3 className="card-title">This Week's Signals</h3>
+                        <h3 className="card-title">Quality Signals</h3>
                       </div>
                       <div className="card-body">
                         <div className="row">
                           <div className="col-6">
-                            <div className="d-flex align-items-center mb-3">
+                            <div className="d-flex align-items-center">
                               <span className="me-2">👍</span>
                               <div>
                                 <div className="fw-medium">{data.qualitySignals.positive}</div>
@@ -334,7 +416,7 @@ export default function Dashboard() {
                             </div>
                           </div>
                           <div className="col-6">
-                            <div className="d-flex align-items-center mb-3">
+                            <div className="d-flex align-items-center">
                               <span className="me-2">👎</span>
                               <div>
                                 <div className="fw-medium">{data.qualitySignals.negative}</div>
@@ -386,12 +468,46 @@ export default function Dashboard() {
                       </div>
                     </div>
                   </div>
+
+                  {/* Conversation Filtering */}
+                  <div className="col-12">
+                    <Suspense fallback={<div className="card"><div className="card-body">Loading filters...</div></div>}>
+                      <ConversationFilterWrapper onFilterChange={setConversationFilters} />
+                    </Suspense>
+                  </div>
+
+                  {/* Recent Conversations */}
+                  <div className="col-12">
+                    <ConversationTable
+                      conversations={filterConversations(data.recentActivity.conversations, conversationFilters)}
+                      filterState={conversationFilters}
+                      onConversationClick={(conversation) => {
+                        setSelectedConversation(conversation)
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
       </div>
+      
+      {/* Conversation Detail Modal */}
+      <ConversationDetailModal 
+        conversation={selectedConversation}
+        onClose={() => setSelectedConversation(null)}
+      />
+    </>
+  )
+}
+
+export default function Dashboard() {
+  return (
+    <div className="page">
+      <Suspense fallback={<div>Loading dashboard...</div>}>
+        <DashboardContent />
+      </Suspense>
     </div>
   )
 } 
