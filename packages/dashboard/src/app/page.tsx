@@ -14,10 +14,10 @@ import { filterConversations } from '@/lib/filter-utils'
 import { ConversationDetailModal } from '@/components/ConversationDetailModal'
 
 // Wrapper component for TimeRangeSelector that uses useSearchParams
-function TimeRangeWrapper({ onTimeRangeChange }: { onTimeRangeChange: (range: any) => void }) {
+function TimeRangeWrapper({ onTimeRangeChange }: { onTimeRangeChange: (range: TimeRange) => void }) {
   const { timeRange, setTimeRange } = useTimeRange()
   
-  const handleTimeRangeChange = (range: any) => {
+  const handleTimeRangeChange = (range: TimeRange) => {
     setTimeRange(range)
     onTimeRangeChange(range)
   }
@@ -41,7 +41,8 @@ function ConversationFilterWrapper({ onFilterChange }: { onFilterChange: (filter
 }
 
 // Dashboard content component that uses the time range
-function DashboardContent({ timeRange }: { timeRange: TimeRange }) {
+function DashboardContent() {
+  const { timeRange, setTimeRange } = useTimeRange()
   const { data, loading, error, refresh } = useDashboardData(timeRange, true)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [conversationFilters, setConversationFilters] = useState<ConversationFilterState>({
@@ -478,8 +479,7 @@ function DashboardContent({ timeRange }: { timeRange: TimeRange }) {
                   {/* Recent Conversations */}
                   <div className="col-12">
                     <ConversationTable
-                      conversations={data.recentActivity.conversations}
-                      filteredConversations={filterConversations(data.recentActivity.conversations, conversationFilters)}
+                      conversations={filterConversations(data.recentActivity.conversations, conversationFilters)}
                       filterState={conversationFilters}
                       onConversationClick={(conversation) => {
                         setSelectedConversation(conversation)
@@ -503,12 +503,10 @@ function DashboardContent({ timeRange }: { timeRange: TimeRange }) {
 }
 
 export default function Dashboard() {
-  const [timeRange, setTimeRange] = useState<TimeRange>('7d')
-
   return (
     <div className="page">
       <Suspense fallback={<div>Loading dashboard...</div>}>
-        <DashboardContent timeRange={timeRange} />
+        <DashboardContent />
       </Suspense>
     </div>
   )

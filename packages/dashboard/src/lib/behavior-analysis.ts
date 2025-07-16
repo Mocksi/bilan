@@ -61,7 +61,6 @@ export const detectBehaviorPatterns = (conversations: ConversationSummary[]): Be
 
 const analyzeConversationPatterns = (conversation: ConversationSummary): BehaviorPattern[] => {
   const patterns: BehaviorPattern[] = []
-  const sessionDuration = conversation.lastActivity - conversation.lastActivity // This would be from context
   
   // Quick success pattern
   if (conversation.outcome === 'positive' && conversation.feedbackCount === 1) {
