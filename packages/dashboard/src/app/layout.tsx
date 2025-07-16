@@ -13,7 +13,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body className="d-flex flex-column">
+        <div className="page page-center">
+          {children}
+        </div>
+      </body>
     </html>
   )
 } 
