@@ -1,4 +1,5 @@
 import { TrendDirection } from '@/components/TrendIndicator'
+import { DashboardData } from '@/lib/types'
 
 export interface ComparisonResult {
   current: number
@@ -37,20 +38,20 @@ export const formatAbsoluteChange = (change: number): string => {
 }
 
 export interface MetricComparison {
-  trustScore: ComparisonResult
+  averageMessages: ComparisonResult
   totalVotes: ComparisonResult
   positiveRate: ComparisonResult
   totalConversations: ComparisonResult
 }
 
 export const calculateMetricComparisons = (
-  currentData: any,
-  previousData: any
+  currentData: DashboardData,
+  previousData: DashboardData
 ): MetricComparison => {
   return {
-    trustScore: calculateComparison(
-      currentData.feedbackStats.positiveRate,
-      previousData.feedbackStats.positiveRate
+    averageMessages: calculateComparison(
+      currentData.conversationStats.averageMessages || 0,
+      previousData.conversationStats.averageMessages || 0
     ),
     totalVotes: calculateComparison(
       currentData.feedbackStats.totalFeedback,
@@ -68,5 +69,5 @@ export const calculateMetricComparisons = (
 }
 
 export const getTrendFromRecentTrend = (recentTrend: 'improving' | 'declining' | 'stable'): TrendDirection => {
-  return recentTrend as TrendDirection
+  return recentTrend
 } 
