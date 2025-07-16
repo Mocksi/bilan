@@ -313,7 +313,7 @@ const ConversationTimeline: React.FC<{ conversation: ConversationSummary; contex
         <div className="timeline-heading">
           <h6 className="timeline-title">AI Response Generated</h6>
           <p className="text-muted small">
-            {formatTimestamp(context.timestamp + 1000)} {/* Simulated response time */}
+            {formatTimestamp(context.timestamp + (context.responseTime || 1000))} {/* Use actual response time or fallback */}
           </p>
         </div>
         <div className="timeline-body">
@@ -348,7 +348,7 @@ const ConversationTimeline: React.FC<{ conversation: ConversationSummary; contex
   </div>
 )
 
-const ConversationContext: React.FC<{ conversation: ConversationSummary; context: ConversationContext }> = ({ conversation, context }) => (
+const ConversationContextComponent: React.FC<{ conversation: ConversationSummary; context: ConversationContext }> = ({ conversation, context }) => (
   <div className="row">
     <div className="col-md-6">
       <h6>Session Context</h6>
