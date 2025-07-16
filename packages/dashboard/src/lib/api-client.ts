@@ -1,7 +1,18 @@
 import { useState, useEffect } from 'react'
-import { DashboardData, VoteData, VoteAnalytics, VoteFilterState } from './types'
+import { 
+  DashboardData, 
+  VoteData, 
+  VoteAnalytics, 
+  VoteFilterState,
+  ConversationData,
+  ConversationAnalytics,
+  ConversationFilterState
+} from './types'
 import { TimeRange } from '@/components/TimeRangeSelector'
 import { formatDateForAPI, getDateRange, getPreviousDateRange } from './time-utils'
+
+// API Configuration
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
 
 export interface DashboardDataWithComparison extends DashboardData {
   comparison?: {
@@ -333,6 +344,189 @@ export function useVotes(
   useEffect(() => {
     fetchData()
   }, [filters, page, limit, timeRange])
+
+  return { data, loading, error, refresh, fetchData }
+} 
+
+// Conversation API Functions
+
+/**
+ * Fetch conversation analytics data
+ */
+export async function fetchConversationAnalytics(timeRange: string = '7d'): Promise<ConversationAnalytics> {
+  const response = await fetch(`${API_BASE_URL}/conversations/analytics?timeRange=${timeRange}`)
+  
+  if (!response.ok) {
+    throw new Error(`Failed to fetch conversation analytics: ${response.statusText}`)
+  }
+  
+  const data = await response.json()
+  return data
+}
+
+/**
+ * Fetch conversations with filtering and pagination
+ */
+export async function fetchConversations(
+  filters: Partial<ConversationFilterState> = {},
+  page: number = 1,
+  limit: number = 50
+): Promise<{
+  conversations: ConversationData[]
+  total: number
+  page: number
+  totalPages: number
+}> {
+  const params = new URLSearchParams()
+  
+  // Add pagination
+  params.append('page', page.toString())
+  params.append('limit', limit.toString())
+  
+  // Add filters
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      if (key === 'tags' && Array.isArray(value)) {
+        value.forEach(tag => params.append('tags', tag))
+      } else if (key === 'startDate' || key === 'endDate') {
+        if (value instanceof Date) {
+          params.append(key, value.toISOString())
+        }
+      } else {
+        params.append(key, String(value))
+      }
+    }
+  })
+  
+  const response = await fetch(`${API_BASE_URL}/conversations?${params}`)
+  
+  if (!response.ok) {
+    throw new Error(`Failed to fetch conversations: ${response.statusText}`)
+  }
+  
+  const data = await response.json()
+  return data
+}
+
+/**
+ * Fetch a single conversation by ID
+ */
+export async function fetchConversation(id: string): Promise<ConversationData> {
+  const response = await fetch(`${API_BASE_URL}/conversations/${id}`)
+  
+  if (!response.ok) {
+    throw new Error(`Failed to fetch conversation: ${response.statusText}`)
+  }
+  
+  const data = await response.json()
+  return data
+}
+
+/**
+ * Export conversations to CSV or JSON format
+ */
+export async function exportConversations(
+  filters: Partial<ConversationFilterState>,
+  format: 'csv' | 'json' = 'csv'
+): Promise<string> {
+  const params = new URLSearchParams()
+  
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      if (key === 'tags' && Array.isArray(value)) {
+        value.forEach(tag => params.append('tags', tag))
+      } else if (key === 'startDate' || key === 'endDate') {
+        if (value instanceof Date) {
+          params.append(key, value.toISOString())
+        }
+      } else {
+        params.append(key, String(value))
+      }
+    }
+  })
+  
+  params.append('format', format)
+  
+  const response = await fetch(`${API_BASE_URL}/conversations/export?${params}`)
+  
+  if (!response.ok) {
+    throw new Error(`Export failed: ${response.statusText}`)
+  }
+  
+  return response.text()
+}
+
+// Conversation Hooks
+
+/**
+ * Hook for fetching conversation analytics
+ */
+export function useConversationAnalytics(timeRange: string = '7d') {
+  const [data, setData] = useState<ConversationAnalytics | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const fetchData = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const analytics = await fetchConversationAnalytics(timeRange)
+      setData(analytics)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch conversation analytics')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const refresh = () => {
+    fetchData()
+  }
+
+  useEffect(() => {
+    fetchData()
+  }, [timeRange])
+
+  return { data, loading, error, refresh, fetchData }
+}
+
+/**
+ * Hook for fetching conversations with filtering and pagination
+ */
+export function useConversations(
+  filters: Partial<ConversationFilterState> = {},
+  page: number = 1,
+  limit: number = 50
+) {
+  const [data, setData] = useState<{
+    conversations: ConversationData[]
+    total: number
+    page: number
+    totalPages: number
+  } | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const fetchData = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const conversations = await fetchConversations(filters, page, limit)
+      setData(conversations)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch conversations')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const refresh = () => {
+    fetchData()
+  }
+
+  useEffect(() => {
+    fetchData()
+  }, [filters, page, limit])
 
   return { data, loading, error, refresh, fetchData }
 } 

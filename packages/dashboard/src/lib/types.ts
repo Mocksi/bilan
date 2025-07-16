@@ -244,4 +244,160 @@ export interface DashboardConfig {
   maxRetries: number
   retryDelay: number
   apiBaseUrl: string
-} 
+}
+
+/**
+ * Conversation message structure
+ */
+export interface ConversationMessage {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  timestamp: number
+  metadata?: Record<string, any>
+}
+
+/**
+ * Comprehensive conversation data structure
+ */
+export interface ConversationData {
+  id: string
+  userId: string
+  messages: ConversationMessage[]
+  startTime: number
+  endTime?: number
+  totalMessages: number
+  averageResponseTime: number
+  satisfactionScore?: number
+  tags: string[]
+  metadata: Record<string, any>
+}
+
+/**
+ * Conversation analytics data structure
+ */
+export interface ConversationAnalytics {
+  overview: {
+    totalConversations: number
+    activeConversations: number
+    averageLength: number
+    averageResponseTime: number
+    satisfactionRate: number
+    completionRate: number
+    uniqueUsers: number
+    totalMessages: number
+  }
+  trends: {
+    daily: {
+      date: string
+      conversationCount: number
+      averageLength: number
+      averageResponseTime: number
+      completionRate: number
+    }[]
+    hourly: {
+      hour: number
+      conversationCount: number
+      averageResponseTime: number
+      activeConversations: number
+    }[]
+  }
+  userBehavior: {
+    topUsers: {
+      userId: string
+      conversationCount: number
+      averageLength: number
+      totalMessages: number
+      lastActivity: number
+    }[]
+    engagementMetrics: {
+      averageConversationsPerUser: number
+      medianConversationsPerUser: number
+      powerUsers: number // Users with >5 conversations
+      oneTimeUsers: number // Users with only 1 conversation
+    }
+  }
+  topicAnalysis: {
+    topTopics: {
+      topic: string
+      count: number
+      percentage: number
+      averageLength: number
+      satisfactionScore: number
+    }[]
+    topicTrends: {
+      topic: string
+      dailyData: {
+        date: string
+        count: number
+      }[]
+    }[]
+  }
+  performanceMetrics: {
+    responseTimeDistribution: {
+      range: string
+      count: number
+      percentage: number
+    }[]
+    lengthDistribution: {
+      range: string
+      count: number
+      percentage: number
+    }[]
+    satisfactionDistribution: {
+      score: number
+      count: number
+      percentage: number
+    }[]
+  }
+  conversationFlow: {
+    averageMessagesPerConversation: number
+    dropoffPoints: {
+      messageNumber: number
+      dropoffRate: number
+      count: number
+    }[]
+    completionFunnels: {
+      stage: string
+      count: number
+      percentage: number
+    }[]
+  }
+}
+
+/**
+ * Conversation filter state
+ */
+export interface ConversationFilterState {
+  search: string
+  userId: string
+  minMessages: number | null
+  maxMessages: number | null
+  satisfactionScore: number | null
+  tags: string[]
+  startDate: Date | null
+  endDate: Date | null
+  status: 'all' | 'active' | 'completed'
+  sortBy: 'startTime' | 'endTime' | 'totalMessages' | 'averageResponseTime' | 'satisfactionScore'
+  sortOrder: 'asc' | 'desc'
+}
+
+/**
+ * Conversation export format
+ */
+export interface ConversationExport {
+  id: string
+  userId: string
+  startTime: string
+  endTime?: string
+  totalMessages: number
+  averageResponseTime: number
+  satisfactionScore?: number
+  tags: string[]
+  status: 'active' | 'completed'
+  messages: {
+    role: string
+    content: string
+    timestamp: string
+  }[]
+}
