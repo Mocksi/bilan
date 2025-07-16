@@ -29,7 +29,7 @@ const HighlightedText: React.FC<HighlightedTextProps> = ({ text, searchTerm }) =
   return (
     <>
       {parts.map((part, index) => {
-        const isMatch = regex.test(part)
+        const isMatch = part.toLowerCase() === searchTerm.toLowerCase()
         return isMatch ? (
           <mark key={index}>{part}</mark>
         ) : (
