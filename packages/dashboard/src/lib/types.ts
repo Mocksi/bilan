@@ -401,3 +401,191 @@ export interface ConversationExport {
     timestamp: string
   }[]
 }
+
+/**
+ * Journey step structure
+ */
+export interface JourneyStep {
+  id: string
+  name: string
+  type: 'form' | 'action' | 'decision' | 'endpoint'
+  order: number
+  isRequired: boolean
+  completionRate: number
+  averageTimeSpent: number
+  dropoffRate: number
+  metadata?: Record<string, any>
+}
+
+/**
+ * Journey data structure
+ */
+export interface JourneyData {
+  id: string
+  name: string
+  description?: string
+  userId: string
+  steps: JourneyStep[]
+  startTime: number
+  endTime?: number
+  currentStepId?: string
+  completedSteps: string[]
+  status: 'active' | 'completed' | 'abandoned'
+  completionRate: number
+  totalTimeSpent: number
+  satisfactionScore?: number
+  tags: string[]
+  metadata: Record<string, any>
+}
+
+/**
+ * Journey analytics data structure
+ */
+export interface JourneyAnalytics {
+  overview: {
+    totalJourneys: number
+    activeJourneys: number
+    completedJourneys: number
+    abandonedJourneys: number
+    averageCompletionRate: number
+    averageTimeToComplete: number
+    uniqueUsers: number
+    totalSteps: number
+  }
+  performance: {
+    topPerformingJourneys: {
+      journeyId: string
+      name: string
+      completionRate: number
+      averageTime: number
+      totalUsers: number
+    }[]
+    bottleneckSteps: {
+      stepId: string
+      stepName: string
+      journeyName: string
+      dropoffRate: number
+      averageTimeSpent: number
+    }[]
+    conversionFunnel: {
+      stepId: string
+      stepName: string
+      totalUsers: number
+      completedUsers: number
+      dropoffUsers: number
+      conversionRate: number
+    }[]
+  }
+  trends: {
+    daily: {
+      date: string
+      totalJourneys: number
+      completedJourneys: number
+      abandonedJourneys: number
+      averageCompletionRate: number
+      averageTimeToComplete: number
+    }[]
+    hourly: {
+      hour: number
+      totalJourneys: number
+      completedJourneys: number
+      averageCompletionRate: number
+    }[]
+  }
+  userBehavior: {
+    topUsers: {
+      userId: string
+      totalJourneys: number
+      completedJourneys: number
+      averageCompletionRate: number
+      averageTimeToComplete: number
+      lastActivity: number
+    }[]
+    engagementMetrics: {
+      averageJourneysPerUser: number
+      medianJourneysPerUser: number
+      powerUsers: number // Users with >3 journeys
+      oneTimeUsers: number // Users with only 1 journey
+    }
+  }
+  stepAnalysis: {
+    stepPerformance: {
+      stepId: string
+      stepName: string
+      journeyName: string
+      totalAttempts: number
+      completions: number
+      abandonments: number
+      completionRate: number
+      averageTimeSpent: number
+      commonErrors: string[]
+    }[]
+    pathAnalysis: {
+      fromStep: string
+      toStep: string
+      transitionRate: number
+      averageTransitionTime: number
+      userCount: number
+    }[]
+  }
+  satisfactionAnalysis: {
+    overallSatisfaction: number
+    satisfactionByJourney: {
+      journeyId: string
+      journeyName: string
+      averageSatisfaction: number
+      responseCount: number
+    }[]
+    satisfactionByStep: {
+      stepId: string
+      stepName: string
+      averageSatisfaction: number
+      responseCount: number
+    }[]
+  }
+}
+
+/**
+ * Journey filter state
+ */
+export interface JourneyFilterState {
+  search: string
+  userId: string
+  journeyName: string
+  status: 'all' | 'active' | 'completed' | 'abandoned'
+  minSteps: number | null
+  maxSteps: number | null
+  minCompletionRate: number | null
+  satisfactionScore: number | null
+  tags: string[]
+  startDate: Date | null
+  endDate: Date | null
+  sortBy: 'startTime' | 'endTime' | 'completionRate' | 'totalTimeSpent' | 'satisfactionScore'
+  sortOrder: 'asc' | 'desc'
+}
+
+/**
+ * Journey export format
+ */
+export interface JourneyExport {
+  id: string
+  name: string
+  description?: string
+  userId: string
+  startTime: string
+  endTime?: string
+  status: 'active' | 'completed' | 'abandoned'
+  completionRate: number
+  totalTimeSpent: number
+  satisfactionScore?: number
+  tags: string[]
+  steps: {
+    id: string
+    name: string
+    type: string
+    order: number
+    isRequired: boolean
+    completed: boolean
+    timeSpent?: number
+  }[]
+}

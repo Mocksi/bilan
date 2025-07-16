@@ -6,7 +6,10 @@ import {
   VoteFilterState,
   ConversationData,
   ConversationAnalytics,
-  ConversationFilterState
+  ConversationFilterState,
+  JourneyData,
+  JourneyAnalytics,
+  JourneyFilterState
 } from './types'
 import { TimeRange } from '@/components/TimeRangeSelector'
 import { formatDateForAPI, getDateRange, getPreviousDateRange } from './time-utils'
@@ -515,6 +518,189 @@ export function useConversations(
       setData(conversations)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch conversations')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const refresh = () => {
+    fetchData()
+  }
+
+  useEffect(() => {
+    fetchData()
+  }, [filters, page, limit])
+
+  return { data, loading, error, refresh, fetchData }
+} 
+
+// Journey API Functions
+
+/**
+ * Fetch journey analytics data
+ */
+export async function fetchJourneyAnalytics(timeRange: string = '7d'): Promise<JourneyAnalytics> {
+  const response = await fetch(`${API_BASE_URL}/journeys/analytics?timeRange=${timeRange}`)
+  
+  if (!response.ok) {
+    throw new Error(`Failed to fetch journey analytics: ${response.statusText}`)
+  }
+  
+  const data = await response.json()
+  return data
+}
+
+/**
+ * Fetch journeys with filtering and pagination
+ */
+export async function fetchJourneys(
+  filters: Partial<JourneyFilterState> = {},
+  page: number = 1,
+  limit: number = 50
+): Promise<{
+  journeys: JourneyData[]
+  total: number
+  page: number
+  totalPages: number
+}> {
+  const params = new URLSearchParams()
+  
+  // Add pagination
+  params.append('page', page.toString())
+  params.append('limit', limit.toString())
+  
+  // Add filters
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      if (key === 'tags' && Array.isArray(value)) {
+        value.forEach(tag => params.append('tags', tag))
+      } else if (key === 'startDate' || key === 'endDate') {
+        if (value instanceof Date) {
+          params.append(key, value.toISOString())
+        }
+      } else {
+        params.append(key, String(value))
+      }
+    }
+  })
+  
+  const response = await fetch(`${API_BASE_URL}/journeys?${params}`)
+  
+  if (!response.ok) {
+    throw new Error(`Failed to fetch journeys: ${response.statusText}`)
+  }
+  
+  const data = await response.json()
+  return data
+}
+
+/**
+ * Fetch a single journey by ID
+ */
+export async function fetchJourney(id: string): Promise<JourneyData> {
+  const response = await fetch(`${API_BASE_URL}/journeys/${id}`)
+  
+  if (!response.ok) {
+    throw new Error(`Failed to fetch journey: ${response.statusText}`)
+  }
+  
+  const data = await response.json()
+  return data
+}
+
+/**
+ * Export journeys to CSV or JSON format
+ */
+export async function exportJourneys(
+  filters: Partial<JourneyFilterState>,
+  format: 'csv' | 'json' = 'csv'
+): Promise<string> {
+  const params = new URLSearchParams()
+  
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== '') {
+      if (key === 'tags' && Array.isArray(value)) {
+        value.forEach(tag => params.append('tags', tag))
+      } else if (key === 'startDate' || key === 'endDate') {
+        if (value instanceof Date) {
+          params.append(key, value.toISOString())
+        }
+      } else {
+        params.append(key, String(value))
+      }
+    }
+  })
+  
+  params.append('format', format)
+  
+  const response = await fetch(`${API_BASE_URL}/journeys/export?${params}`)
+  
+  if (!response.ok) {
+    throw new Error(`Export failed: ${response.statusText}`)
+  }
+  
+  return response.text()
+}
+
+// Journey Hooks
+
+/**
+ * Hook for fetching journey analytics
+ */
+export function useJourneyAnalytics(timeRange: string = '7d') {
+  const [data, setData] = useState<JourneyAnalytics | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const fetchData = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const analytics = await fetchJourneyAnalytics(timeRange)
+      setData(analytics)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch journey analytics')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const refresh = () => {
+    fetchData()
+  }
+
+  useEffect(() => {
+    fetchData()
+  }, [timeRange])
+
+  return { data, loading, error, refresh, fetchData }
+}
+
+/**
+ * Hook for fetching journeys with filtering and pagination
+ */
+export function useJourneys(
+  filters: Partial<JourneyFilterState> = {},
+  page: number = 1,
+  limit: number = 50
+) {
+  const [data, setData] = useState<{
+    journeys: JourneyData[]
+    total: number
+    page: number
+    totalPages: number
+  } | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const fetchData = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const journeys = await fetchJourneys(filters, page, limit)
+      setData(journeys)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch journeys')
     } finally {
       setLoading(false)
     }
