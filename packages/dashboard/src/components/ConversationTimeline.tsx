@@ -56,7 +56,7 @@ export const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
     },
     {
       type: 'response',
-      timestamp: context.timestamp + 1000, // Simulated response time
+      timestamp: context.timestamp + (context.responseTime || 1000), // Use actual response time or fallback
       title: 'AI Response Generated',
       description: conversation.aiOutput || 'No AI response available',
       icon: 'fa-robot',

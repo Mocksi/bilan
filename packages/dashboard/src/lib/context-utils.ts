@@ -17,6 +17,7 @@ export interface ConversationContext {
   lastActivity: number
   feedbackCount: number
   outcome: 'positive' | 'negative'
+  responseTime?: number // AI response duration in milliseconds
   userActions?: UserAction[]
   behaviorSignals?: BehaviorSignal[]
 }
