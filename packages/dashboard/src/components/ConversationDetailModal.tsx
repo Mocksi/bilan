@@ -27,9 +27,7 @@ export const ConversationDetailModal: React.FC<ConversationDetailModalProps> = (
     aiOutput: conversation.aiOutput,
     comment: conversation.comment,
     journeyName: conversation.journeyName,
-    journeyStep: conversation.journeyStep,
-    page: conversation.page,
-    metadata: conversation.metadata
+    journeyStep: conversation.journeyStep
   })
 
   const insights = getConversationInsights(context)
