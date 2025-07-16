@@ -96,7 +96,7 @@ describe('useTimeRange', () => {
   it('returns default range when no URL param', () => {
     render(<TestComponent />)
     
-    expect(screen.getByTestId('current-range')).toHaveTextContent('7d')
+    expect(screen.getByTestId('current-range')).toHaveTextContent('30d')
   })
 
   it('returns range from URL params', () => {

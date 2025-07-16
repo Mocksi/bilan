@@ -15,6 +15,12 @@ interface EventsBody {
   events: any[]
 }
 
+interface DashboardQuery {
+  start?: string
+  end?: string
+  range?: string
+}
+
 interface StatsQuery {
   userId?: string
 }
@@ -33,7 +39,7 @@ export class BilanServer {
   private db: BilanDatabase
   private config: ServerConfig
   private analyticsProcessor: BasicAnalyticsProcessor
-  private dashboardCache: { data: DashboardData; timestamp: number } | null = null
+  private dashboardCache: Map<string, { data: DashboardData; timestamp: number }> = new Map()
   private readonly CACHE_DURATION = 60 * 1000 // 60 seconds
 
   constructor(config: ServerConfig = {}) {
@@ -64,21 +70,41 @@ export class BilanServer {
     })
 
     // Dashboard data endpoint - returns all dashboard data in one call
-    this.fastify.get('/api/dashboard', async (request: FastifyRequest, reply: FastifyReply) => {
+    this.fastify.get<{ Querystring: DashboardQuery }>('/api/dashboard', async (request: FastifyRequest<{ Querystring: DashboardQuery }>, reply: FastifyReply) => {
       try {
+        const { start, end, range = '30d' } = request.query
+        
+        // Create cache key based on date range
+        const cacheKey = `${start || 'all'}-${end || 'all'}-${range}`
+        
         // Check cache first
-        if (this.dashboardCache && (Date.now() - this.dashboardCache.timestamp) < this.CACHE_DURATION) {
-          return this.dashboardCache.data
+        const cached = this.dashboardCache.get(cacheKey)
+        if (cached && (Date.now() - cached.timestamp) < this.CACHE_DURATION) {
+          return cached.data
         }
 
-        // Calculate fresh dashboard data
-        const dashboardData = await this.analyticsProcessor.calculateDashboardData()
+        // Parse date range if provided
+        let startDate: Date | undefined
+        let endDate: Date | undefined
+        
+        if (start && end) {
+          startDate = new Date(start)
+          endDate = new Date(end)
+          
+          // Validate dates
+          if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+            return reply.status(400).send({ error: 'Invalid date format' })
+          }
+        }
+
+        // Calculate fresh dashboard data with date filtering
+        const dashboardData = await this.analyticsProcessor.calculateDashboardData(startDate, endDate)
         
         // Update cache
-        this.dashboardCache = {
+        this.dashboardCache.set(cacheKey, {
           data: dashboardData,
           timestamp: Date.now()
-        }
+        })
 
         return dashboardData
       } catch (error) {

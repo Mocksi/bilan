@@ -1,314 +1,189 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
-import { JourneyData, JourneyFilterState } from '@/lib/types'
-import { useJourneyAnalytics, useJourneys } from '@/lib/api-client'
-import { 
-  getUniqueJourneyFilterValues,
-  exportJourneysToCSV,
-  exportJourneysToJSON
-} from '@/lib/journeys-utils'
+import React, { useState, Suspense, useMemo } from 'react'
+import { useJourneys } from '@/lib/api-client'
+import { DashboardLayout } from '@/components/DashboardLayout'
+import StatsCard from '@/components/StatsCard'
 
-import { JourneysOverview } from './components/JourneysOverview'
-import { JourneyTrends } from './components/JourneyTrends'
-import { JourneyFilter } from './components/JourneyFilter'
-import { JourneyTable } from './components/JourneyTable'
-
-import { 
-  Route, 
-  TrendingUp, 
-  Filter, 
-  Download,
-  RefreshCw,
-  AlertCircle,
-  BarChart3
-} from 'lucide-react'
-
+// Wrapper component for useSearchParams
 function JourneysContent() {
-  const searchParams = useSearchParams()
-  const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'overview')
-  const [timeRange, setTimeRange] = useState('7d')
-  const [currentPage, setCurrentPage] = useState(1)
-  const [pageSize] = useState(50)
+  const [page, setPage] = useState(1)
+  const [limit] = useState(50)
   
-  const [filters, setFilters] = useState<JourneyFilterState>({
-    search: '',
-    userId: '',
-    journeyName: '',
-    status: 'all',
-    minSteps: null,
-    maxSteps: null,
-    minCompletionRate: null,
-    satisfactionScore: null,
-    tags: [],
-    startDate: null,
-    endDate: null,
-    sortBy: 'startTime',
-    sortOrder: 'desc'
-  })
+  // Use useMemo to create a stable filters object
+  const filters = useMemo(() => ({}), [])
+  
+  const { data, loading, error } = useJourneys(filters, page, limit)
 
-  const [selectedJourney, setSelectedJourney] = useState<JourneyData | null>(null)
-  const [showDetailModal, setShowDetailModal] = useState(false)
-
-  // Fetch analytics data
-  const { 
-    data: analytics, 
-    loading: analyticsLoading, 
-    error: analyticsError, 
-    refresh: refreshAnalytics 
-  } = useJourneyAnalytics(timeRange)
-
-  // Fetch journeys data
-  const { 
-    data: journeysData, 
-    loading: journeysLoading, 
-    error: journeysError, 
-    refresh: refreshJourneys 
-  } = useJourneys(filters, currentPage, pageSize)
-
-  // Get filter options
-  const filterOptions = journeysData?.journeys 
-    ? getUniqueJourneyFilterValues(journeysData.journeys)
-    : { users: [], journeyNames: [], tags: [], statuses: [] }
-
-  // Handle tab change
-  useEffect(() => {
-    const tab = searchParams.get('tab')
-    if (tab) {
-      setActiveTab(tab)
-    }
-  }, [searchParams])
-
-  // Handle journey selection
-  const handleJourneyClick = (journey: JourneyData) => {
-    setSelectedJourney(journey)
-    setShowDetailModal(true)
+  if (loading) {
+    return (
+      <DashboardLayout 
+        title="Journey Analytics"
+        subtitle="Loading journey data..."
+      >
+        <div className="text-center py-5">
+          <div className="spinner-border text-primary" role="status">
+            <span className="visually-hidden">Loading...</span>
+          </div>
+        </div>
+      </DashboardLayout>
+    )
   }
 
-  // Handle export
-  const handleExport = async (format: 'csv' | 'json') => {
-    if (!journeysData?.journeys) return
-
-    try {
-      let content: string
-      let filename: string
-      let mimeType: string
-
-      if (format === 'csv') {
-        content = exportJourneysToCSV(journeysData.journeys)
-        filename = `journeys-${new Date().toISOString().split('T')[0]}.csv`
-        mimeType = 'text/csv'
-      } else {
-        content = exportJourneysToJSON(journeysData.journeys)
-        filename = `journeys-${new Date().toISOString().split('T')[0]}.json`
-        mimeType = 'application/json'
-      }
-
-      const blob = new Blob([content], { type: mimeType })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = filename
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-    } catch (error) {
-      console.error('Export failed:', error)
-    }
+  if (error) {
+    return (
+      <DashboardLayout 
+        title="Journey Analytics"
+        subtitle="Error loading journeys"
+      >
+        <div className="alert alert-danger" role="alert">
+          <h4 className="alert-heading">Error loading journeys</h4>
+          <p>{error}</p>
+        </div>
+      </DashboardLayout>
+    )
   }
 
-  // Handle refresh
-  const handleRefresh = () => {
-    refreshAnalytics()
-    refreshJourneys()
-  }
-
-  // Tabs configuration
-  const tabs = [
-    { id: 'overview', name: 'Overview', icon: Route },
-    { id: 'trends', name: 'Trends', icon: TrendingUp },
-    { id: 'journeys', name: 'Journeys', icon: Filter }
-  ]
+  const totalJourneys = data?.journeys.length || 0
+  const completedJourneys = data?.journeys.filter(journey => journey.status === 'completed').length || 0
+  const activeJourneys = data?.journeys.filter(journey => journey.status === 'active').length || 0
+  const completionRate = totalJourneys > 0 ? (completedJourneys / totalJourneys) * 100 : 0
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Journeys Analytics</h1>
-          <p className="text-gray-600 mt-1">
-            Track workflow completion and identify optimization opportunities
-          </p>
+    <DashboardLayout 
+      title="Journey Analytics" 
+      subtitle="Workflow tracking and user journey optimization"
+    >
+      {/* Key Metrics */}
+      <div className="row row-deck row-cards mb-4">
+        <div className="col-sm-6 col-lg-3">
+          <StatsCard
+            title="Total Journeys"
+            value={totalJourneys.toLocaleString()}
+            trend={totalJourneys > 0 ? 'up' : 'stable'}
+            icon={
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path>
+              </svg>
+            }
+          />
         </div>
-        <div className="flex items-center space-x-3">
-          <select
-            value={timeRange}
-            onChange={(e) => setTimeRange(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="1d">Last 24 hours</option>
-            <option value="7d">Last 7 days</option>
-            <option value="30d">Last 30 days</option>
-            <option value="90d">Last 90 days</option>
-          </select>
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={() => handleExport('csv')}
-              className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <Download className="h-4 w-4" />
-              <span>CSV</span>
-            </button>
-            <button
-              onClick={() => handleExport('json')}
-              className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <Download className="h-4 w-4" />
-              <span>JSON</span>
-            </button>
-            <button
-              onClick={handleRefresh}
-              className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <RefreshCw className="h-4 w-4" />
-              <span>Refresh</span>
-            </button>
-          </div>
+        <div className="col-sm-6 col-lg-3">
+          <StatsCard
+            title="Completion Rate"
+            value={`${completionRate.toFixed(1)}%`}
+            trend={completionRate > 50 ? 'up' : completionRate < 50 ? 'down' : 'stable'}
+            icon={
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                <polyline points="22,4 12,14.01 9,11.01"></polyline>
+              </svg>
+            }
+          />
+        </div>
+        <div className="col-sm-6 col-lg-3">
+          <StatsCard
+            title="Active Journeys"
+            value={activeJourneys.toLocaleString()}
+            trend={activeJourneys > 0 ? 'up' : 'stable'}
+            icon={
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="20" x2="12" y2="10"></line>
+                <line x1="18" y1="20" x2="18" y2="4"></line>
+                <line x1="6" y1="20" x2="6" y2="16"></line>
+              </svg>
+            }
+          />
+        </div>
+        <div className="col-sm-6 col-lg-3">
+          <StatsCard
+            title="Completed"
+            value={completedJourneys.toLocaleString()}
+            trend={completedJourneys > 0 ? 'up' : 'stable'}
+            icon={
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+              </svg>
+            }
+          />
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="border-b border-gray-200">
-        <nav className="-mb-px flex space-x-8">
-          {tabs.map((tab) => {
-            const Icon = tab.icon
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center space-x-2 py-2 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === tab.id
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                <Icon className="h-4 w-4" />
-                <span>{tab.name}</span>
-              </button>
-            )
-          })}
-        </nav>
-      </div>
-
-      {/* Error States */}
-      {analyticsError && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <div className="flex items-center">
-            <AlertCircle className="h-5 w-5 text-red-600 mr-2" />
-            <p className="text-red-700">Failed to load analytics: {analyticsError}</p>
-          </div>
+      {/* Journeys Table */}
+      <div className="card">
+        <div className="card-header">
+          <h3 className="card-title">Recent Journeys</h3>
         </div>
-      )}
-
-      {journeysError && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <div className="flex items-center">
-            <AlertCircle className="h-5 w-5 text-red-600 mr-2" />
-            <p className="text-red-700">Failed to load journeys: {journeysError}</p>
-          </div>
+        <div className="card-body">
+          {data && data.journeys.length > 0 ? (
+            <div className="table-responsive">
+              <table className="table table-vcenter">
+                <thead>
+                  <tr>
+                    <th>Journey ID</th>
+                    <th>Name</th>
+                    <th>User</th>
+                    <th>Status</th>
+                    <th>Steps</th>
+                    <th>Started</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.journeys.map((journey, index) => (
+                    <tr key={index}>
+                      <td className="text-muted">
+                        <code>{journey.id}</code>
+                      </td>
+                      <td>
+                        <strong>{journey.name}</strong>
+                      </td>
+                      <td className="text-muted">
+                        <code>{journey.userId}</code>
+                      </td>
+                      <td>
+                        <span className={`badge ${
+                          journey.status === 'completed' ? 'bg-success' : 
+                          journey.status === 'abandoned' ? 'bg-danger' : 'bg-primary'
+                        }`}>
+                          {journey.status}
+                        </span>
+                      </td>
+                      <td>
+                        {journey.completedSteps.length}/{journey.steps.length}
+                      </td>
+                      <td className="text-muted">
+                        {new Date(journey.startTime).toLocaleString()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="text-center py-5">
+              <div className="text-muted">
+                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mb-3">
+                  <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
+                </svg>
+                <h3>No journey tracking enabled</h3>
+                <p>This system currently tracks individual votes, not user journeys.</p>
+                <p className="text-muted small">
+                  To enable journey tracking, use the SDK's <code>startJourney()</code>, 
+                  <code>updateJourney()</code>, and <code>completeJourney()</code> methods.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
-      )}
-
-      {/* Tab Content */}
-      <div className="space-y-6">
-        {activeTab === 'overview' && (
-          <div>
-            {analyticsLoading ? (
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="animate-pulse space-y-4">
-                  <div className="h-4 bg-gray-200 rounded w-1/4"></div>
-                  <div className="grid grid-cols-4 gap-4">
-                    {[...Array(8)].map((_, i) => (
-                      <div key={i} className="h-24 bg-gray-200 rounded"></div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            ) : analytics ? (
-              <JourneysOverview analytics={analytics} />
-            ) : (
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="text-center py-8">
-                  <Route className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No analytics data available</h3>
-                  <p className="text-gray-500">Analytics data will appear here once journeys are recorded.</p>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === 'trends' && (
-          <div>
-            {analyticsLoading ? (
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="animate-pulse space-y-4">
-                  <div className="h-4 bg-gray-200 rounded w-1/4"></div>
-                  <div className="h-80 bg-gray-200 rounded"></div>
-                </div>
-              </div>
-            ) : analytics ? (
-              <JourneyTrends analytics={analytics} />
-            ) : (
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="text-center py-8">
-                  <TrendingUp className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No trend data available</h3>
-                  <p className="text-gray-500">Trend data will appear here once journeys are recorded.</p>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeTab === 'journeys' && (
-          <div className="space-y-6">
-            <JourneyFilter
-              filters={filters}
-              onFiltersChange={setFilters}
-              userOptions={filterOptions.users}
-              journeyNameOptions={filterOptions.journeyNames}
-              tagOptions={filterOptions.tags}
-            />
-            
-            <JourneyTable
-              journeys={journeysData?.journeys || []}
-              loading={journeysLoading}
-              onJourneyClick={handleJourneyClick}
-              currentPage={currentPage}
-              totalPages={journeysData?.totalPages || 1}
-              onPageChange={setCurrentPage}
-            />
-          </div>
-        )}
       </div>
-    </div>
+    </DashboardLayout>
   )
 }
 
-export default function JourneysPage() {
+export default function Journeys() {
   return (
-    <Suspense fallback={
-      <div className="space-y-6">
-        <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-1/3 mb-2"></div>
-          <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-        </div>
-        <div className="h-96 bg-gray-200 rounded"></div>
-      </div>
-    }>
+    <Suspense fallback={<div>Loading journeys...</div>}>
       <JourneysContent />
     </Suspense>
   )

@@ -1,7 +1,9 @@
 'use client'
 
+import React from 'react'
 import { VoteAnalytics } from '@/lib/types'
-import { TrendIndicator } from '@/components/TrendIndicator'
+import StatsCard from '@/components/StatsCard'
+import { ThumbsUpIcon } from '@/components/icons'
 
 interface VotesOverviewProps {
   analytics: VoteAnalytics | null
@@ -37,10 +39,7 @@ export function VotesOverview({ analytics, loading }: VotesOverviewProps) {
           <div className="card">
             <div className="card-body text-center text-muted py-5">
               <div className="mb-3">
-                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M7 10v12"/>
-                  <path d="M15 5.88L14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2h3.5a2 2 0 0 1 2 2.5v1.38z"/>
-                </svg>
+                <ThumbsUpIcon width={48} height={48} />
               </div>
               <h3>No Vote Data</h3>
               <p>No votes found for the selected time period.</p>
@@ -84,9 +83,9 @@ export function VotesOverview({ analytics, loading }: VotesOverviewProps) {
             <div className="d-flex align-items-baseline">
               <div className="h1 mb-0 me-2">{(overview.positiveRate * 100).toFixed(1)}%</div>
               <div className="ms-auto">
-                <TrendIndicator 
-                  trend={overview.positiveRate > 0.7 ? 'improving' : overview.positiveRate < 0.3 ? 'declining' : 'stable'}
-                />
+                <span className={`badge ${overview.positiveRate > 0.7 ? 'bg-success' : overview.positiveRate < 0.3 ? 'bg-danger' : 'bg-secondary'}`}>
+                  {overview.positiveRate > 0 ? 'Positive' : overview.positiveRate < 0 ? 'Negative' : 'Neutral'}
+                </span>
               </div>
             </div>
             <div className="mt-2">

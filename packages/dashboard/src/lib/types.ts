@@ -39,7 +39,10 @@ export interface DashboardData {
       value: number; 
       timestamp: number;
       comment?: string;
-      metadata?: any;
+      metadata?: {
+        promptText?: string;
+        [key: string]: any;
+      };
     }[]
     totalEvents: number
   }
@@ -53,16 +56,19 @@ export interface VoteData {
   promptId: string
   userId: string
   value: number // -1 for negative, 1 for positive
+  rating?: 'positive' | 'negative'
   comment?: string
   timestamp: number
+  date?: string
+  promptText?: string
+  aiOutput?: string
+  responseTime?: number
+  model?: string
   metadata?: {
-    promptText?: string
-    aiOutput?: string
-    responseTime?: number
-    model?: string
     journey?: string
     step?: string
     sessionId?: string
+    conversationId?: string
     [key: string]: any
   }
 }

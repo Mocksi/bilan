@@ -1,14 +1,15 @@
 'use client'
 
+import React, { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useState } from 'react'
+import { ThumbsUpIcon } from './icons'
 
 interface SidebarProps {
   className?: string
 }
 
-export function Sidebar({ className = '' }: SidebarProps) {
+export const Sidebar: React.FC<SidebarProps> = ({ className = '' }) => {
   const pathname = usePathname()
   const [isCollapsed, setIsCollapsed] = useState(false)
 
@@ -18,22 +19,15 @@ export function Sidebar({ className = '' }: SidebarProps) {
       label: 'Overview',
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="3" y="3" width="7" height="7"/>
-          <rect x="14" y="3" width="7" height="7"/>
-          <rect x="14" y="14" width="7" height="7"/>
-          <rect x="3" y="14" width="7" height="7"/>
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+          <polyline points="9,22 9,12 15,12 15,22"/>
         </svg>
       )
     },
     {
       href: '/votes',
       label: 'Votes',
-      icon: (
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M7 10v12"/>
-          <path d="M15 5.88L14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2h3.5a2 2 0 0 1 2 2.5v1.38z"/>
-        </svg>
-      )
+      icon: <ThumbsUpIcon width={16} height={16} />
     },
     {
       href: '/conversations',
@@ -63,7 +57,7 @@ export function Sidebar({ className = '' }: SidebarProps) {
   }
 
   return (
-    <div className={`navbar-vertical navbar-expand-lg ${className}`}>
+    <div className={`navbar-vertical navbar-expand-lg`}>
       <div className="container-fluid">
         <button
           className="navbar-toggler"
@@ -81,7 +75,7 @@ export function Sidebar({ className = '' }: SidebarProps) {
           </Link>
         </h1>
 
-        <div className={`navbar-nav ${isCollapsed ? 'collapse' : ''}`}>
+        <div className={`navbar-nav`}>
           <div className="nav-item dropdown">
             <div className="nav-link dropdown-toggle" data-bs-toggle="dropdown" role="button" aria-expanded="false">
               Analytics

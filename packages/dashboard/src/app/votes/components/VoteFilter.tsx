@@ -14,7 +14,7 @@ export function VoteFilter({ onFilterChange, className = '' }: VoteFilterProps) 
     rating: 'all',
     user: '',
     prompt: '',
-    timeRange: '7d',
+    timeRange: '30d',
     hasComment: null,
     sortBy: 'timestamp',
     sortOrder: 'desc'
@@ -32,7 +32,7 @@ export function VoteFilter({ onFilterChange, className = '' }: VoteFilterProps) 
       rating: 'all',
       user: '',
       prompt: '',
-      timeRange: '7d',
+      timeRange: '30d',
       hasComment: null,
       sortBy: 'timestamp',
       sortOrder: 'desc'

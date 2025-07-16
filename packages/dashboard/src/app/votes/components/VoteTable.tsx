@@ -1,6 +1,8 @@
 'use client'
 
+import React, { useState } from 'react'
 import { VoteData } from '@/lib/types'
+import { ThumbsUpIcon, ThumbsDownIcon } from '@/components/icons'
 import { 
   getVoteRatingEmoji, 
   getVoteRatingBadgeClass, 
@@ -17,6 +19,42 @@ interface VoteTableProps {
 }
 
 export function VoteTable({ votes, loading, onVoteClick, className = '' }: VoteTableProps) {
+  const [selectedVotes, setSelectedVotes] = useState<Set<string>>(new Set())
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedVotes(new Set(votes.map(v => v.id)))
+    } else {
+      setSelectedVotes(new Set())
+    }
+  }
+
+  const handleSelectVote = (id: string, checked: boolean) => {
+    const newSelected = new Set(selectedVotes)
+    if (checked) {
+      newSelected.add(id)
+    } else {
+      newSelected.delete(id)
+    }
+    setSelectedVotes(newSelected)
+  }
+
+  const formatTimestamp = (timestamp: number) => {
+    return new Date(timestamp).toLocaleString()
+  }
+
+  const getVoteIcon = (value: number) => {
+    return value === 1 ? (
+      <ThumbsUpIcon width={16} height={16} className="text-success" />
+    ) : (
+      <ThumbsDownIcon width={16} height={16} className="text-danger" />
+    )
+  }
+
+  const getVoteBadge = (value: number) => {
+    return value === 1 ? 'badge bg-success' : 'badge bg-danger'
+  }
+
   if (loading) {
     return (
       <div className={`card ${className}`}>
@@ -63,10 +101,7 @@ export function VoteTable({ votes, loading, onVoteClick, className = '' }: VoteT
         </div>
         <div className="card-body text-center text-muted py-5">
           <div className="mb-3">
-            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M7 10v12"/>
-              <path d="M15 5.88L14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2h3.5a2 2 0 0 1 2 2.5v1.38z"/>
-            </svg>
+            <ThumbsUpIcon width={48} height={48} />
           </div>
           <h3>No Votes Found</h3>
           <p>No votes match the current filters. Try adjusting your search criteria.</p>

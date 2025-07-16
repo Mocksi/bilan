@@ -15,7 +15,7 @@ import { TimeRange } from '@/components/TimeRangeSelector'
 import { formatDateForAPI, getDateRange, getPreviousDateRange } from './time-utils'
 
 // API Configuration
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3002'
 
 export interface DashboardDataWithComparison extends DashboardData {
   comparison?: {
@@ -26,22 +26,17 @@ export interface DashboardDataWithComparison extends DashboardData {
 
 export class ApiClient {
   private baseUrl: string
-  private abortController: AbortController | null = null
 
-  constructor(baseUrl: string = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3002') {
+  constructor(baseUrl: string = API_BASE_URL) {
     this.baseUrl = baseUrl
   }
 
   /**
    * Fetch dashboard data from the API with optional time range
    */
-  async fetchDashboardData(timeRange: TimeRange = '7d', includeComparison: boolean = false): Promise<DashboardDataWithComparison> {
-    // Cancel any pending requests
-    if (this.abortController) {
-      this.abortController.abort()
-    }
-
-    this.abortController = new AbortController()
+  async fetchDashboardData(timeRange: TimeRange = '30d', includeComparison: boolean = false): Promise<DashboardDataWithComparison> {
+    // Create a new abort controller for this specific request
+    const abortController = new AbortController()
 
     try {
       const { start, end } = getDateRange(timeRange)
@@ -56,7 +51,7 @@ export class ApiClient {
         headers: {
           'Content-Type': 'application/json',
         },
-        signal: this.abortController.signal,
+        signal: abortController.signal,
       })
 
       if (!response.ok) {
@@ -98,18 +93,12 @@ export class ApiClient {
     limit: number = 50,
     timeRange: TimeRange = '7d'
   ): Promise<{ votes: VoteData[]; total: number; page: number; limit: number }> {
-    const { start, end } = getDateRange(timeRange)
     const params = new URLSearchParams({
-      start: formatDateForAPI(start),
-      end: formatDateForAPI(end),
-      page: page.toString(),
       limit: limit.toString(),
-      ...Object.fromEntries(
-        Object.entries(filters).filter(([_, value]) => value !== '' && value !== null && value !== undefined)
-      )
+      offset: ((page - 1) * limit).toString()
     })
 
-    const response = await fetch(`${this.baseUrl}/api/votes?${params}`, {
+    const response = await fetch(`${this.baseUrl}/api/events?${params}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -120,32 +109,89 @@ export class ApiClient {
       throw new Error(`Failed to fetch votes: ${response.status} ${response.statusText}`)
     }
 
-    return response.json()
+    const data = await response.json()
+    
+    // Transform the events into VoteData format
+    const votes: VoteData[] = data.events.map((event: any) => ({
+      id: `${event.userId}-${event.promptId}-${event.timestamp}`,
+      promptId: event.promptId,
+      userId: event.userId,
+      value: event.value,
+      rating: event.value > 0 ? 'positive' : 'negative',
+      comment: event.comment,
+      timestamp: event.timestamp,
+      date: new Date(event.timestamp).toISOString().split('T')[0],
+      promptText: event.promptText,
+      aiOutput: event.aiOutput,
+      responseTime: event.responseTime,
+      model: event.modelUsed,
+      metadata: event.metadata
+    }))
+
+    return {
+      votes,
+      total: data.total,
+      page,
+      limit
+    }
   }
 
   /**
    * Fetch vote analytics data
    */
   async fetchVoteAnalytics(timeRange: TimeRange = '7d'): Promise<VoteAnalytics> {
-    const { start, end } = getDateRange(timeRange)
-    const params = new URLSearchParams({
-      start: formatDateForAPI(start),
-      end: formatDateForAPI(end),
-      range: timeRange
-    })
-
-    const response = await fetch(`${this.baseUrl}/api/votes/analytics?${params}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
+    // Mock implementation - API endpoint doesn't exist yet
+    return {
+      overview: {
+        totalVotes: 0,
+        positiveVotes: 0,
+        negativeVotes: 0,
+        positiveRate: 0,
+        averageRating: 0,
+        commentsCount: 0,
+        uniqueUsers: 0,
+        uniquePrompts: 0
       },
-    })
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch vote analytics: ${response.status} ${response.statusText}`)
+      trends: {
+        daily: [],
+        hourly: Array.from({ length: 24 }, (_, i) => ({
+          hour: i,
+          totalVotes: 0,
+          positiveVotes: 0,
+          negativeVotes: 0,
+          positiveRate: 0
+        }))
+      },
+      userBehavior: {
+        topUsers: [],
+        votingPatterns: {
+          averageVotesPerUser: 0,
+          medianVotesPerUser: 0,
+          powerUsers: 0,
+          oneTimeVoters: 0
+        }
+      },
+      promptPerformance: {
+        topPrompts: [],
+        performanceMetrics: {
+          averagePositiveRate: 0,
+          bestPerformingPrompt: '',
+          worstPerformingPrompt: '',
+          promptsWithoutVotes: 0
+        }
+      },
+      commentAnalysis: {
+        totalComments: 0,
+        averageCommentLength: 0,
+        topComments: [],
+        sentimentAnalysis: {
+          positive: 0,
+          negative: 0,
+          neutral: 0
+        },
+        commonThemes: []
+      }
     }
-
-    return response.json()
   }
 
   /**
@@ -156,28 +202,11 @@ export class ApiClient {
     timeRange: TimeRange = '7d',
     format: 'csv' | 'json' = 'csv'
   ): Promise<Blob> {
-    const { start, end } = getDateRange(timeRange)
-    const params = new URLSearchParams({
-      start: formatDateForAPI(start),
-      end: formatDateForAPI(end),
-      format,
-      ...Object.fromEntries(
-        Object.entries(filters).filter(([_, value]) => value !== '' && value !== null && value !== undefined)
-      )
+    // Mock implementation - API endpoint doesn't exist yet
+    const emptyData = format === 'csv' ? 'id,userId,promptId,value,timestamp,comment\n' : '[]'
+    return new Blob([emptyData], { 
+      type: format === 'csv' ? 'text/csv' : 'application/json' 
     })
-
-    const response = await fetch(`${this.baseUrl}/api/votes/export?${params}`, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    })
-
-    if (!response.ok) {
-      throw new Error(`Failed to export votes: ${response.status} ${response.statusText}`)
-    }
-
-    return response.blob()
   }
 
   /**
@@ -230,12 +259,11 @@ export class ApiClient {
 
   /**
    * Cancel any pending requests
+   * Note: With the new implementation, each request has its own AbortController
+   * so this method is no longer needed but kept for backward compatibility
    */
   cancelRequests(): void {
-    if (this.abortController) {
-      this.abortController.abort()
-      this.abortController = null
-    }
+    // No-op since each request now manages its own cancellation
   }
 }
 
@@ -243,7 +271,7 @@ export class ApiClient {
 export const apiClient = new ApiClient()
 
 // Custom hook for dashboard data fetching with time range support
-export function useDashboardData(timeRange: TimeRange = '7d', includeComparison: boolean = false) {
+export function useDashboardData(timeRange: TimeRange = '30d', includeComparison: boolean = false) {
   const [data, setData] = useState<DashboardDataWithComparison | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -255,7 +283,10 @@ export function useDashboardData(timeRange: TimeRange = '7d', includeComparison:
       const dashboardData = await apiClient.fetchDashboardData(range, comparison)
       setData(dashboardData)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch data')
+      // Only set error if it's not a cancellation error
+      if (err instanceof Error && err.message !== 'Request was cancelled') {
+        setError(err.message)
+      }
     } finally {
       setLoading(false)
     }
@@ -267,20 +298,36 @@ export function useDashboardData(timeRange: TimeRange = '7d', includeComparison:
 
   // Automatically fetch data when the hook is first used or when timeRange changes
   useEffect(() => {
+    let isMounted = true
+    
     const loadData = async () => {
       try {
         setLoading(true)
         setError(null)
         const dashboardData = await apiClient.fetchDashboardData(timeRange, includeComparison)
-        setData(dashboardData)
+        
+        // Only update state if component is still mounted
+        if (isMounted) {
+          setData(dashboardData)
+        }
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch data')
+        // Only set error if component is still mounted and it's not a cancellation error
+        if (isMounted && err instanceof Error && err.message !== 'Request was cancelled') {
+          setError(err.message)
+        }
       } finally {
-        setLoading(false)
+        if (isMounted) {
+          setLoading(false)
+        }
       }
     }
     
     loadData()
+    
+    // Cleanup function to prevent state updates on unmounted component
+    return () => {
+      isMounted = false
+    }
   }, [timeRange, includeComparison])
 
   return { data, loading, error, refresh, fetchData }
@@ -346,7 +393,7 @@ export function useVotes(
 
   useEffect(() => {
     fetchData()
-  }, [filters, page, limit, timeRange])
+  }, [JSON.stringify(filters), page, limit, timeRange])
 
   return { data, loading, error, refresh, fetchData }
 } 
@@ -357,58 +404,69 @@ export function useVotes(
  * Fetch conversation analytics data
  */
 export async function fetchConversationAnalytics(timeRange: string = '7d'): Promise<ConversationAnalytics> {
-  const response = await fetch(`${API_BASE_URL}/conversations/analytics?timeRange=${timeRange}`)
-  
-  if (!response.ok) {
-    throw new Error(`Failed to fetch conversation analytics: ${response.statusText}`)
+  // Mock implementation - API endpoint doesn't exist yet
+  return {
+    overview: {
+      totalConversations: 0,
+      activeConversations: 0,
+      averageLength: 0,
+      averageResponseTime: 0,
+      satisfactionRate: 0,
+      completionRate: 0,
+      uniqueUsers: 0,
+      totalMessages: 0
+    },
+    trends: {
+      daily: [],
+      hourly: Array.from({ length: 24 }, (_, i) => ({
+        hour: i,
+        conversationCount: 0,
+        averageResponseTime: 0,
+        activeConversations: 0
+      }))
+    },
+    userBehavior: {
+      topUsers: [],
+      engagementMetrics: {
+        averageConversationsPerUser: 0,
+        medianConversationsPerUser: 0,
+        powerUsers: 0,
+        oneTimeUsers: 0
+      }
+    },
+    topicAnalysis: {
+      topTopics: [],
+      topicTrends: []
+    },
+    performanceMetrics: {
+      responseTimeDistribution: [],
+      lengthDistribution: [],
+      satisfactionDistribution: []
+    },
+    conversationFlow: {
+      averageMessagesPerConversation: 0,
+      dropoffPoints: [],
+      completionFunnels: []
+    }
   }
-  
-  const data = await response.json()
-  return data
 }
 
 /**
- * Fetch conversations with filtering and pagination
+ * Fetch conversations data with filtering and pagination
  */
 export async function fetchConversations(
   filters: Partial<ConversationFilterState> = {},
   page: number = 1,
   limit: number = 50
-): Promise<{
-  conversations: ConversationData[]
-  total: number
-  page: number
-  totalPages: number
-}> {
-  const params = new URLSearchParams()
-  
-  // Add pagination
-  params.append('page', page.toString())
-  params.append('limit', limit.toString())
-  
-  // Add filters
-  Object.entries(filters).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== '') {
-      if (key === 'tags' && Array.isArray(value)) {
-        value.forEach(tag => params.append('tags', tag))
-      } else if (key === 'startDate' || key === 'endDate') {
-        if (value instanceof Date) {
-          params.append(key, value.toISOString())
-        }
-      } else {
-        params.append(key, String(value))
-      }
-    }
-  })
-  
-  const response = await fetch(`${API_BASE_URL}/conversations?${params}`)
-  
-  if (!response.ok) {
-    throw new Error(`Failed to fetch conversations: ${response.statusText}`)
+): Promise<{ conversations: ConversationData[]; total: number; page: number; totalPages: number }> {
+  // No real conversation data exists - the server only tracks individual votes
+  // The "conversations" count in dashboard data is actually unique prompts, not real conversations
+  return {
+    conversations: [],
+    total: 0,
+    page,
+    totalPages: 0
   }
-  
-  const data = await response.json()
-  return data
 }
 
 /**
@@ -497,16 +555,11 @@ export function useConversationAnalytics(timeRange: string = '7d') {
  * Hook for fetching conversations with filtering and pagination
  */
 export function useConversations(
-  filters: Partial<ConversationFilterState> = {},
+  filters: any = {},
   page: number = 1,
   limit: number = 50
 ) {
-  const [data, setData] = useState<{
-    conversations: ConversationData[]
-    total: number
-    page: number
-    totalPages: number
-  } | null>(null)
+  const [data, setData] = useState<{ conversations: ConversationData[]; total: number; page: number; limit: number } | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -514,8 +567,16 @@ export function useConversations(
     try {
       setLoading(true)
       setError(null)
-      const conversations = await fetchConversations(filters, page, limit)
-      setData(conversations)
+      
+      // Use the actual API function that returns empty data
+      const result = await fetchConversations(filters, page, limit)
+      
+      setData({
+        conversations: result.conversations,
+        total: result.total,
+        page: result.page,
+        limit
+      })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch conversations')
     } finally {
@@ -523,16 +584,14 @@ export function useConversations(
     }
   }
 
-  const refresh = () => {
-    fetchData()
-  }
-
   useEffect(() => {
     fetchData()
   }, [filters, page, limit])
 
-  return { data, loading, error, refresh, fetchData }
-} 
+  return { data, loading, error, refresh: fetchData }
+}
+
+
 
 // Journey API Functions
 
@@ -540,58 +599,69 @@ export function useConversations(
  * Fetch journey analytics data
  */
 export async function fetchJourneyAnalytics(timeRange: string = '7d'): Promise<JourneyAnalytics> {
-  const response = await fetch(`${API_BASE_URL}/journeys/analytics?timeRange=${timeRange}`)
-  
-  if (!response.ok) {
-    throw new Error(`Failed to fetch journey analytics: ${response.statusText}`)
+  // Mock implementation - API endpoint doesn't exist yet
+  return {
+    overview: {
+      totalJourneys: 0,
+      activeJourneys: 0,
+      completedJourneys: 0,
+      abandonedJourneys: 0,
+      averageCompletionRate: 0,
+      averageTimeToComplete: 0,
+      uniqueUsers: 0,
+      totalSteps: 0
+    },
+    performance: {
+      topPerformingJourneys: [],
+      bottleneckSteps: [],
+      conversionFunnel: []
+    },
+    trends: {
+      daily: [],
+      hourly: Array.from({ length: 24 }, (_, i) => ({
+        hour: i,
+        totalJourneys: 0,
+        completedJourneys: 0,
+        averageCompletionRate: 0
+      }))
+    },
+    userBehavior: {
+      topUsers: [],
+      engagementMetrics: {
+        averageJourneysPerUser: 0,
+        medianJourneysPerUser: 0,
+        powerUsers: 0,
+        oneTimeUsers: 0
+      }
+    },
+    stepAnalysis: {
+      stepPerformance: [],
+      pathAnalysis: []
+    },
+    satisfactionAnalysis: {
+      overallSatisfaction: 0,
+      satisfactionByJourney: [],
+      satisfactionByStep: []
+    }
   }
-  
-  const data = await response.json()
-  return data
 }
 
 /**
- * Fetch journeys with filtering and pagination
+ * Fetch journeys data with filtering and pagination
  */
 export async function fetchJourneys(
   filters: Partial<JourneyFilterState> = {},
   page: number = 1,
   limit: number = 50
-): Promise<{
-  journeys: JourneyData[]
-  total: number
-  page: number
-  totalPages: number
-}> {
-  const params = new URLSearchParams()
-  
-  // Add pagination
-  params.append('page', page.toString())
-  params.append('limit', limit.toString())
-  
-  // Add filters
-  Object.entries(filters).forEach(([key, value]) => {
-    if (value !== undefined && value !== null && value !== '') {
-      if (key === 'tags' && Array.isArray(value)) {
-        value.forEach(tag => params.append('tags', tag))
-      } else if (key === 'startDate' || key === 'endDate') {
-        if (value instanceof Date) {
-          params.append(key, value.toISOString())
-        }
-      } else {
-        params.append(key, String(value))
-      }
-    }
-  })
-  
-  const response = await fetch(`${API_BASE_URL}/journeys?${params}`)
-  
-  if (!response.ok) {
-    throw new Error(`Failed to fetch journeys: ${response.statusText}`)
+): Promise<{ journeys: JourneyData[]; total: number; page: number; totalPages: number }> {
+  // No real journey data exists - the server only tracks individual votes
+  // Journey data would need to be explicitly tracked through the SDK's journey tracking methods
+  return {
+    journeys: [],
+    total: 0,
+    page,
+    totalPages: 0
   }
-  
-  const data = await response.json()
-  return data
 }
 
 /**
@@ -647,7 +717,7 @@ export async function exportJourneys(
 /**
  * Hook for fetching journey analytics
  */
-export function useJourneyAnalytics(timeRange: string = '7d') {
+export function useJourneyAnalytics(timeRange: string = '30d') {
   const [data, setData] = useState<JourneyAnalytics | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
