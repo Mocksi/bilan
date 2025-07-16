@@ -1,148 +1,151 @@
-import React, { useState } from 'react'
+import React from 'react'
 import { ConversationSummary } from '@/lib/types'
 import { ConversationFilterState } from './ConversationFilter'
-import { highlightSearchTerm } from '@/lib/filter-utils'
-import { TagDisplay } from './ConversationTags'
+import { formatTimestamp } from '@/lib/time-utils'
 
-export interface ConversationTableProps {
+interface ConversationTableProps {
   conversations: ConversationSummary[]
-  filteredConversations: ConversationSummary[]
   filterState: ConversationFilterState
-  onConversationClick?: (conversation: ConversationSummary) => void
+  onConversationClick: (conversation: ConversationSummary) => void
   className?: string
+}
+
+interface HighlightedTextProps {
+  text: string
+  searchTerm: string
+}
+
+const HighlightedText: React.FC<HighlightedTextProps> = ({ text, searchTerm }) => {
+  if (!searchTerm || !text) {
+    return <>{text}</>
+  }
+
+  // Escape regex special characters in search term
+  const escapedSearchTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const regex = new RegExp(`(${escapedSearchTerm})`, 'gi')
+  
+  const parts = text.split(regex)
+  
+  return (
+    <>
+      {parts.map((part, index) => {
+        const isMatch = regex.test(part)
+        return isMatch ? (
+          <mark key={index}>{part}</mark>
+        ) : (
+          <span key={index}>{part}</span>
+        )
+      })}
+    </>
+  )
 }
 
 export const ConversationTable: React.FC<ConversationTableProps> = ({
   conversations,
-  filteredConversations,
   filterState,
   onConversationClick,
   className = ''
 }) => {
-  const formatTimestamp = (timestamp: number) => {
-    return new Date(timestamp).toLocaleString()
-  }
-
-
-
-  const hasActiveFilters = filterState.search || filterState.outcome !== 'all' || filterState.journey || filterState.user
-  const displayConversations = filteredConversations || conversations
-  
-  if (!conversations || conversations.length === 0) {
+  if (conversations.length === 0) {
     return (
-      <div className={`card ${className}`}>
-        <div className="card-header">
-          <h3 className="card-title">Recent Conversations</h3>
-        </div>
-        <div className="card-body text-center">
-          <div className="text-muted">No conversations yet</div>
-        </div>
-      </div>
-    )
-  }
-
-  if (hasActiveFilters && displayConversations.length === 0) {
-    return (
-      <div className={`card ${className}`}>
-        <div className="card-header">
-          <h3 className="card-title">Recent Conversations</h3>
-          <div className="card-subtitle">
-            No conversations match your filters. {conversations.length} total conversations available.
-          </div>
-        </div>
-        <div className="card-body text-center">
-          <div className="text-muted">Try adjusting your filters</div>
+      <div className={`text-center py-5 ${className}`}>
+        <div className="text-muted">
+          <i className="fas fa-comments fa-3x mb-3"></i>
+          <h5>No conversations found</h5>
+          <p>Try adjusting your filters or check back later for new conversations.</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className={`card ${className}`}>
-      <div className="card-header">
-        <h3 className="card-title">Recent Conversations</h3>
-        <div className="card-subtitle">
-          {hasActiveFilters ? (
-            <span>
-              Showing {displayConversations.length} of {conversations.length} conversations
-              {filterState.search && <span> • Search: "{filterState.search}"</span>}
-              {filterState.outcome !== 'all' && <span> • Outcome: {filterState.outcome}</span>}
-              {filterState.journey && <span> • Journey: "{filterState.journey}"</span>}
-              {filterState.user && <span> • User: "{filterState.user}"</span>}
-            </span>
-          ) : (
-            <span>Showing all {conversations.length} conversations</span>
-          )}
-        </div>
-      </div>
-      <div className="table-responsive">
-        <table className="table table-vcenter">
-          <thead>
-            <tr>
-              <th>Conversation</th>
-              <th>Feedback</th>
-              <th>Outcome</th>
-              <th>Last Activity</th>
-            </tr>
-          </thead>
-          <tbody>
-            {displayConversations.map((conversation) => (
-              <tr 
-                key={conversation.promptId} 
-                className={onConversationClick ? 'cursor-pointer' : ''}
-                onClick={() => onConversationClick?.(conversation)}
-              >
-                <td>
-                  <div className="d-flex flex-column">
-                    <div className="fw-medium">
-                      {filterState.search ? (
-                        <span dangerouslySetInnerHTML={{
-                          __html: highlightSearchTerm(conversation.promptId, filterState.search)
-                        }} />
-                      ) : (
-                        conversation.promptId
-                      )}
-                    </div>
+    <div className={`table-responsive ${className}`}>
+      <table className="table table-hover">
+        <thead className="table-light">
+          <tr>
+            <th>Conversation</th>
+            <th>Outcome</th>
+            <th>Feedback</th>
+            <th>Activity</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {conversations.map((conversation) => (
+            <tr 
+              key={conversation.promptId}
+              className="cursor-pointer"
+              onClick={() => onConversationClick(conversation)}
+            >
+              <td>
+                <div className="d-flex flex-column">
+                  <div className="fw-medium">
+                    {filterState.search ? (
+                      <HighlightedText 
+                        text={conversation.promptId} 
+                        searchTerm={filterState.search} 
+                      />
+                    ) : (
+                      conversation.promptId
+                    )}
+                  </div>
+                  <div className="text-muted small">
+                    User: {conversation.userId}
+                  </div>
+                  {conversation.journeyName && (
                     <div className="text-muted small">
-                      User: {conversation.userId}
+                      Journey: {conversation.journeyName}
                     </div>
-                    {conversation.journeyName && (
-                      <div className="text-muted small">
-                        Journey: {conversation.journeyName}
-                        {conversation.journeyStep && ` → ${conversation.journeyStep}`}
-                      </div>
-                    )}
-                    {conversation.tags && conversation.tags.length > 0 && (
-                      <div className="mt-1">
-                        {conversation.tags.map((tag, index) => (
-                          <span key={index} className="badge badge-secondary me-1">
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </td>
-                <td>
-                  <span className="badge badge-outline">
-                    {conversation.feedbackCount}
-                  </span>
-                </td>
-                <td>
-                  <span className={`badge ${conversation.outcome === 'positive' ? 'badge-success' : 'badge-danger'}`}>
-                    {conversation.outcome}
-                  </span>
-                </td>
-                <td>
-                  <div className="text-muted">
-                    {formatTimestamp(conversation.lastActivity)}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                  )}
+                </div>
+              </td>
+              <td>
+                <span className={`badge ${
+                  conversation.outcome === 'positive' ? 'bg-success' : 'bg-danger'
+                }`}>
+                  {conversation.outcome}
+                </span>
+              </td>
+              <td>
+                <div className="d-flex flex-column">
+                  <span className="fw-medium">{conversation.feedbackCount}</span>
+                  <span className="text-muted small">feedback items</span>
+                </div>
+              </td>
+              <td>
+                <div className="d-flex flex-column">
+                  <span className="small">{formatTimestamp(conversation.lastActivity)}</span>
+                  <span className="text-muted small">last activity</span>
+                </div>
+              </td>
+              <td>
+                <div className="btn-group btn-group-sm">
+                  <button 
+                    type="button" 
+                    className="btn btn-outline-primary"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onConversationClick(conversation)
+                    }}
+                  >
+                    <i className="fas fa-eye"></i>
+                  </button>
+                  <button 
+                    type="button" 
+                    className="btn btn-outline-secondary"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      // Handle export functionality
+                    }}
+                  >
+                    <i className="fas fa-download"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   )
 } 
