@@ -1,9 +1,10 @@
 import React, { useState } from 'react'
+import { getTagColorClass, type TagColor } from '@/lib/tag-utils'
 
 export interface ConversationTag {
   id: string
   name: string
-  color: 'primary' | 'secondary' | 'success' | 'warning' | 'danger' | 'info'
+  color: TagColor
 }
 
 interface ConversationTagsProps {
@@ -19,27 +20,13 @@ export const ConversationTags: React.FC<ConversationTagsProps> = ({
   availableTags = [],
   className = ''
 }) => {
-  const [isAddingTag, setIsAddingTag] = useState(false)
   const [newTagName, setNewTagName] = useState('')
-
-  const predefinedTags: ConversationTag[] = [
-    { id: 'payment-issue', name: 'Payment Issue', color: 'danger' },
-    { id: 'onboarding', name: 'Onboarding', color: 'primary' },
-    { id: 'feature-request', name: 'Feature Request', color: 'info' },
-    { id: 'bug-report', name: 'Bug Report', color: 'warning' },
-    { id: 'success-story', name: 'Success Story', color: 'success' },
-    { id: 'confusion', name: 'User Confusion', color: 'secondary' },
-    { id: 'escalation', name: 'Needs Escalation', color: 'danger' },
-    { id: 'improvement', name: 'Improvement Needed', color: 'warning' }
-  ]
-
-  const allAvailableTags = [...predefinedTags, ...availableTags]
+  const [showCustomInput, setShowCustomInput] = useState(false)
 
   const addTag = (tag: ConversationTag) => {
     if (!tags.find(t => t.id === tag.id)) {
       onTagsChange([...tags, tag])
     }
-    setIsAddingTag(false)
   }
 
   const removeTag = (tagId: string) => {
@@ -58,18 +45,6 @@ export const ConversationTags: React.FC<ConversationTagsProps> = ({
     }
   }
 
-  const getTagColorClass = (color: ConversationTag['color']) => {
-    switch (color) {
-      case 'primary': return 'badge-primary'
-      case 'secondary': return 'badge-secondary'
-      case 'success': return 'badge-success'
-      case 'warning': return 'badge-warning'
-      case 'danger': return 'badge-danger'
-      case 'info': return 'badge-info'
-      default: return 'badge-secondary'
-    }
-  }
-
   return (
     <div className={className}>
       <div className="d-flex flex-wrap gap-2 mb-2">
@@ -78,96 +53,79 @@ export const ConversationTags: React.FC<ConversationTagsProps> = ({
             {tag.name}
             <button
               type="button"
-              className="btn-close btn-close-white ms-1"
+              className="btn-close btn-close-white ms-2"
               aria-label="Remove tag"
               onClick={() => removeTag(tag.id)}
-              style={{ fontSize: '0.65em' }}
+              style={{ fontSize: '0.7em' }}
             />
           </span>
         ))}
-        
-        {!isAddingTag && (
+      </div>
+
+      <div className="mb-3">
+        <h6 className="text-muted mb-2">Available Tags</h6>
+        <div className="d-flex flex-wrap gap-2">
+          {availableTags.map(tag => (
+            <button
+              key={tag.id}
+              type="button"
+              className={`btn btn-outline-secondary btn-sm ${tags.find(t => t.id === tag.id) ? 'disabled' : ''}`}
+              onClick={() => addTag(tag)}
+              disabled={!!tags.find(t => t.id === tag.id)}
+            >
+              <span className={`badge ${getTagColorClass(tag.color)} me-1`}></span>
+              {tag.name}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="mb-3">
+        <h6 className="text-muted mb-2">Custom Tags</h6>
+        {showCustomInput ? (
+          <div className="d-flex gap-2">
+            <input
+              type="text"
+              className="form-control form-control-sm"
+              placeholder="Enter custom tag name"
+              value={newTagName}
+              onChange={(e) => setNewTagName(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && createCustomTag()}
+            />
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={createCustomTag}
+            >
+              Add
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => {
+                setShowCustomInput(false)
+                setNewTagName('')
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        ) : (
           <button
-            onClick={() => setIsAddingTag(true)}
-            className="btn btn-sm btn-outline-primary"
+            type="button"
+            className="btn btn-outline-primary btn-sm"
+            onClick={() => setShowCustomInput(true)}
           >
-            + Add tag
+            <i className="fas fa-plus me-1"></i>
+            Add Custom Tag
           </button>
         )}
       </div>
-
-      {isAddingTag && (
-        <div className="card card-sm">
-          <div className="card-body">
-            <div className="mb-3">
-              <label className="form-label">Add custom tag</label>
-              <div className="input-group">
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="Enter tag name..."
-                  value={newTagName}
-                  onChange={(e) => setNewTagName(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && createCustomTag()}
-                />
-                <button
-                  className="btn btn-primary"
-                  onClick={createCustomTag}
-                  disabled={!newTagName.trim()}
-                >
-                  Add
-                </button>
-              </div>
-            </div>
-            
-            <div className="mb-3">
-              <label className="form-label">Or choose from predefined tags</label>
-              <div className="d-flex flex-wrap gap-2">
-                {allAvailableTags
-                  .filter(tag => !tags.find(t => t.id === tag.id))
-                  .map(tag => (
-                    <button
-                      key={tag.id}
-                      onClick={() => addTag(tag)}
-                      className={`btn btn-sm btn-outline-${tag.color}`}
-                    >
-                      {tag.name}
-                    </button>
-                  ))}
-              </div>
-            </div>
-            
-            <div className="d-flex justify-content-end">
-              <button
-                onClick={() => {
-                  setIsAddingTag(false)
-                  setNewTagName('')
-                }}
-                className="btn btn-sm btn-secondary"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
 
 export const TagDisplay: React.FC<{ tag: ConversationTag }> = ({ tag }) => {
-  const getTagColorClass = (color: ConversationTag['color']) => {
-    switch (color) {
-      case 'primary': return 'badge-primary'
-      case 'secondary': return 'badge-secondary'
-      case 'success': return 'badge-success'
-      case 'warning': return 'badge-warning'
-      case 'danger': return 'badge-danger'
-      case 'info': return 'badge-info'
-      default: return 'badge-secondary'
-    }
-  }
-
   return (
     <span className={`badge ${getTagColorClass(tag.color)}`}>
       {tag.name}
