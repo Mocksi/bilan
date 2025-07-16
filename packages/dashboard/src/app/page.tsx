@@ -1,10 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useDashboardData } from '@/lib/api-client'
 import { DashboardData, ConversationSummary } from '@/lib/types'
 import { SimpleLineChart } from '@/components/SimpleLineChart'
-import { TimeRangeSelector, useTimeRange } from '@/components/TimeRangeSelector'
+import { TimeRangeSelector, useTimeRange, TimeRange } from '@/components/TimeRangeSelector'
 import { TrendIndicator, WeekOverWeekComparison } from '@/components/TrendIndicator'
 import { formatDateRange } from '@/lib/time-utils'
 import { calculateMetricComparisons } from '@/lib/comparison-utils'
@@ -13,8 +13,35 @@ import { ConversationTable } from '@/components/ConversationTable'
 import { filterConversations } from '@/lib/filter-utils'
 import { ConversationDetailModal } from '@/components/ConversationDetailModal'
 
-export default function Dashboard() {
+// Wrapper component for TimeRangeSelector that uses useSearchParams
+function TimeRangeWrapper({ onTimeRangeChange }: { onTimeRangeChange: (range: any) => void }) {
   const { timeRange, setTimeRange } = useTimeRange()
+  
+  const handleTimeRangeChange = (range: any) => {
+    setTimeRange(range)
+    onTimeRangeChange(range)
+  }
+
+  return (
+    <TimeRangeSelector 
+      value={timeRange}
+      onChange={handleTimeRangeChange}
+    />
+  )
+}
+
+// Wrapper component for ConversationFilter that uses useSearchParams
+function ConversationFilterWrapper({ onFilterChange }: { onFilterChange: (filters: ConversationFilterState) => void }) {
+  return (
+    <ConversationFilter
+      onFilterChange={onFilterChange}
+      className="mb-4"
+    />
+  )
+}
+
+// Dashboard content component that uses the time range
+function DashboardContent({ timeRange }: { timeRange: TimeRange }) {
   const { data, loading, error, refresh } = useDashboardData(timeRange, true)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const [conversationFilters, setConversationFilters] = useState<ConversationFilterState>({
@@ -31,16 +58,8 @@ export default function Dashboard() {
     }
   }, [data])
 
-  const formatTimestamp = (timestamp: number) => {
-    return new Date(timestamp).toLocaleString()
-  }
-
   const handleRefresh = () => {
     refresh()
-  }
-
-  const handleTimeRangeChange = (range: any) => {
-    setTimeRange(range)
   }
 
   // Calculate comparisons if comparison data is available
@@ -112,7 +131,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="page">
+    <>
       {/* Header */}
       <header className="navbar navbar-expand-md d-print-none">
         <div className="container-xl">
@@ -150,10 +169,9 @@ export default function Dashboard() {
                 </div>
               </div>
               <div className="col-auto">
-                <TimeRangeSelector 
-                  value={timeRange}
-                  onChange={handleTimeRangeChange}
-                />
+                <Suspense fallback={<div className="btn-group"><div className="btn btn-outline-primary">Loading...</div></div>}>
+                  <TimeRangeWrapper onTimeRangeChange={() => {}} />
+                </Suspense>
               </div>
             </div>
           </div>
@@ -215,17 +233,18 @@ export default function Dashboard() {
                 <div className="card">
                   <div className="card-body">
                     <div className="d-flex align-items-center">
-                      <div className="subheader">Positive Feedback</div>
+                      <div className="subheader">Total Feedback</div>
                     </div>
                     <div className="d-flex align-items-baseline">
-                      <div className="h1 mb-0 me-2">{(data.feedbackStats.positiveRate * 100).toFixed(1)}%</div>
+                      <div className="h1 mb-0 me-2">{data.feedbackStats.totalFeedback}</div>
                     </div>
                     <div className="mt-2">
-                      <small className="text-muted">{data.feedbackStats.totalFeedback} total feedback</small>
+                      <small className="text-muted">{Math.round(data.feedbackStats.positiveRate * 100)}% positive</small>
                       {comparisons && (
                         <WeekOverWeekComparison
-                          current={data.feedbackStats.positiveRate}
-                          previous={data.comparison?.previousPeriod.feedbackStats.positiveRate || 0}
+                          current={data.feedbackStats.totalFeedback}
+                          previous={data.comparison?.previousPeriod.feedbackStats.totalFeedback || 0}
+                          formatter={(value) => `${value} votes`}
                           className="mt-1"
                         />
                       )}
@@ -298,39 +317,38 @@ export default function Dashboard() {
                         <table className="table table-vcenter">
                           <thead>
                             <tr>
-                              <th>Prompt ID</th>
+                              <th>Prompt</th>
                               <th>User</th>
                               <th>Vote</th>
-                              {data.journeyStats.popularJourneys.length > 0 && <th>Journey</th>}
-                              <th>Timestamp</th>
+                              <th>Comment</th>
+                              <th>Time</th>
                             </tr>
                           </thead>
                           <tbody>
                             {data.recentActivity.recentVotes.map((vote, index) => (
                               <tr key={index}>
-                                <td>
-                                  <div className="font-weight-medium">{vote.promptId}</div>
-                                  {vote.comment && (
-                                    <div className="text-muted small">"{vote.comment}"</div>
-                                  )}
+                                <td className="text-muted">
+                                  <code>{vote.promptId}</code>
                                 </td>
-                                <td>
-                                  <div className="text-muted">{vote.userId}</div>
+                                <td className="text-muted">
+                                  <code>{vote.userId}</code>
                                 </td>
                                 <td>
                                   <span className={`badge ${vote.value > 0 ? 'bg-success' : 'bg-danger'}`}>
-                                    {vote.value > 0 ? '+1' : '-1'}
+                                    {vote.value > 0 ? '👍' : '👎'}
                                   </span>
                                 </td>
-                                {data.journeyStats.popularJourneys.length > 0 && (
-                                  <td>
-                                    <div className="text-muted small">
-                                      {vote.metadata?.journeyName || 'N/A'}
-                                    </div>
-                                  </td>
-                                )}
                                 <td className="text-muted">
-                                  {formatTimestamp(vote.timestamp)}
+                                  {vote.comment ? (
+                                    <span title={vote.comment}>
+                                      {vote.comment.length > 30 ? vote.comment.substring(0, 30) + '...' : vote.comment}
+                                    </span>
+                                  ) : (
+                                    '-'
+                                  )}
+                                </td>
+                                <td className="text-muted">
+                                  {new Date(vote.timestamp).toLocaleString()}
                                 </td>
                               </tr>
                             ))}
@@ -338,13 +356,15 @@ export default function Dashboard() {
                         </table>
                       </div>
                     ) : (
-                      <div className="text-muted">No recent votes</div>
+                      <div className="text-muted text-center py-5">
+                        No recent votes
+                      </div>
                     )}
                   </div>
                 </div>
               </div>
 
-              {/* Right Column - Journey Performance + Quality Signals */}
+              {/* Right Column - Stats and Filters */}
               <div className="col-12 col-lg-4">
                 <div className="row row-cards">
                   {/* Journey Performance - Only show if we have actual journey data */}
@@ -381,12 +401,12 @@ export default function Dashboard() {
                   <div className="col-12">
                     <div className="card">
                       <div className="card-header">
-                        <h3 className="card-title">This Week's Signals</h3>
+                        <h3 className="card-title">Quality Signals</h3>
                       </div>
                       <div className="card-body">
                         <div className="row">
                           <div className="col-6">
-                            <div className="d-flex align-items-center mb-3">
+                            <div className="d-flex align-items-center">
                               <span className="me-2">👍</span>
                               <div>
                                 <div className="fw-medium">{data.qualitySignals.positive}</div>
@@ -395,7 +415,7 @@ export default function Dashboard() {
                             </div>
                           </div>
                           <div className="col-6">
-                            <div className="d-flex align-items-center mb-3">
+                            <div className="d-flex align-items-center">
                               <span className="me-2">👎</span>
                               <div>
                                 <div className="fw-medium">{data.qualitySignals.negative}</div>
@@ -450,10 +470,9 @@ export default function Dashboard() {
 
                   {/* Conversation Filtering */}
                   <div className="col-12">
-                    <ConversationFilter
-                      onFilterChange={setConversationFilters}
-                      className="mb-4"
-                    />
+                    <Suspense fallback={<div className="card"><div className="card-body">Loading filters...</div></div>}>
+                      <ConversationFilterWrapper onFilterChange={setConversationFilters} />
+                    </Suspense>
                   </div>
 
                   {/* Recent Conversations */}
@@ -479,6 +498,18 @@ export default function Dashboard() {
         conversation={selectedConversation}
         onClose={() => setSelectedConversation(null)}
       />
+    </>
+  )
+}
+
+export default function Dashboard() {
+  const [timeRange, setTimeRange] = useState<TimeRange>('7d')
+
+  return (
+    <div className="page">
+      <Suspense fallback={<div>Loading dashboard...</div>}>
+        <DashboardContent timeRange={timeRange} />
+      </Suspense>
     </div>
   )
 } 
