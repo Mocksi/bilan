@@ -86,12 +86,15 @@ export class ApiClient {
       range: timeRange
     })
 
+    // Create independent AbortController for comparison request
+    const comparisonController = new AbortController()
+
     const response = await fetch(`${this.baseUrl}/api/dashboard?${params}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
       },
-      signal: this.abortController?.signal,
+      signal: comparisonController.signal,
     })
 
     if (!response.ok) {
