@@ -9,6 +9,7 @@ import { TrendIndicator, WeekOverWeekComparison } from '@/components/TrendIndica
 import { formatDateRange } from '@/lib/time-utils'
 import { calculateMetricComparisons } from '@/lib/comparison-utils'
 import { ConversationDetailModal } from '@/components/ConversationDetailModal'
+import Link from 'next/link'
 
 // Wrapper component for TimeRangeSelector that uses useSearchParams
 function TimeRangeWrapper({ onTimeRangeChange }: { onTimeRangeChange: (range: TimeRange) => void }) {
@@ -446,6 +447,61 @@ function DashboardContent() {
                         ) : (
                           <div className="text-muted">No comments yet</div>
                         )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Analytics Navigation */}
+                  <div className="col-12">
+                    <div className="card">
+                      <div className="card-header">
+                        <h3 className="card-title">Detailed Analytics</h3>
+                      </div>
+                      <div className="card-body">
+                        <div className="row g-3">
+                          <div className="col-12">
+                            <Link href="/votes" className="btn btn-outline-primary w-100 d-flex align-items-center justify-content-between">
+                              <div className="d-flex align-items-center">
+                                <span className="me-2">👍</span>
+                                <div className="text-start">
+                                  <div className="fw-medium">Votes Analytics</div>
+                                  <small className="text-muted">Detailed feedback and ratings analysis</small>
+                                </div>
+                              </div>
+                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M9 18l6-6-6-6"/>
+                              </svg>
+                            </Link>
+                          </div>
+                          <div className="col-12">
+                            <Link href="/conversations" className="btn btn-outline-primary w-100 d-flex align-items-center justify-content-between">
+                              <div className="d-flex align-items-center">
+                                <span className="me-2">💬</span>
+                                <div className="text-start">
+                                  <div className="fw-medium">Conversations Analytics</div>
+                                  <small className="text-muted">Multi-turn chat analysis and insights</small>
+                                </div>
+                              </div>
+                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M9 18l6-6-6-6"/>
+                              </svg>
+                            </Link>
+                          </div>
+                          <div className="col-12">
+                            <Link href="/journeys" className="btn btn-outline-primary w-100 d-flex align-items-center justify-content-between">
+                              <div className="d-flex align-items-center">
+                                <span className="me-2">🗺️</span>
+                                <div className="text-start">
+                                  <div className="fw-medium">Journeys Analytics</div>
+                                  <small className="text-muted">User workflow and completion tracking</small>
+                                </div>
+                              </div>
+                              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M9 18l6-6-6-6"/>
+                              </svg>
+                            </Link>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
