@@ -33,16 +33,61 @@ export const ConversationTags: React.FC<ConversationTagsProps> = ({
     onTagsChange(tags.filter(t => t.id !== tagId))
   }
 
-  const createCustomTag = () => {
-    if (newTagName.trim()) {
-      const customTag: ConversationTag = {
-        id: `custom-${Date.now()}`,
-        name: newTagName.trim(),
-        color: 'secondary'
-      }
-      addTag(customTag)
-      setNewTagName('')
+  const validateAndSanitizeTagName = (input: string): string | null => {
+    // Trim whitespace
+    const trimmed = input.trim()
+    
+    // Check length limits (2-50 characters)
+    if (trimmed.length < 2 || trimmed.length > 50) {
+      return null
     }
+    
+    // Allow only alphanumeric characters, spaces, hyphens, and underscores
+    const allowedCharsRegex = /^[a-zA-Z0-9\s\-_]+$/
+    if (!allowedCharsRegex.test(trimmed)) {
+      return null
+    }
+    
+    // Remove any potential HTML/script tags and normalize whitespace
+    const sanitized = trimmed
+      .replace(/<[^>]*>/g, '') // Remove HTML tags
+      .replace(/\s+/g, ' ') // Normalize multiple spaces to single space
+      .trim()
+    
+    // Final check after sanitization
+    if (sanitized.length < 2) {
+      return null
+    }
+    
+    return sanitized
+  }
+
+  const createCustomTag = () => {
+    const sanitizedName = validateAndSanitizeTagName(newTagName)
+    
+    if (!sanitizedName) {
+      // Could add user feedback here in the future
+      console.warn('Invalid tag name: must be 2-50 characters, alphanumeric with spaces, hyphens, or underscores only')
+      return
+    }
+    
+    // Check for duplicate names (case-insensitive)
+    const nameExists = tags.some(tag => 
+      tag.name.toLowerCase() === sanitizedName.toLowerCase()
+    )
+    
+    if (nameExists) {
+      console.warn('Tag name already exists')
+      return
+    }
+    
+    const customTag: ConversationTag = {
+      id: `custom-${Date.now()}`,
+      name: sanitizedName,
+      color: 'secondary'
+    }
+    addTag(customTag)
+    setNewTagName('')
   }
 
   return (
