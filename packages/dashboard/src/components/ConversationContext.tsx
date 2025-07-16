@@ -15,62 +15,62 @@ export const ConversationContextPanel: React.FC<ConversationContextProps> = ({
 }) => {
   return (
     <div className={`conversation-context ${className}`}>
-      <div className="row">
-        <div className="col-md-6">
-          <div className="card">
-            <div className="card-header">
-              <h6 className="card-title">Session Information</h6>
+      <div className="flex flex-col lg:flex-row gap-6">
+        <div className="flex-1">
+          <div className="rounded shadow-lg bg-white">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h6 className="text-xl font-bold">Session Information</h6>
             </div>
-            <div className="card-body">
-              <table className="table table-sm">
-                <tbody>
+            <div className="px-6 py-4">
+              <table className="min-w-full divide-y divide-gray-200">
+                <tbody className="bg-white divide-y divide-gray-200">
                   <tr>
-                    <td className="text-muted">Session ID</td>
-                    <td>
+                    <td className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Session ID</td>
+                    <td className="px-6 py-4 whitespace-nowrap">
                       {context.sessionId ? (
-                        <code className="text-primary">{context.sessionId}</code>
+                        <code className="text-blue-600 bg-blue-50 px-2 py-1 rounded text-sm">{context.sessionId}</code>
                       ) : (
-                        <span className="text-muted">Not available</span>
+                        <span className="text-gray-500">Not available</span>
                       )}
                     </td>
                   </tr>
                   <tr>
-                    <td className="text-muted">Page URL</td>
-                    <td>
+                    <td className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Page URL</td>
+                    <td className="px-6 py-4 whitespace-nowrap">
                       {context.page ? (
-                        <div className="text-break">
-                          <a href={context.page} target="_blank" rel="noopener noreferrer" className="text-primary">
+                        <div className="break-words">
+                          <a href={context.page} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800">
                             {context.page}
                           </a>
                         </div>
                       ) : (
-                        <span className="text-muted">Not available</span>
+                        <span className="text-gray-500">Not available</span>
                       )}
                     </td>
                   </tr>
                   <tr>
-                    <td className="text-muted">Referrer</td>
-                    <td>
+                    <td className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Referrer</td>
+                    <td className="px-6 py-4 whitespace-nowrap">
                       {context.referrer ? (
-                        <div className="text-break">
-                          <a href={context.referrer} target="_blank" rel="noopener noreferrer" className="text-primary">
+                        <div className="break-words">
+                          <a href={context.referrer} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800">
                             {context.referrer}
                           </a>
                         </div>
                       ) : (
-                        <span className="text-muted">Not available</span>
+                        <span className="text-gray-500">Not available</span>
                       )}
                     </td>
                   </tr>
                   <tr>
-                    <td className="text-muted">User Agent</td>
-                    <td>
+                    <td className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User Agent</td>
+                    <td className="px-6 py-4 whitespace-nowrap">
                       {context.userAgent ? (
-                        <div className="text-break small">
-                          <code>{context.userAgent}</code>
+                        <div className="break-words text-sm">
+                          <code className="bg-gray-100 px-2 py-1 rounded text-sm">{context.userAgent}</code>
                         </div>
                       ) : (
-                        <span className="text-muted">Not available</span>
+                        <span className="text-gray-500">Not available</span>
                       )}
                     </td>
                   </tr>
@@ -80,44 +80,44 @@ export const ConversationContextPanel: React.FC<ConversationContextProps> = ({
           </div>
         </div>
         
-        <div className="col-md-6">
-          <div className="card">
-            <div className="card-header">
-              <h6 className="card-title">Journey Context</h6>
+        <div className="flex-1">
+          <div className="rounded shadow-lg bg-white">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h6 className="text-xl font-bold">Journey Context</h6>
             </div>
-            <div className="card-body">
-              <table className="table table-sm">
-                <tbody>
+            <div className="px-6 py-4">
+              <table className="min-w-full divide-y divide-gray-200">
+                <tbody className="bg-white divide-y divide-gray-200">
                   <tr>
-                    <td className="text-muted">Journey Name</td>
-                    <td>
+                    <td className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Journey Name</td>
+                    <td className="px-6 py-4 whitespace-nowrap">
                       {context.journeyName ? (
-                        <span className="badge badge-primary">{context.journeyName}</span>
+                        <span className="text-xs font-medium px-2.5 py-0.5 rounded-sm bg-blue-100 text-blue-800">{context.journeyName}</span>
                       ) : (
-                        <span className="text-muted">Not available</span>
+                        <span className="text-gray-500">Not available</span>
                       )}
                     </td>
                   </tr>
                   <tr>
-                    <td className="text-muted">Journey Step</td>
-                    <td>
+                    <td className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Journey Step</td>
+                    <td className="px-6 py-4 whitespace-nowrap">
                       {context.journeyStep ? (
-                        <span className="badge badge-info">{context.journeyStep}</span>
+                        <span className="text-xs font-medium px-2.5 py-0.5 rounded-sm bg-green-100 text-green-800">{context.journeyStep}</span>
                       ) : (
-                        <span className="text-muted">Not available</span>
+                        <span className="text-gray-500">Not available</span>
                       )}
                     </td>
                   </tr>
                   <tr>
-                    <td className="text-muted">User ID</td>
-                    <td>
-                      <code className="text-primary">{conversation.userId}</code>
+                    <td className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User ID</td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <code className="text-blue-600 bg-blue-50 px-2 py-1 rounded text-sm">{conversation.userId}</code>
                     </td>
                   </tr>
                   <tr>
-                    <td className="text-muted">Conversation ID</td>
-                    <td>
-                      <code className="text-primary">{conversation.promptId}</code>
+                    <td className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Conversation ID</td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <code className="text-blue-600 bg-blue-50 px-2 py-1 rounded text-sm">{conversation.promptId}</code>
                     </td>
                   </tr>
                 </tbody>
@@ -127,100 +127,96 @@ export const ConversationContextPanel: React.FC<ConversationContextProps> = ({
         </div>
       </div>
       
-      <div className="row mt-4">
-        <div className="col-12">
-          <div className="card">
-            <div className="card-header">
-              <h6 className="card-title">Metadata</h6>
-            </div>
-            <div className="card-body">
-              {context.metadata && Object.keys(context.metadata).length > 0 ? (
-                <div>
-                  <pre className="bg-light p-3 rounded">
-                    {JSON.stringify(context.metadata, null, 2)}
-                  </pre>
-                  <div className="mt-3">
-                    <small className="text-muted">
-                      This metadata can be used for debugging, analytics, and understanding user context.
-                    </small>
-                  </div>
+      <div className="mt-6">
+        <div className="rounded shadow-lg bg-white">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h6 className="text-xl font-bold">Metadata</h6>
+          </div>
+          <div className="px-6 py-4">
+            {context.metadata && Object.keys(context.metadata).length > 0 ? (
+              <div>
+                <pre className="bg-gray-50 p-3 rounded text-sm overflow-x-auto">
+                  {JSON.stringify(context.metadata, null, 2)}
+                </pre>
+                <div className="mt-3">
+                  <small className="text-gray-500">
+                    This metadata can be used for debugging, analytics, and understanding user context.
+                  </small>
                 </div>
-              ) : (
-                <div className="text-center py-4">
-                  <div className="text-muted">
-                    <i className="fas fa-info-circle fa-2x mb-3"></i>
-                    <h6>No Metadata Available</h6>
-                    <p>No additional metadata was captured for this conversation.</p>
-                  </div>
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <div className="text-gray-500">
+                  <i className="fas fa-info-circle text-2xl mb-3"></i>
+                  <h6 className="text-base font-medium mb-2">No Metadata Available</h6>
+                  <p>No additional metadata was captured for this conversation.</p>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      <div className="row mt-4">
-        <div className="col-12">
-          <div className="card">
-            <div className="card-header">
-              <h6 className="card-title">Technical Details</h6>
-            </div>
-            <div className="card-body">
-              <div className="row">
-                <div className="col-md-6">
-                  <h6 className="text-muted">Timestamps</h6>
-                  <table className="table table-sm">
-                    <tbody>
-                      <tr>
-                        <td className="text-muted">Started</td>
-                        <td>
-                          <code>{new Date(context.timestamp).toISOString()}</code>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td className="text-muted">Last Activity</td>
-                        <td>
-                          <code>{new Date(context.lastActivity).toISOString()}</code>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td className="text-muted">Duration</td>
-                        <td>
-                          <span className="badge badge-info">
-                            {Math.round((context.lastActivity - context.timestamp) / 1000)}s
+      <div className="mt-6">
+        <div className="rounded shadow-lg bg-white">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h6 className="text-xl font-bold">Technical Details</h6>
+          </div>
+          <div className="px-6 py-4">
+            <div className="flex flex-col lg:flex-row gap-6">
+              <div className="flex-1">
+                <h6 className="text-gray-500 font-medium mb-3">Timestamps</h6>
+                <table className="min-w-full divide-y divide-gray-200">
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    <tr>
+                      <td className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Started</td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <code className="bg-gray-100 px-2 py-1 rounded text-sm">{new Date(context.timestamp).toISOString()}</code>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Activity</td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <code className="bg-gray-100 px-2 py-1 rounded text-sm">{new Date(context.lastActivity).toISOString()}</code>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Duration</td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="text-xs font-medium px-2.5 py-0.5 rounded-sm bg-green-100 text-green-800">
+                          {Math.round((context.lastActivity - context.timestamp) / 1000)}s
+                        </span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              
+              <div className="flex-1">
+                <h6 className="text-gray-500 font-medium mb-3">Behavior Signals</h6>
+                {context.behaviorSignals && context.behaviorSignals.length > 0 ? (
+                  <div className="space-y-2">
+                    {context.behaviorSignals.map((signal, index) => (
+                      <div key={index} className="border border-gray-200 rounded p-3">
+                        <div className="flex justify-between items-center">
+                          <span className="font-medium">{signal.type}</span>
+                          <span className={`text-xs font-medium px-2.5 py-0.5 rounded-sm ${
+                            signal.intensity === 'high' ? 'bg-red-100 text-red-800' : 
+                            signal.intensity === 'medium' ? 'bg-yellow-100 text-yellow-800' : 
+                            'bg-gray-100 text-gray-800'
+                          }`}>
+                            {signal.intensity}
                           </span>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-                
-                <div className="col-md-6">
-                  <h6 className="text-muted">Behavior Signals</h6>
-                  {context.behaviorSignals && context.behaviorSignals.length > 0 ? (
-                    <div className="space-y-2">
-                      {context.behaviorSignals.map((signal, index) => (
-                        <div key={index} className="border rounded p-2">
-                          <div className="d-flex justify-content-between align-items-center">
-                            <span className="fw-medium">{signal.type}</span>
-                            <span className={`badge ${
-                              signal.intensity === 'high' ? 'badge-danger' : 
-                              signal.intensity === 'medium' ? 'badge-warning' : 
-                              'badge-secondary'
-                            }`}>
-                              {signal.intensity}
-                            </span>
-                          </div>
-                          <div className="text-muted small mt-1">
-                            {signal.indicators.join(', ')}
-                          </div>
                         </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-muted">No behavior signals captured</div>
-                  )}
-                </div>
+                        <div className="text-gray-500 text-sm mt-1">
+                          {signal.indicators.join(', ')}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-gray-500">No behavior signals captured</div>
+                )}
               </div>
             </div>
           </div>
