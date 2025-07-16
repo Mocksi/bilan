@@ -204,15 +204,61 @@ function getTrustColor(level: string): string {
 }
 
 function getResponseTimeQuality(context: ConversationContext): { score: number; status: string } {
-  // Simulate response time analysis
-  const score = Math.random() * 0.4 + 0.6 // Random score between 0.6-1.0
+  // Use actual response time if available, otherwise estimate from context
+  const responseTime = context.responseTime || 1000 // Default to 1000ms if not available
+  
+  // Calculate score based on response time thresholds
+  // < 500ms = excellent (0.9-1.0)
+  // < 1000ms = good (0.8-0.9)
+  // < 2000ms = moderate (0.6-0.8)
+  // >= 2000ms = slow (0.3-0.6)
+  let score: number
+  if (responseTime < 500) {
+    score = 0.9 + (500 - responseTime) / 5000 // Scale to 0.9-1.0
+  } else if (responseTime < 1000) {
+    score = 0.8 + (1000 - responseTime) / 5000 // Scale to 0.8-0.9
+  } else if (responseTime < 2000) {
+    score = 0.6 + (2000 - responseTime) / 5000 // Scale to 0.6-0.8
+  } else {
+    score = Math.max(0.3, 0.6 - (responseTime - 2000) / 10000) // Scale down from 0.6, min 0.3
+  }
+  
   const status = score > 0.8 ? 'fast' : score > 0.6 ? 'moderate' : 'slow'
   return { score, status }
 }
 
 function getRelevanceQuality(context: ConversationContext): { score: number; status: string } {
-  // Base relevance on outcome and feedback
-  const score = context.outcome === 'positive' ? 0.8 + Math.random() * 0.2 : 0.2 + Math.random() * 0.4
+  // Base relevance on outcome and feedback count
+  let score = 0.5 // Base score
+  
+  // Factor in conversation outcome
+  if (context.outcome === 'positive') {
+    score += 0.3 // Positive outcome suggests good relevance
+  } else {
+    score -= 0.1 // Negative outcome suggests poor relevance
+  }
+  
+  // Factor in feedback count (more feedback suggests engagement)
+  const feedbackFactor = Math.min(context.feedbackCount * 0.05, 0.2) // Up to 0.2 bonus
+  score += feedbackFactor
+  
+  // Factor in user actions (certain actions suggest relevance issues)
+  if (context.userActions) {
+    const regenerateActions = context.userActions.filter(action => action.type === 'regenerate').length
+    const escalateActions = context.userActions.filter(action => action.type === 'escalate').length
+    
+    // Regenerate and escalate actions suggest relevance issues
+    score -= (regenerateActions * 0.1) + (escalateActions * 0.15)
+    
+    // Copy and share actions suggest good relevance
+    const copyActions = context.userActions.filter(action => action.type === 'copy').length
+    const shareActions = context.userActions.filter(action => action.type === 'share').length
+    score += (copyActions * 0.05) + (shareActions * 0.1)
+  }
+  
+  // Clamp score to valid range
+  score = Math.max(0, Math.min(1, score))
+  
   const status = score > 0.8 ? 'relevant' : score > 0.6 ? 'mostly relevant' : 'off-topic'
   return { score, status }
 }
