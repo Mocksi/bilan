@@ -109,6 +109,22 @@ export const groupConversationsByJourney = (conversations: ConversationSummary[]
 
 export const getConversationMetrics = (conversations: ConversationSummary[]) => {
   const total = conversations.length
+  
+  // Guard against empty conversations array
+  if (total === 0) {
+    return {
+      total: 0,
+      positive: 0,
+      negative: 0,
+      withComments: 0,
+      positiveRate: 0,
+      negativeRate: 0,
+      commentRate: 0,
+      avgFeedbackCount: 0,
+      avgScore: 0
+    }
+  }
+  
   const positive = conversations.filter(c => c.outcome === 'positive').length
   const negative = conversations.filter(c => c.outcome === 'negative').length
   const withComments = conversations.filter(c => c.comment && c.comment.length > 0).length
@@ -180,9 +196,14 @@ const simpleTextSimilarity = (text1: string, text2: string): number => {
   const words2 = text2.toLowerCase().split(/\s+/)
   
   const commonWords = words1.filter(word => words2.includes(word))
-  const totalWords = Array.from(new Set([...words1, ...words2]))
+  const totalWords = new Set([...words1, ...words2])
   
-  return commonWords.length / totalWords.length
+  // Guard against division by zero
+  if (totalWords.size === 0) {
+    return 0
+  }
+  
+  return commonWords.length / totalWords.size
 }
 
 export const getConversationTrend = (conversations: ConversationSummary[]): 'improving' | 'declining' | 'stable' => {
