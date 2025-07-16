@@ -46,6 +46,148 @@ export interface DashboardData {
 }
 
 /**
+ * Comprehensive vote data structure for votes analytics page
+ */
+export interface VoteData {
+  id: string
+  promptId: string
+  userId: string
+  value: number // -1 for negative, 1 for positive
+  comment?: string
+  timestamp: number
+  metadata?: {
+    promptText?: string
+    aiOutput?: string
+    responseTime?: number
+    model?: string
+    journey?: string
+    step?: string
+    sessionId?: string
+    [key: string]: any
+  }
+}
+
+/**
+ * Vote analytics data structure
+ */
+export interface VoteAnalytics {
+  overview: {
+    totalVotes: number
+    positiveVotes: number
+    negativeVotes: number
+    positiveRate: number
+    averageRating: number
+    commentsCount: number
+    uniqueUsers: number
+    uniquePrompts: number
+  }
+  trends: {
+    daily: {
+      date: string
+      totalVotes: number
+      positiveVotes: number
+      negativeVotes: number
+      positiveRate: number
+    }[]
+    hourly: {
+      hour: number
+      totalVotes: number
+      positiveVotes: number
+      negativeVotes: number
+      positiveRate: number
+    }[]
+  }
+  userBehavior: {
+    topUsers: {
+      userId: string
+      totalVotes: number
+      positiveVotes: number
+      negativeVotes: number
+      positiveRate: number
+      lastActivity: number
+    }[]
+    votingPatterns: {
+      averageVotesPerUser: number
+      medianVotesPerUser: number
+      powerUsers: number // Users with >10 votes
+      oneTimeVoters: number // Users with only 1 vote
+    }
+  }
+  promptPerformance: {
+    topPrompts: {
+      promptId: string
+      promptText?: string
+      totalVotes: number
+      positiveVotes: number
+      negativeVotes: number
+      positiveRate: number
+      averageResponseTime?: number
+    }[]
+    performanceMetrics: {
+      averagePositiveRate: number
+      bestPerformingPrompt: string
+      worstPerformingPrompt: string
+      promptsWithoutVotes: number
+    }
+  }
+  commentAnalysis: {
+    totalComments: number
+    averageCommentLength: number
+    topComments: {
+      comment: string
+      vote: number
+      timestamp: number
+      userId: string
+    }[]
+    sentimentAnalysis: {
+      positive: number
+      negative: number
+      neutral: number
+    }
+    commonThemes: {
+      theme: string
+      count: number
+      sentiment: 'positive' | 'negative' | 'neutral'
+    }[]
+  }
+}
+
+/**
+ * Vote filter state
+ */
+export interface VoteFilterState {
+  search: string
+  rating: 'all' | 'positive' | 'negative'
+  user: string
+  prompt: string
+  timeRange: string
+  hasComment: boolean | null
+  sortBy: 'timestamp' | 'rating' | 'user' | 'prompt'
+  sortOrder: 'asc' | 'desc'
+}
+
+/**
+ * Vote export format
+ */
+export interface VoteExport {
+  id: string
+  promptId: string
+  userId: string
+  rating: 'positive' | 'negative'
+  value: number
+  comment?: string
+  timestamp: string
+  date: string
+  promptText?: string
+  aiOutput?: string
+  responseTime?: number
+  model?: string
+  journey?: string
+  step?: string
+  sessionId?: string
+}
+
+/**
  * Summary of recent conversation activity
  */
 export interface ConversationSummary {

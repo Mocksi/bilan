@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { DashboardData } from './types'
+import { DashboardData, VoteData, VoteAnalytics, VoteFilterState } from './types'
 import { TimeRange } from '@/components/TimeRangeSelector'
 import { formatDateForAPI, getDateRange, getPreviousDateRange } from './time-utils'
 
@@ -73,6 +73,97 @@ export class ApiClient {
       }
       throw new Error('Failed to fetch dashboard data: Unknown error')
     }
+  }
+
+  /**
+   * Fetch votes data with filtering and pagination
+   */
+  async fetchVotes(
+    filters: Partial<VoteFilterState> = {},
+    page: number = 1,
+    limit: number = 50,
+    timeRange: TimeRange = '7d'
+  ): Promise<{ votes: VoteData[]; total: number; page: number; limit: number }> {
+    const { start, end } = getDateRange(timeRange)
+    const params = new URLSearchParams({
+      start: formatDateForAPI(start),
+      end: formatDateForAPI(end),
+      page: page.toString(),
+      limit: limit.toString(),
+      ...Object.fromEntries(
+        Object.entries(filters).filter(([_, value]) => value !== '' && value !== null && value !== undefined)
+      )
+    })
+
+    const response = await fetch(`${this.baseUrl}/api/votes?${params}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch votes: ${response.status} ${response.statusText}`)
+    }
+
+    return response.json()
+  }
+
+  /**
+   * Fetch vote analytics data
+   */
+  async fetchVoteAnalytics(timeRange: TimeRange = '7d'): Promise<VoteAnalytics> {
+    const { start, end } = getDateRange(timeRange)
+    const params = new URLSearchParams({
+      start: formatDateForAPI(start),
+      end: formatDateForAPI(end),
+      range: timeRange
+    })
+
+    const response = await fetch(`${this.baseUrl}/api/votes/analytics?${params}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch vote analytics: ${response.status} ${response.statusText}`)
+    }
+
+    return response.json()
+  }
+
+  /**
+   * Export votes data
+   */
+  async exportVotes(
+    filters: Partial<VoteFilterState> = {},
+    timeRange: TimeRange = '7d',
+    format: 'csv' | 'json' = 'csv'
+  ): Promise<Blob> {
+    const { start, end } = getDateRange(timeRange)
+    const params = new URLSearchParams({
+      start: formatDateForAPI(start),
+      end: formatDateForAPI(end),
+      format,
+      ...Object.fromEntries(
+        Object.entries(filters).filter(([_, value]) => value !== '' && value !== null && value !== undefined)
+      )
+    })
+
+    const response = await fetch(`${this.baseUrl}/api/votes/export?${params}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+
+    if (!response.ok) {
+      throw new Error(`Failed to export votes: ${response.status} ${response.statusText}`)
+    }
+
+    return response.blob()
   }
 
   /**
@@ -177,6 +268,71 @@ export function useDashboardData(timeRange: TimeRange = '7d', includeComparison:
     
     loadData()
   }, [timeRange, includeComparison])
+
+  return { data, loading, error, refresh, fetchData }
+}
+
+// Custom hook for votes data fetching
+export function useVoteAnalytics(timeRange: TimeRange = '7d') {
+  const [data, setData] = useState<VoteAnalytics | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const fetchData = async (range: TimeRange = timeRange) => {
+    try {
+      setLoading(true)
+      setError(null)
+      const analytics = await apiClient.fetchVoteAnalytics(range)
+      setData(analytics)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch vote analytics')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const refresh = () => {
+    fetchData(timeRange)
+  }
+
+  useEffect(() => {
+    fetchData(timeRange)
+  }, [timeRange])
+
+  return { data, loading, error, refresh, fetchData }
+}
+
+// Custom hook for votes data fetching with filtering
+export function useVotes(
+  filters: Partial<VoteFilterState> = {},
+  page: number = 1,
+  limit: number = 50,
+  timeRange: TimeRange = '7d'
+) {
+  const [data, setData] = useState<{ votes: VoteData[]; total: number; page: number; limit: number } | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const fetchData = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const votes = await apiClient.fetchVotes(filters, page, limit, timeRange)
+      setData(votes)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch votes')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const refresh = () => {
+    fetchData()
+  }
+
+  useEffect(() => {
+    fetchData()
+  }, [filters, page, limit, timeRange])
 
   return { data, loading, error, refresh, fetchData }
 } 
