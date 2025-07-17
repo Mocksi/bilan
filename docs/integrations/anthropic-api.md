@@ -100,6 +100,7 @@ export async function createClaudeMessage(
       system_prompt: options.system
     })
 
+    const startTime = Date.now()
     const response = await anthropic.messages.create({
       model,
       max_tokens: options.maxTokens || 1000,
@@ -126,7 +127,7 @@ export async function createClaudeMessage(
       output_tokens: response.usage.output_tokens,
       total_tokens: response.usage.input_tokens + response.usage.output_tokens,
       stop_reason: response.stop_reason,
-      latency: Date.now() - new Date().getTime()
+      latency: Date.now() - startTime
     })
 
     return {
