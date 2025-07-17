@@ -214,6 +214,8 @@ await bilan.track('vote', {
 ### Migration Helper
 
 ```typescript
+import { v4 as generateId } from 'uuid';
+
 // Migration wrapper for backward compatibility
 export class BilanMigrationWrapper {
   private bilan: Bilan;
