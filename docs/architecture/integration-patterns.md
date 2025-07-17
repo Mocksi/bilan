@@ -134,6 +134,7 @@ class ConversationManager {
   private conversationId: string
   private turnCount: number = 0
   private context: any[] = []
+  private startTime: number = Date.now()
   
   constructor(userId: string, conversationType: string = 'general') {
     this.conversationId = `conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
@@ -143,7 +144,7 @@ class ConversationManager {
       conversation_id: this.conversationId,
       user_id: userId,
       conversation_type: conversationType,
-      started_at: Date.now()
+      started_at: this.startTime
     })
   }
   
