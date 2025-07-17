@@ -1,19 +1,29 @@
 import React, { ReactNode } from 'react'
 
-interface StatsCardProps {
+/**
+ * Props for the StatsCard component
+ */
+export interface StatsCardProps {
+  /** The title/label of the statistic */
   title: string
+  /** The main value to display */
   value: string | number
+  /** Optional change information with value and label */
   change?: {
     value: number
     label: string
   }
+  /** Optional icon to display */
   icon?: ReactNode
+  /** Optional trend indicator */
   trend?: 'up' | 'down' | 'stable'
+  /** Optional description text */
   description?: string
+  /** Optional CSS class name for styling */
   className?: string
 }
 
-export default function StatsCard({ 
+const StatsCard: React.FC<StatsCardProps> = ({ 
   title, 
   value, 
   change, 
@@ -21,7 +31,7 @@ export default function StatsCard({
   trend, 
   description, 
   className = '' 
-}: StatsCardProps) {
+}) => {
   const getTrendIcon = () => {
     switch (trend) {
       case 'up':
@@ -90,4 +100,6 @@ export default function StatsCard({
       </div>
     </div>
   )
-} 
+}
+
+export default StatsCard 
