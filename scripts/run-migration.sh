@@ -73,6 +73,29 @@ if [ -f ".env" ]; then
     set +a
 fi
 
+# Validate required environment variables
+validate_env_vars() {
+    local missing_vars=()
+    
+    if [ "$DB_TYPE" = "postgresql" ]; then
+        if [ -z "${DATABASE_URL:-}" ] && [ -z "${POSTGRES_HOST:-}" ]; then
+            missing_vars+=("DATABASE_URL or POSTGRES_HOST")
+        fi
+        if [ -z "${DATABASE_URL:-}" ] && [ -z "${POSTGRES_DB:-}" ]; then
+            missing_vars+=("POSTGRES_DB")
+        fi
+    fi
+    
+    if [ ${#missing_vars[@]} -gt 0 ]; then
+        print_error "Missing required environment variables:"
+        for var in "${missing_vars[@]}"; do
+            print_error "  - $var"
+        done
+        print_error "Please check your .env file or environment configuration."
+        exit 1
+    fi
+}
+
 # Set database paths
 DB_PATH=${BILAN_DB_PATH:-${DB_PATH:-"./bilan.db"}}
 
@@ -80,6 +103,9 @@ DB_PATH=${BILAN_DB_PATH:-${DB_PATH:-"./bilan.db"}}
 if [ -n "${DATABASE_URL:-}" ] || [ -n "${POSTGRES_HOST:-}" ]; then
     DB_TYPE="postgresql"
 fi
+
+# Validate environment variables after determining DB_TYPE
+validate_env_vars
 
 # Function to run SQLite migration
 run_sqlite_migration() {
