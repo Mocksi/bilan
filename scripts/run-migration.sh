@@ -174,7 +174,7 @@ validate_migration() {
     
     # Basic SQL syntax validation
     if [[ "$migration_file" == *.sql ]]; then
-        if ! grep -q "CREATE TABLE\|DROP TABLE\|ALTER TABLE" "$migration_file"; then
+        if ! grep -q "CREATE TABLE\|DROP TABLE\|ALTER TABLE\|CREATE INDEX\|DROP INDEX\|INSERT\|CREATE FUNCTION\|CREATE TRIGGER\|DROP TRIGGER\|DROP FUNCTION" "$migration_file"; then
             print_warning "Migration file may not contain expected SQL operations"
         fi
     fi
@@ -184,11 +184,26 @@ validate_migration() {
 
 # Function to create backup before migration
 create_backup() {
+    local backup_dir
+    backup_dir="backups/migrations/$(date +%Y%m%d_%H%M%S)"
+    mkdir -p "$backup_dir"
+    
     if [ "$DB_TYPE" = "sqlite" ] && [ -f "$DB_PATH" ]; then
-        local backup_dir="backups/migrations/$(date +%Y%m%d_%H%M%S)"
-        mkdir -p "$backup_dir"
         cp "$DB_PATH" "$backup_dir/bilan.db.backup"
         print_success "Database backed up to $backup_dir/bilan.db.backup"
+    elif [ "$DB_TYPE" = "postgres" ]; then
+        if command -v pg_dump > /dev/null 2>&1; then
+            pg_dump "${DATABASE_URL:-}" > "$backup_dir/bilan.sql.backup"
+            if [ $? -eq 0 ]; then
+                print_success "Database backed up to $backup_dir/bilan.sql.backup"
+            else
+                print_error "Failed to create PostgreSQL backup"
+                return 1
+            fi
+        else
+            print_error "pg_dump not found. Cannot create PostgreSQL backup."
+            return 1
+        fi
     fi
 }
 

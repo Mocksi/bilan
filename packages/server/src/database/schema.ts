@@ -45,67 +45,66 @@ export type EventType = typeof EVENT_TYPES[keyof typeof EVENT_TYPES]
 /**
  * Validation helpers for event data
  */
-export class EventValidator {
-  /**
-   * Validate event type against allowed types
-   */
-  static isValidEventType(eventType: string): eventType is EventType {
-    return Object.values(EVENT_TYPES).includes(eventType as EventType)
+
+/**
+ * Validate event type against allowed types
+ */
+export function isValidEventType(eventType: string): eventType is EventType {
+  return Object.values(EVENT_TYPES).includes(eventType as EventType)
+}
+
+/**
+ * Validate timestamp (must be positive integer)
+ */
+export function isValidTimestamp(timestamp: number): boolean {
+  return Number.isInteger(timestamp) && timestamp > 0
+}
+
+/**
+ * Validate event properties (must be valid JSON object)
+ */
+export function isValidProperties(properties: any): boolean {
+  if (typeof properties !== 'object' || properties === null) {
+    return false
+  }
+  
+  try {
+    JSON.stringify(properties)
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Validate complete event object
+ */
+export function validateEvent(event: Event): { valid: boolean; errors: string[] } {
+  const errors: string[] = []
+
+  if (!event.event_id || typeof event.event_id !== 'string') {
+    errors.push('event_id must be a non-empty string')
   }
 
-  /**
-   * Validate timestamp (must be positive integer)
-   */
-  static isValidTimestamp(timestamp: number): boolean {
-    return Number.isInteger(timestamp) && timestamp > 0
+  if (!event.user_id || typeof event.user_id !== 'string') {
+    errors.push('user_id must be a non-empty string')
   }
 
-  /**
-   * Validate event properties (must be valid JSON object)
-   */
-  static isValidProperties(properties: any): boolean {
-    if (typeof properties !== 'object' || properties === null) {
-      return false
-    }
-    
-    try {
-      JSON.stringify(properties)
-      return true
-    } catch {
-      return false
-    }
+  if (!isValidEventType(event.event_type)) {
+    errors.push(`event_type must be one of: ${Object.values(EVENT_TYPES).join(', ')}`)
   }
 
-  /**
-   * Validate complete event object
-   */
-  static validateEvent(event: Event): { valid: boolean; errors: string[] } {
-    const errors: string[] = []
+  if (!isValidTimestamp(event.timestamp)) {
+    errors.push('timestamp must be a positive integer')
+  }
 
-    if (!event.event_id || typeof event.event_id !== 'string') {
-      errors.push('event_id must be a non-empty string')
-    }
+  if (!isValidProperties(event.properties)) {
+    errors.push('properties must be a valid JSON object')
+  }
 
-    if (!event.user_id || typeof event.user_id !== 'string') {
-      errors.push('user_id must be a non-empty string')
-    }
-
-    if (!this.isValidEventType(event.event_type)) {
-      errors.push(`event_type must be one of: ${Object.values(EVENT_TYPES).join(', ')}`)
-    }
-
-    if (!this.isValidTimestamp(event.timestamp)) {
-      errors.push('timestamp must be a positive integer')
-    }
-
-    if (!this.isValidProperties(event.properties)) {
-      errors.push('properties must be a valid JSON object')
-    }
-
-    return {
-      valid: errors.length === 0,
-      errors
-    }
+  return {
+    valid: errors.length === 0,
+    errors
   }
 }
 
@@ -170,7 +169,7 @@ export class BilanDatabase {
    */
   insertEvent(event: Event): void {
     // Validate event before insertion
-    const validation = EventValidator.validateEvent(event)
+    const validation = validateEvent(event)
     if (!validation.valid) {
       throw new Error(`Invalid event data: ${validation.errors.join(', ')}`)
     }

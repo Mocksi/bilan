@@ -39,7 +39,12 @@ validate_sqlite() {
     print_status "Validating SQLite database: $db_path"
     
     # Check if events table exists
-    local table_exists=$(sqlite3 "$db_path" "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='events';")
+    local table_exists
+    table_exists=$(sqlite3 "$db_path" "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='events';")
+    if [ $? -ne 0 ]; then
+        print_error "Failed to check if events table exists"
+        return 1
+    fi
     if [ "$table_exists" -ne 1 ]; then
         print_error "Events table not found"
         return 1
@@ -48,7 +53,12 @@ validate_sqlite() {
     
     # Check table structure
     print_status "Checking table structure..."
-    local columns=$(sqlite3 "$db_path" "PRAGMA table_info(events);")
+    local columns
+    columns=$(sqlite3 "$db_path" "PRAGMA table_info(events);")
+    if [ $? -ne 0 ]; then
+        print_error "Failed to get table structure"
+        return 1
+    fi
     
     # Verify required columns exist
     local required_columns=("event_id" "user_id" "event_type" "timestamp" "properties")
@@ -63,7 +73,12 @@ validate_sqlite() {
     
     # Check indexes
     print_status "Checking indexes..."
-    local indexes=$(sqlite3 "$db_path" "SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='events';")
+    local indexes
+    indexes=$(sqlite3 "$db_path" "SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='events';")
+    if [ $? -ne 0 ]; then
+        print_error "Failed to get indexes"
+        return 1
+    fi
     
     local required_indexes=("idx_events_user_timestamp" "idx_events_event_type" "idx_events_timestamp" "idx_events_user_id")
     for index in "${required_indexes[@]}"; do
@@ -79,7 +94,8 @@ validate_sqlite() {
     print_status "Validating constraints..."
     
     # Test invalid event type (should fail)
-    local constraint_test=$(sqlite3 "$db_path" "INSERT INTO events (event_id, user_id, event_type, timestamp, properties) VALUES ('test', 'user1', 'invalid_type', 123456789, '{}');" 2>&1 || true)
+    local constraint_test
+    constraint_test=$(sqlite3 "$db_path" "INSERT INTO events (event_id, user_id, event_type, timestamp, properties) VALUES ('test', 'user1', 'invalid_type', 123456789, '{}');" 2>&1 || true)
     if echo "$constraint_test" | grep -q "constraint failed"; then
         print_success "✓ Event type constraint working"
     else
@@ -88,7 +104,8 @@ validate_sqlite() {
     fi
     
     # Test invalid timestamp (should fail)
-    local timestamp_test=$(sqlite3 "$db_path" "INSERT INTO events (event_id, user_id, event_type, timestamp, properties) VALUES ('test2', 'user1', 'vote_cast', -1, '{}');" 2>&1 || true)
+    local timestamp_test
+    timestamp_test=$(sqlite3 "$db_path" "INSERT INTO events (event_id, user_id, event_type, timestamp, properties) VALUES ('test2', 'user1', 'vote_cast', -1, '{}');" 2>&1 || true)
     if echo "$timestamp_test" | grep -q "constraint failed"; then
         print_success "✓ Timestamp constraint working"
     else
@@ -97,7 +114,8 @@ validate_sqlite() {
     fi
     
     # Test invalid JSON (should fail)
-    local json_test=$(sqlite3 "$db_path" "INSERT INTO events (event_id, user_id, event_type, timestamp, properties) VALUES ('test3', 'user1', 'vote_cast', 123456789, 'invalid json');" 2>&1 || true)
+    local json_test
+    json_test=$(sqlite3 "$db_path" "INSERT INTO events (event_id, user_id, event_type, timestamp, properties) VALUES ('test3', 'user1', 'vote_cast', 123456789, 'invalid json');" 2>&1 || true)
     if echo "$json_test" | grep -q "constraint failed"; then
         print_success "✓ JSON constraint working"
     else
@@ -106,7 +124,8 @@ validate_sqlite() {
     fi
     
     # Test valid insertion
-    local valid_test=$(sqlite3 "$db_path" "INSERT INTO events (event_id, user_id, event_type, timestamp, properties) VALUES ('test_valid', 'user1', 'vote_cast', 123456789, '{\"test\": true}');" 2>&1 || true)
+    local valid_test
+    valid_test=$(sqlite3 "$db_path" "INSERT INTO events (event_id, user_id, event_type, timestamp, properties) VALUES ('test_valid', 'user1', 'vote_cast', 123456789, '{\"test\": true}');" 2>&1 || true)
     if [ -z "$valid_test" ]; then
         print_success "✓ Valid insertion working"
         # Clean up test data
@@ -118,7 +137,12 @@ validate_sqlite() {
     
     # Performance check
     print_status "Running performance check..."
-    local explain_query=$(sqlite3 "$db_path" "EXPLAIN QUERY PLAN SELECT * FROM events WHERE user_id = 'test' AND timestamp > 123456789;")
+    local explain_query
+    explain_query=$(sqlite3 "$db_path" "EXPLAIN QUERY PLAN SELECT * FROM events WHERE user_id = 'test' AND timestamp > 123456789;")
+    if [ $? -ne 0 ]; then
+        print_error "Failed to run explain query"
+        return 1
+    fi
     if echo "$explain_query" | grep -q "idx_events_user_timestamp"; then
         print_success "✓ Query uses proper index"
     else
@@ -138,7 +162,8 @@ validate_postgresql() {
     print_status "Validating PostgreSQL database"
     
     # Check if events table exists
-    local table_exists=$(psql "${DATABASE_URL:-}" -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_name='events';" -t 2>/dev/null || echo "0")
+    local table_exists
+    table_exists=$(psql "${DATABASE_URL:-}" -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_name='events';" -t 2>/dev/null || echo "0")
     if [ "$table_exists" -ne 1 ]; then
         print_error "Events table not found"
         return 1
@@ -147,7 +172,8 @@ validate_postgresql() {
     
     # Check table structure
     print_status "Checking table structure..."
-    local columns=$(psql "${DATABASE_URL:-}" -c "SELECT column_name FROM information_schema.columns WHERE table_name='events';" -t 2>/dev/null || echo "")
+    local columns
+    columns=$(psql "${DATABASE_URL:-}" -c "SELECT column_name FROM information_schema.columns WHERE table_name='events';" -t 2>/dev/null || echo "")
     
     # Verify required columns exist
     local required_columns=("event_id" "user_id" "event_type" "timestamp" "properties")
@@ -162,7 +188,8 @@ validate_postgresql() {
     
     # Check indexes
     print_status "Checking indexes..."
-    local indexes=$(psql "${DATABASE_URL:-}" -c "SELECT indexname FROM pg_indexes WHERE tablename='events';" -t 2>/dev/null || echo "")
+    local indexes
+    indexes=$(psql "${DATABASE_URL:-}" -c "SELECT indexname FROM pg_indexes WHERE tablename='events';" -t 2>/dev/null || echo "")
     
     local required_indexes=("idx_events_user_timestamp" "idx_events_event_type" "idx_events_timestamp" "idx_events_user_id")
     for index in "${required_indexes[@]}"; do
@@ -178,7 +205,8 @@ validate_postgresql() {
     print_status "Validating constraints..."
     
     # Test invalid event type (should fail)
-    local constraint_test=$(psql "${DATABASE_URL:-}" -c "INSERT INTO events (event_id, user_id, event_type, timestamp, properties) VALUES ('test', 'user1', 'invalid_type', 123456789, '{}');" 2>&1 || true)
+    local constraint_test
+    constraint_test=$(psql "${DATABASE_URL:-}" -c "INSERT INTO events (event_id, user_id, event_type, timestamp, properties) VALUES ('test', 'user1', 'invalid_type', 123456789, '{}');" 2>&1 || true)
     if echo "$constraint_test" | grep -q "constraint"; then
         print_success "✓ Event type constraint working"
     else
@@ -186,8 +214,29 @@ validate_postgresql() {
         return 1
     fi
     
+    # Test invalid timestamp (should fail)
+    local timestamp_test
+    timestamp_test=$(psql "${DATABASE_URL:-}" -c "INSERT INTO events (event_id, user_id, event_type, timestamp, properties) VALUES ('test2', 'user1', 'vote_cast', -1, '{}');" 2>&1 || true)
+    if echo "$timestamp_test" | grep -q "constraint"; then
+        print_success "✓ Timestamp constraint working"
+    else
+        print_error "✗ Timestamp constraint not working"
+        return 1
+    fi
+    
+    # Test invalid JSON (should fail)
+    local json_test
+    json_test=$(psql "${DATABASE_URL:-}" -c "INSERT INTO events (event_id, user_id, event_type, timestamp, properties) VALUES ('test3', 'user1', 'vote_cast', 123456789, 'invalid json');" 2>&1 || true)
+    if echo "$json_test" | grep -q "constraint\|invalid"; then
+        print_success "✓ JSON constraint working"
+    else
+        print_error "✗ JSON constraint not working"
+        return 1
+    fi
+    
     # Test valid insertion
-    local valid_test=$(psql "${DATABASE_URL:-}" -c "INSERT INTO events (event_id, user_id, event_type, timestamp, properties) VALUES ('test_valid', 'user1', 'vote_cast', 123456789, '{\"test\": true}');" 2>&1 || true)
+    local valid_test
+    valid_test=$(psql "${DATABASE_URL:-}" -c "INSERT INTO events (event_id, user_id, event_type, timestamp, properties) VALUES ('test_valid', 'user1', 'vote_cast', 123456789, '{\"test\": true}');" 2>&1 || true)
     if [ -z "$valid_test" ]; then
         print_success "✓ Valid insertion working"
         # Clean up test data
