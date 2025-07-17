@@ -116,6 +116,34 @@ validate_url() {
     fi
 }
 
+# Function to validate database connection
+validate_database_connection() {
+    local db_url="${DATABASE_URL-}"
+    
+    if [ -z "$db_url" ]; then
+        add_error "DATABASE_URL is not set"
+        return 1
+    fi
+    
+    # Check if it's a valid PostgreSQL connection string format
+    if [[ "$db_url" =~ ^postgres(ql)?://[^:]+:[^@]+@[^:]+:[0-9]+/[^?]+ ]]; then
+        print_success "DATABASE_URL format is valid"
+        
+        # Try to extract and validate components
+        local host=$(echo "$db_url" | sed "s/.*@\([^:]*\):.*/\1/")
+        local port=$(echo "$db_url" | sed "s/.*:\([0-9]*\)\/.*/\1/")
+        
+        if [ -n "$host" ] && [ -n "$port" ]; then
+            print_success "Database host: $host, port: $port"
+        fi
+        
+        return 0
+    else
+        add_error "DATABASE_URL must be in format: postgresql://user:pass@host:port/dbname, got: $db_url"
+        return 1
+    fi
+}
+
 # Function to check if command exists
 check_command() {
     local cmd=$1
@@ -177,7 +205,7 @@ if [ -n "${DATABASE_URL-}" ] || [ -n "${POSTGRES_HOST-}" ]; then
     check_command "pg_dump" "PostgreSQL backup tool" || true
     
     # Validate PostgreSQL connection
-    if [ -n "${BILAN_DATABASE_URL-}" ]; then
+    if [ -n "${DATABASE_URL-}" ]; then
         validate_database_connection
     fi
 else
