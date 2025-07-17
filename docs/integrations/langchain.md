@@ -99,6 +99,7 @@ export const createQAChain = () => {
           question: question.substring(0, 100)
         })
 
+        const startTime = Date.now()
         const answer = await chain.invoke({ question })
         
         // Track turn completion
@@ -108,7 +109,7 @@ export const createQAChain = () => {
           model: 'gpt-3.5-turbo',
           provider: 'openai',
           chain_type: 'qa',
-          latency: Date.now() - new Date().getTime()
+          latency: Date.now() - startTime
         })
         
         return {
