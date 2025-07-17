@@ -1,5 +1,6 @@
 'use client'
 
+import React from 'react'
 import { VoteData } from '@/lib/types'
 import { 
   getVoteRatingEmoji, 
@@ -12,7 +13,7 @@ interface VoteDetailModalProps {
   onClose: () => void
 }
 
-export function VoteDetailModal({ vote, onClose }: VoteDetailModalProps) {
+export const VoteDetailModal: React.FC<VoteDetailModalProps> = ({ vote, onClose }) => {
   if (!vote) return null
 
   return (
