@@ -161,22 +161,27 @@ export function groupVotesByTime(votes: VoteData[], period: 'hour' | 'day' | 'we
     let key: string
     
     switch (period) {
-      case 'hour':
+      case 'hour': {
         key = `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}-${date.getHours()}`
         break
-      case 'day':
+      }
+      case 'day': {
         key = `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`
         break
-      case 'week':
+      }
+      case 'week': {
         const weekStart = new Date(date)
         weekStart.setDate(date.getDate() - date.getDay())
         key = `${weekStart.getFullYear()}-${weekStart.getMonth() + 1}-${weekStart.getDate()}`
         break
-      case 'month':
+      }
+      case 'month': {
         key = `${date.getFullYear()}-${date.getMonth() + 1}`
         break
-      default:
+      }
+      default: {
         key = `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`
+      }
     }
     
     if (!groups[key]) {
@@ -207,15 +212,15 @@ export function formatVoteForExport(vote: VoteData): VoteExport {
     id: vote.id,
     promptId: vote.promptId,
     userId: vote.userId,
-    rating: vote.value > 0 ? 'positive' : vote.value < 0 ? 'negative' : 'neutral' as 'positive' | 'negative',
+    rating: vote.value > 0 ? 'positive' : 'negative',
     value: vote.value,
     comment: vote.comment,
     timestamp: new Date(vote.timestamp).toISOString(),
     date: new Date(vote.timestamp).toLocaleDateString(),
-    promptText: vote.metadata?.promptText,
-    aiOutput: vote.metadata?.aiOutput,
-    responseTime: vote.metadata?.responseTime,
-    model: vote.metadata?.model,
+    promptText: vote.promptText,
+    aiOutput: vote.aiOutput,
+    responseTime: vote.responseTime,
+    model: vote.model,
     journey: vote.metadata?.journey,
     step: vote.metadata?.step,
     sessionId: vote.metadata?.sessionId
