@@ -86,6 +86,11 @@ export class ApiClient {
 
   /**
    * Fetch votes data with filtering and pagination
+   * @param filters - Partial filters for vote data (search, rating, user, prompt, etc.)
+   * @param page - Page number for pagination (default: 1)
+   * @param limit - Number of items per page (default: 50)
+   * @param timeRange - Time range for data filtering (default: '30d')
+   * @returns Promise resolving to votes data with pagination info
    */
   async fetchVotes(
     filters: Partial<VoteFilterState> = {},
@@ -142,7 +147,9 @@ export class ApiClient {
   }
 
   /**
-   * Fetch vote analytics data
+   * Fetch vote analytics data including overview, trends, user behavior, and prompt performance
+   * @param timeRange - Time range for analytics data (default: '7d')
+   * @returns Promise resolving to comprehensive vote analytics data
    */
   async fetchVoteAnalytics(timeRange: TimeRange = '7d'): Promise<VoteAnalytics> {
     // Mock implementation - API endpoint doesn't exist yet
@@ -200,7 +207,11 @@ export class ApiClient {
   }
 
   /**
-   * Export votes data
+   * Export votes data to CSV or JSON format
+   * @param filters - Partial filters for vote data (search, rating, user, prompt, etc.)
+   * @param timeRange - Time range for exported data (default: '7d')
+   * @param format - Export format, either 'csv' or 'json' (default: 'csv')
+   * @returns Promise resolving to a Blob containing the exported data
    */
   async exportVotes(
     filters: Partial<VoteFilterState> = {},
@@ -448,7 +459,7 @@ export function useVotes(
 /**
  * Fetch conversation analytics data
  */
-export async function fetchConversationAnalytics(timeRange: string = '7d'): Promise<ConversationAnalytics> {
+export async function fetchConversationAnalytics(timeRange: string = '30d'): Promise<ConversationAnalytics> {
   // Mock implementation - API endpoint doesn't exist yet
   return {
     overview: {
@@ -691,7 +702,7 @@ export function useConversations(
 /**
  * Fetch journey analytics data
  */
-export async function fetchJourneyAnalytics(timeRange: string = '7d'): Promise<JourneyAnalytics> {
+export async function fetchJourneyAnalytics(timeRange: string = '30d'): Promise<JourneyAnalytics> {
   // Mock implementation - API endpoint doesn't exist yet
   return {
     overview: {
