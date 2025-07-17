@@ -47,30 +47,37 @@ export const DEFAULT_PRIVACY_CONFIG: PrivacyConfig = {
 };
 
 /**
- * Built-in PII patterns for common sensitive data
+ * Lazy-loaded PII patterns to reduce initial bundle size
  */
-const BUILTIN_PII_PATTERNS = [
-  // Email addresses
-  /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g,
-  
-  // Phone numbers (US format)
-  /\b\d{3}[-.]?\d{3}[-.]?\d{4}\b/g,
-  
-  // Credit card numbers (basic pattern)
-  /\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b/g,
-  
-  // Social Security Numbers
-  /\b\d{3}-\d{2}-\d{4}\b/g,
-  
-  // IP addresses
-  /\b(?:\d{1,3}\.){3}\d{1,3}\b/g,
-  
-  // API keys (common patterns)
-  /\b(?:api[_-]?key|token|secret)[_-]?[:=]\s*['"]*([a-zA-Z0-9_-]{10,})['"]*\b/gi,
-  
-  // URLs with potential sensitive info
-  /https?:\/\/[^\s]+/g
-];
+let builtinPiiPatterns: RegExp[] | null = null;
+
+function getBuiltinPiiPatterns(): RegExp[] {
+  if (builtinPiiPatterns === null) {
+    builtinPiiPatterns = [
+      // Email addresses (simplified)
+      /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g,
+      
+      // Phone numbers (US format, simplified)
+      /\b\d{3}[-.]?\d{3}[-.]?\d{4}\b/g,
+      
+      // Credit card numbers (simplified)
+      /\b\d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}\b/g,
+      
+      // Social Security Numbers
+      /\b\d{3}-\d{2}-\d{4}\b/g,
+      
+      // IP addresses
+      /\b(?:\d{1,3}\.){3}\d{1,3}\b/g,
+      
+      // API keys (simplified)
+      /\b(?:api[_-]?key|token|secret)[_-]?[:=]\s*['"]*([a-zA-Z0-9_-]{10,})['"]*\b/gi,
+      
+      // URLs (simplified)
+      /https?:\/\/[^\s]+/g
+    ];
+  }
+  return builtinPiiPatterns;
+}
 
 /**
  * Advanced content sanitizer with configurable privacy controls
@@ -125,110 +132,142 @@ export class PrivacyController {
    * Process content based on capture level and privacy settings
    */
   processContent(content: string, contentType: keyof PrivacyConfig['captureLevels']): string | null {
-    const captureLevel = this.config.captureLevels[contentType] ?? this.config.defaultCaptureLevel;
+    const captureLevel = this.config.captureLevels[contentType];
     
     switch (captureLevel) {
       case 'none':
         return null;
-      
       case 'metadata':
-        return this.extractMetadata(content);
-      
+        return `[METADATA: ${this.extractMetadata(content)}]`;
       case 'sanitized':
         return this.sanitizeContent(content, contentType);
-      
       case 'full':
         return content;
-      
       default:
         return this.sanitizeContent(content, contentType);
     }
   }
 
   /**
-   * Extract only metadata from content (length, type, etc.)
+   * Extract only metadata from content
    */
   private extractMetadata(content: string): string {
+    if (!content || typeof content !== 'string') {
+      return JSON.stringify({
+        length: 0,
+        wordCount: 0,
+        hasSpecialChars: false,
+        hash: this.hashContent('')
+      });
+    }
+    
     const metadata = {
       length: content.length,
       wordCount: content.split(/\s+/).length,
-      hasNumbers: /\d/.test(content),
-      hasSpecialChars: /[!@#$%^&*(),.?":{}|<>]/.test(content),
-      estimatedSentences: content.split(/[.!?]+/).length - 1
+      hasSpecialChars: /[^a-zA-Z0-9\s]/.test(content),
+      hash: this.hashContent(content.substring(0, 100)) // Hash first 100 chars
     };
     
-    return `[METADATA: ${JSON.stringify(metadata)}]`;
+    return JSON.stringify(metadata);
   }
 
   /**
    * Sanitize content by removing PII and sensitive information
    */
   private sanitizeContent(content: string, contentType: string): string {
+    if (!content || typeof content !== 'string') {
+      return '';
+    }
     let sanitized = content;
     
-    // Apply built-in PII detection first
-    if (this.config.detectBuiltinPii) {
-      sanitized = this.removePiiPatterns(sanitized, BUILTIN_PII_PATTERNS);
-    }
-    
-    // Apply custom PII patterns
-    if (this.config.customPiiPatterns.length > 0) {
-      sanitized = this.removePiiPatterns(sanitized, this.config.customPiiPatterns);
-    }
-    
-    // Apply custom sanitizer last if provided
+    // Apply custom sanitizer if provided
     if (this.config.customSanitizer) {
       sanitized = this.config.customSanitizer(sanitized, contentType);
     }
     
-    return sanitized;
-  }
-
-  /**
-   * Remove PII based on provided patterns
-   */
-  private removePiiPatterns(content: string, patterns: RegExp[]): string {
-    let sanitized = content;
-    
-    patterns.forEach(pattern => {
-      if (this.config.hashSensitiveContent && this.config.hashSalt) {
-        // Replace with hash
-        sanitized = sanitized.replace(pattern, (match) => {
-          const hash = this.hashString(match + this.config.hashSalt!);
-          return `[HASH:${hash.substring(0, 8)}]`;
-        });
-      } else {
-        // Replace with redaction marker
+    // Apply built-in PII detection if enabled
+    if (this.config.detectBuiltinPii) {
+      const patterns = getBuiltinPiiPatterns();
+      for (const pattern of patterns) {
         sanitized = sanitized.replace(pattern, '[REDACTED]');
       }
-    });
+    }
+    
+    // Apply custom PII patterns
+    for (const pattern of this.config.customPiiPatterns) {
+      sanitized = sanitized.replace(pattern, '[REDACTED]');
+    }
+    
+    // Hash sensitive content if enabled
+    if (this.config.hashSensitiveContent) {
+      return this.hashContent(sanitized);
+    }
     
     return sanitized;
   }
 
   /**
-   * Simple hash function for content
+   * Hash content for privacy while maintaining some utility
    */
-  private hashString(str: string): string {
+  private hashContent(content: string): string {
+    const salt = this.config.hashSalt || 'bilan-default-salt';
+    const combined = salt + content;
+    
+    // Simple hash function (not cryptographically secure, but sufficient for privacy)
     let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
+    for (let i = 0; i < combined.length; i++) {
+      const char = combined.charCodeAt(i);
       hash = ((hash << 5) - hash) + char;
       hash = hash & hash; // Convert to 32-bit integer
     }
-    return Math.abs(hash).toString(16);
+    
+    return `[HASH:${Math.abs(hash).toString(36)}]`;
   }
 
   /**
-   * Check if content contains potential PII
+   * Check if content should be captured based on privacy settings
+   */
+  shouldCapture(contentType: keyof PrivacyConfig['captureLevels']): boolean {
+    return this.config.captureLevels[contentType] !== 'none';
+  }
+
+  /**
+   * Get current privacy configuration
+   */
+  getConfig(): PrivacyConfig {
+    return { ...this.config };
+  }
+
+  /**
+   * Check if content contains PII
    */
   containsPii(content: string): boolean {
-    const allPatterns = [
-      ...(this.config.detectBuiltinPii ? BUILTIN_PII_PATTERNS : []),
-      ...this.config.customPiiPatterns
-    ];
+    if (!content || typeof content !== 'string') {
+      return false;
+    }
     
-    return allPatterns.some(pattern => pattern.test(content));
+    if (!this.config.detectBuiltinPii && this.config.customPiiPatterns.length === 0) {
+      return false;
+    }
+    
+    // Check built-in PII patterns
+    if (this.config.detectBuiltinPii) {
+      const patterns = getBuiltinPiiPatterns();
+      for (const pattern of patterns) {
+        if (pattern.test(content)) {
+          return true;
+        }
+      }
+    }
+    
+    // Check custom PII patterns
+    for (const pattern of this.config.customPiiPatterns) {
+      if (pattern.test(content)) {
+        return true;
+      }
+    }
+    
+    return false;
   }
 
   /**
@@ -237,29 +276,44 @@ export class PrivacyController {
   getPrivacySummary(content: string, contentType: keyof PrivacyConfig['captureLevels']): {
     captureLevel: CaptureLevel;
     containsPii: boolean;
-    processedLength: number;
+    processedContent: string | null;
     originalLength: number;
+    processedLength: number;
   } {
-    const captureLevel = this.config.captureLevels[contentType] || this.config.defaultCaptureLevel;
+    if (!content || typeof content !== 'string') {
+      return {
+        captureLevel: this.config.captureLevels[contentType],
+        containsPii: false,
+        processedContent: null,
+        originalLength: 0,
+        processedLength: 0
+      };
+    }
+    
+    const captureLevel = this.config.captureLevels[contentType];
+    const containsPii = this.containsPii(content);
     const processedContent = this.processContent(content, contentType);
     
     return {
       captureLevel,
-      containsPii: this.containsPii(content),
-      processedLength: processedContent?.length || 0,
-      originalLength: content.length
+      containsPii,
+      processedContent,
+      originalLength: content.length,
+      processedLength: processedContent?.length || 0
     };
   }
+
+
 }
 
 /**
- * Privacy-aware content processor for different content types
+ * Content processor for different types of content
  */
 export class ContentProcessor {
   private privacyController: PrivacyController;
 
-  constructor(privacyConfig: Partial<PrivacyConfig> = {}) {
-    this.privacyController = new PrivacyController(privacyConfig);
+  constructor(privacyController?: PrivacyController) {
+    this.privacyController = privacyController || new PrivacyController();
   }
 
   /**
@@ -270,7 +324,7 @@ export class ContentProcessor {
   }
 
   /**
-   * Process AI response content
+   * Process response content
    */
   processResponse(response: string): string | null {
     return this.privacyController.processContent(response, 'responses');
@@ -280,25 +334,42 @@ export class ContentProcessor {
    * Process error content
    */
   processError(error: string): string | null {
+    if (!error || typeof error !== 'string') {
+      return null;
+    }
     return this.privacyController.processContent(error, 'errors');
   }
 
   /**
-   * Process metadata
+   * Process metadata content
    */
-  processMetadata(metadata: string): string | null {
-    return this.privacyController.processContent(metadata, 'metadata');
+  processMetadata(metadata: Record<string, any>): Record<string, any> {
+    if (!this.privacyController.shouldCapture('metadata')) {
+      return {};
+    }
+    
+    const processed: Record<string, any> = {};
+    
+    for (const [key, value] of Object.entries(metadata)) {
+      if (typeof value === 'string') {
+        processed[key] = this.privacyController.processContent(value, 'metadata');
+      } else {
+        processed[key] = value;
+      }
+    }
+    
+    return processed;
   }
 
   /**
-   * Update privacy configuration
+   * Update privacy configuration (for backward compatibility)
    */
   updatePrivacyConfig(config: Partial<PrivacyConfig>): void {
     this.privacyController.updateConfig(config);
   }
 
   /**
-   * Get privacy controller for advanced operations
+   * Get privacy controller (for backward compatibility)
    */
   getPrivacyController(): PrivacyController {
     return this.privacyController;
@@ -306,32 +377,14 @@ export class ContentProcessor {
 }
 
 /**
- * Utility functions for common privacy operations
+ * Utility functions for common privacy configurations
  */
 export const PrivacyUtils = {
   /**
-   * Create a privacy config for maximum privacy
+   * Development configuration - captures everything for debugging
    */
-  createMaxPrivacyConfig(): PrivacyConfig {
+  createDevPrivacyConfig(): Partial<PrivacyConfig> {
     return {
-      ...DEFAULT_PRIVACY_CONFIG,
-      defaultCaptureLevel: 'metadata',
-      captureLevels: {
-        prompts: 'metadata',
-        responses: 'metadata',
-        errors: 'sanitized',
-        metadata: 'full'
-      },
-      hashSensitiveContent: true
-    };
-  },
-
-  /**
-   * Create a privacy config for development (full capture)
-   */
-  createDevPrivacyConfig(): PrivacyConfig {
-    return {
-      ...DEFAULT_PRIVACY_CONFIG,
       defaultCaptureLevel: 'full',
       captureLevels: {
         prompts: 'full',
@@ -339,16 +392,16 @@ export const PrivacyUtils = {
         errors: 'full',
         metadata: 'full'
       },
-      detectBuiltinPii: false
+      detectBuiltinPii: false,
+      hashSensitiveContent: false
     };
   },
 
   /**
-   * Create a privacy config for production (balanced)
+   * Production configuration - balanced privacy and utility
    */
-  createProdPrivacyConfig(): PrivacyConfig {
+  createProdPrivacyConfig(): Partial<PrivacyConfig> {
     return {
-      ...DEFAULT_PRIVACY_CONFIG,
       defaultCaptureLevel: 'sanitized',
       captureLevels: {
         prompts: 'sanitized',
@@ -357,7 +410,31 @@ export const PrivacyUtils = {
         metadata: 'full'
       },
       detectBuiltinPii: true,
+      hashSensitiveContent: false
+    };
+  },
+
+  /**
+   * Maximum privacy configuration - minimal data collection
+   */
+  createMaxPrivacyConfig(): Partial<PrivacyConfig> {
+    return {
+      defaultCaptureLevel: 'metadata',
+      captureLevels: {
+        prompts: 'metadata',
+        responses: 'metadata',
+        errors: 'metadata',
+        metadata: 'metadata'
+      },
+      detectBuiltinPii: true,
       hashSensitiveContent: true
     };
+  },
+
+  /**
+   * Get default privacy configuration
+   */
+  getDefaultConfig(): PrivacyConfig {
+    return { ...DEFAULT_PRIVACY_CONFIG };
   }
 }; 
