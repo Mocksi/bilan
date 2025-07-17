@@ -34,8 +34,8 @@ export default function Table({
 
   if (loading) {
     return (
-      <div className={`bg-white border border-gray-200/60 rounded-lg shadow-sm ${className}`}>
-        <div className="p-6">
+      <div className={`relative flex flex-col min-w-0 bg-white border border-black/10 rounded-lg ${className}`} style={{ boxShadow: 'rgba(31, 41, 55, 0.04) 0px 2px 4px 0px' }}>
+        <div className="py-4 px-5">
           <div className="animate-pulse">
             <div className="h-4 bg-gray-200 rounded w-1/4 mb-4"></div>
             <div className="space-y-3">
@@ -50,9 +50,9 @@ export default function Table({
   }
 
   return (
-    <div className={`bg-white border border-gray-200/60 rounded-lg shadow-sm overflow-hidden ${className}`}>
+    <div className={`relative flex flex-col min-w-0 bg-white border border-black/10 rounded-lg overflow-hidden ${className}`} style={{ boxShadow: 'rgba(31, 41, 55, 0.04) 0px 2px 4px 0px' }}>
       {title && (
-        <div className="px-6 py-4 border-b border-gray-200">
+        <div className="py-4 px-5 border-b border-gray-200">
           <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
         </div>
       )}

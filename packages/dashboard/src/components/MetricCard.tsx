@@ -47,8 +47,9 @@ export const MetricCard: React.FC<MetricCardProps> = ({
   }
 
   return (
-    <div className={`bg-white border border-gray-200/60 rounded-lg shadow-sm p-5 ${className}`}>
-      <div className="flex items-center">
+    <div className={`relative flex flex-col min-w-0 bg-white border border-black/10 rounded-lg ${className}`} style={{ boxShadow: 'rgba(31, 41, 55, 0.04) 0px 2px 4px 0px' }}>
+      <div className="py-4 px-5 flex-1">
+        <div className="flex items-center">
         <div className="flex-shrink-0">
           <div className="text-3xl">{icon}</div>
         </div>
@@ -71,6 +72,7 @@ export const MetricCard: React.FC<MetricCardProps> = ({
           )}
         </div>
       )}
+      </div>
     </div>
   )
 } 
