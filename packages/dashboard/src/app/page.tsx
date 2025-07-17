@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, Suspense } from 'react'
+import React, { useEffect, useState, Suspense } from 'react'
 import { useDashboardData } from '@/lib/api-client'
 import { DashboardData } from '@/lib/types'
 import { DashboardLayout } from '@/components/DashboardLayout'
@@ -11,10 +11,8 @@ import { RecentActivity } from '@/components/RecentActivity'
 import { JourneyPerformance } from '@/components/JourneyPerformance'
 import { TimeRangeSelector, useTimeRange, TimeRange } from '@/components/TimeRangeSelector'
 import { formatDateRange } from '@/lib/time-utils'
-import { calculateMetricComparisons } from '@/lib/comparison-utils'
-
 // Wrapper component for TimeRangeSelector that uses useSearchParams
-function TimeRangeWrapper({ onTimeRangeChange }: { onTimeRangeChange: (range: TimeRange) => void }) {
+const TimeRangeWrapper: React.FC<{ onTimeRangeChange: (range: TimeRange) => void }> = ({ onTimeRangeChange }) => {
   const { timeRange, setTimeRange } = useTimeRange()
   
   const handleTimeRangeChange = (range: TimeRange) => {
@@ -31,7 +29,7 @@ function TimeRangeWrapper({ onTimeRangeChange }: { onTimeRangeChange: (range: Ti
 }
 
 // Dashboard content component that uses the time range
-function DashboardContent() {
+const DashboardContent: React.FC = () => {
   const { timeRange, setTimeRange } = useTimeRange()
   const { data, loading, error, refresh } = useDashboardData(timeRange, true)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
@@ -42,10 +40,7 @@ function DashboardContent() {
     }
   }, [data])
 
-  // Calculate comparisons if comparison data is available
-  const comparisons = data?.comparison ? 
-    calculateMetricComparisons(data, data.comparison.previousPeriod) : 
-    null
+
 
   if (loading) {
     return (
