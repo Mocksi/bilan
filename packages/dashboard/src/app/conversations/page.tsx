@@ -5,8 +5,11 @@ import { useConversations } from '@/lib/api-client'
 import { DashboardLayout } from '@/components/DashboardLayout'
 import StatsCard from '@/components/StatsCard'
 
-// Wrapper component for useSearchParams
-function ConversationsContent() {
+/**
+ * ConversationsContent component renders the main conversations analytics interface
+ * including statistics, filters, and conversation data table with pagination state management.
+ */
+const ConversationsContent: React.FC = () => {
   const [page, setPage] = useState(1)
   const [limit] = useState(50)
   
@@ -177,6 +180,10 @@ function ConversationsContent() {
   )
 }
 
+/**
+ * Conversations component is the main page component that renders the conversations analytics
+ * section with a Suspense fallback for loading states.
+ */
 export default function Conversations() {
   return (
     <Suspense fallback={<div>Loading conversations...</div>}>
