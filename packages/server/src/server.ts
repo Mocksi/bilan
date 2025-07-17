@@ -1,13 +1,67 @@
 import Fastify, { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 import cors from '@fastify/cors'
-import { BilanDatabase, Event, EVENT_TYPES, EventType } from './database/schema.js'
-import { VoteCastEvent, TurnEvent, UserActionEvent } from '@mocksi/bilan-sdk'
+import rateLimit from '@fastify/rate-limit'
+import { BilanDatabase, Event, EVENT_TYPES, EventType, validateEvent } from './database/schema.js'
 import { BasicAnalyticsProcessor, DashboardData } from './analytics/basic-processor.js'
+
+/**
+ * SDK Event types for API compatibility (local definitions)
+ */
+interface VoteCastEvent {
+  eventId: string
+  eventType: 'vote_cast'
+  timestamp: number
+  userId: string
+  properties: {
+    promptId: string
+    value: 1 | -1
+    comment?: string
+    responseTime?: number
+    [key: string]: any
+  }
+  promptText?: string
+  aiResponse?: string
+}
+
+interface TurnEvent {
+  eventId: string
+  eventType: 'turn_started' | 'turn_completed' | 'turn_failed'
+  timestamp: number
+  userId: string
+  properties: {
+    turnId: string
+    modelUsed?: string
+    conversationId?: string
+    responseTime?: number
+    status?: 'success' | 'failed'
+    errorType?: string
+    [key: string]: any
+  }
+  promptText?: string
+  aiResponse?: string
+}
+
+interface UserActionEvent {
+  eventId: string
+  eventType: 'user_action'
+  timestamp: number
+  userId: string
+  properties: {
+    actionType: string
+    context?: string
+    [key: string]: any
+  }
+  promptText?: string
+  aiResponse?: string
+}
 
 export interface ServerConfig {
   port?: number
   dbPath?: string
   cors?: boolean
+  apiKey?: string
+  rateLimitMax?: number
+  rateLimitTimeWindow?: string
 }
 
 /**
@@ -90,16 +144,21 @@ export class BilanServer {
   private analyticsProcessor: BasicAnalyticsProcessor
   private dashboardCache = new Map<string, { data: DashboardData; timestamp: number }>()
   private readonly CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+  private config: ServerConfig
 
   constructor(config: ServerConfig = {}) {
+    this.config = config
     this.fastify = Fastify({ logger: true })
     this.db = new BilanDatabase(config.dbPath)
     this.analyticsProcessor = new BasicAnalyticsProcessor(this.db)
     
+    this.setupMiddleware()
     this.setupRoutes()
-    
-    if (config.cors) {
-      // Configure CORS with specific security settings
+  }
+  
+  private setupMiddleware(): void {
+    // Configure CORS if enabled
+    if (this.config.cors) {
       const corsOptions = {
         origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000', 'http://localhost:3001'],
         methods: ['GET', 'POST', 'OPTIONS'],
@@ -108,6 +167,35 @@ export class BilanServer {
       }
       this.fastify.register(cors, corsOptions)
     }
+    
+    // Configure rate limiting
+    this.fastify.register(rateLimit, {
+      max: this.config.rateLimitMax || 100,
+      timeWindow: this.config.rateLimitTimeWindow || '1 minute',
+      keyGenerator: (request) => {
+        return request.headers.authorization || request.ip
+      }
+    })
+    
+    // Authentication middleware for protected endpoints
+    this.fastify.addHook('onRequest', async (request, reply) => {
+      const protectedPaths = ['/api/events', '/api/analytics']
+      const isProtectedPath = protectedPaths.some(path => request.url.startsWith(path))
+      
+      if (isProtectedPath && this.config.apiKey) {
+        const authHeader = request.headers.authorization
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+          reply.status(401).send({ error: 'Missing or invalid authorization header' })
+          return
+        }
+        
+        const token = authHeader.substring(7)
+        if (token !== this.config.apiKey) {
+          reply.status(401).send({ error: 'Invalid API key' })
+          return
+        }
+      }
+    })
   }
 
   private setupRoutes(): void {
@@ -116,19 +204,51 @@ export class BilanServer {
       return { status: 'healthy', timestamp: Date.now() }
     })
 
-    // Events ingestion endpoint - updated for v0.4.0 SDK compatibility
+    // Enhanced events ingestion endpoint - v0.4.0 with validation, rate limiting, and authentication
     this.fastify.post<{ Body: EventsBody }>('/api/events', async (request, reply) => {
       try {
         const { events } = request.body
         
+        // Input validation
+        if (!events) {
+          return reply.status(400).send({ error: 'Missing events in request body' })
+        }
+        
         if (!Array.isArray(events)) {
           return reply.status(400).send({ error: 'Events must be an array' })
         }
+        
+        if (events.length === 0) {
+          return reply.status(400).send({ error: 'Events array cannot be empty' })
+        }
+        
+        if (events.length > 1000) {
+          return reply.status(400).send({ error: 'Too many events in single request (max: 1000)' })
+        }
 
-        // Convert SDK events to unified Event format and insert with deduplication
+        let processedCount = 0
+        let skippedCount = 0
+        let errorCount = 0
+        
+        // Convert SDK events to unified Event format and insert with enhanced validation
         for (const sdkEvent of events) {
           try {
+            // Basic SDK event validation
+            if (!sdkEvent.eventId || !sdkEvent.userId || !sdkEvent.eventType) {
+              this.fastify.log.warn('Skipping event with missing required fields:', sdkEvent)
+              errorCount++
+              continue
+            }
+            
             const unifiedEvent = sdkEventToEvent(sdkEvent)
+            
+            // Validate using schema validation functions
+            const validation = validateEvent(unifiedEvent)
+            if (!validation.valid) {
+              this.fastify.log.warn('Skipping invalid event:', validation.errors)
+              errorCount++
+              continue
+            }
             
             // Check for duplicate event_id before insertion
             const existingEvent = this.db.queryOne(
@@ -138,11 +258,14 @@ export class BilanServer {
             
             if (!existingEvent) {
               this.db.insertEvent(unifiedEvent)
+              processedCount++
             } else {
               this.fastify.log.debug(`Skipping duplicate event: ${unifiedEvent.event_id}`)
+              skippedCount++
             }
           } catch (error) {
-            this.fastify.log.error('Failed to insert event:', error)
+            this.fastify.log.error('Failed to process event:', error)
+            errorCount++
             // Continue processing other events rather than failing completely
           }
         }
@@ -150,7 +273,13 @@ export class BilanServer {
         // Clear dashboard cache when new events arrive
         this.dashboardCache.clear()
 
-        return { success: true, processed: events.length }
+        return { 
+          success: true, 
+          total: events.length,
+          processed: processedCount,
+          skipped: skippedCount,
+          errors: errorCount
+        }
       } catch (error) {
         this.fastify.log.error('Error in POST /api/events:', error)
         return reply.status(500).send({ error: 'Internal server error' })
