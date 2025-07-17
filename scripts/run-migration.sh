@@ -127,6 +127,12 @@ run_sqlite_migration() {
         return 1
     fi
     
+    # Check if sqlite3 is available
+    if ! command -v sqlite3 > /dev/null 2>&1; then
+        print_error "sqlite3 not found. Please install SQLite3 to run migrations."
+        return 1
+    fi
+    
     print_status "Running SQLite migration: $migration_name"
     
     # Execute migration
