@@ -162,8 +162,32 @@ run_postgresql_migration() {
     
     print_status "Running PostgreSQL migration: $migration_name"
     
+    # Build psql command with proper connection parameters
+    local psql_cmd="psql"
+    
+    # Use DATABASE_URL if available, otherwise build from discrete variables
+    if [ -n "${DATABASE_URL:-}" ]; then
+        psql_cmd="$psql_cmd \"${DATABASE_URL}\""
+    else
+        if [ -n "${POSTGRES_HOST:-}" ]; then
+            psql_cmd="$psql_cmd -h \"${POSTGRES_HOST}\""
+        fi
+        if [ -n "${POSTGRES_PORT:-}" ]; then
+            psql_cmd="$psql_cmd -p \"${POSTGRES_PORT}\""
+        fi
+        if [ -n "${POSTGRES_USER:-}" ]; then
+            psql_cmd="$psql_cmd -U \"${POSTGRES_USER}\""
+        fi
+        if [ -n "${POSTGRES_DB:-}" ]; then
+            psql_cmd="$psql_cmd -d \"${POSTGRES_DB}\""
+        fi
+    fi
+    
+    # Add ON_ERROR_STOP and execute migration
+    psql_cmd="$psql_cmd -v ON_ERROR_STOP=1"
+    
     # Execute migration
-    if psql "${DATABASE_URL:-}" < "$migration_file"; then
+    if eval "$psql_cmd" < "$migration_file"; then
         print_success "Migration completed: $migration_name"
         return 0
     else
