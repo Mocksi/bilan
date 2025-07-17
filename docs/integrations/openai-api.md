@@ -97,6 +97,7 @@ export async function createChatCompletion(
       temperature: options.temperature || 0.7
     })
 
+    const startTime = Date.now()
     const completion = await openai.chat.completions.create({
       model,
       messages,
@@ -120,7 +121,7 @@ export async function createChatCompletion(
       output_tokens: completion.usage?.completion_tokens || 0,
       total_tokens: completion.usage?.total_tokens || 0,
       finish_reason: response.finish_reason,
-      latency: Date.now() - new Date().getTime()
+      latency: Date.now() - startTime
     })
 
     return {
