@@ -1,6 +1,6 @@
 {
   "name": "bilan",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Open Source Trust Analytics for AI Products - Track user feedback on AI suggestions. Self-hostable, TypeScript-first, <5KB bundle.",
   "main": "index.js",
   "type": "module",

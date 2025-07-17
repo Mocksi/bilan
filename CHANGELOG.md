@@ -5,6 +5,63 @@ All notable changes to the Bilan SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2024-01-15
+
+### Added
+- **Docker Deployment Support**: Complete containerization for production deployment
+  - Multi-stage Dockerfile with production optimizations
+  - Docker Compose configuration with PostgreSQL and Redis
+  - Health check endpoints for container orchestration
+  - Environment configuration with secure defaults
+  - Database migration scripts for PostgreSQL and SQLite
+  - Comprehensive deployment documentation
+- **Enhanced Analytics Dashboard**: Improved dashboard with real-time updates
+  - Conversation analytics with success rate tracking
+  - User journey analysis with completion metrics
+  - Quality signals monitoring (regenerations, frustration events)
+  - Time-series trust score visualization
+  - Recent activity feed with detailed conversation data
+- **Comprehensive Test Suite**: End-to-end testing and performance benchmarks
+  - E2E tests covering complete user workflows
+  - Performance benchmarks for SDK, API, and dashboard
+  - Deployment verification tests for production readiness
+  - Health check verification for monitoring systems
+  - Load testing with concurrent user simulation
+- **Production Monitoring**: Full observability and alerting capabilities
+  - Prometheus-compatible metrics endpoint
+  - Structured logging with configurable levels
+  - Database connection pooling and monitoring
+  - Resource usage tracking and alerting
+  - Circuit breaker pattern for service resilience
+
+### Fixed
+- **Script Robustness**: Improved deployment and validation scripts
+  - Fixed check_command return codes for proper dependency detection
+  - Enhanced Docker Compose fallback logic
+  - Added defensive parameter expansion for unset variables
+  - Improved PostgreSQL configuration flexibility
+  - Better error aggregation and reporting
+- **Environment Validation**: Enhanced configuration validation
+  - Added missing validate_database_connection function
+  - Fixed environment variable inconsistencies
+  - Removed directory creation side effects from validation
+  - Better error messages for missing dependencies
+
+### Changed
+- **Database Schema**: Optimized schema for analytics workloads
+  - Improved indexing for time-series queries
+  - Enhanced conversation tracking with journey support
+  - Better data retention and archival policies
+- **API Performance**: Optimized API response times
+  - Caching layer for frequently accessed data
+  - Database query optimization
+  - Reduced payload sizes for dashboard data
+- **Security Enhancements**: Strengthened security posture
+  - Input validation and sanitization
+  - Secure headers configuration
+  - Authentication token validation
+  - Rate limiting implementation
+
 ## [0.3.0] - 2024-01-09
 
 ### Added

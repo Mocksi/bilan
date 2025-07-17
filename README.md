@@ -13,6 +13,8 @@
 [![CI](https://img.shields.io/github/actions/workflow/status/Mocksi/bilan/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/Mocksi/bilan/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/Mocksi/bilan/graph/badge.svg?token=YV3PW1YYM3)](https://codecov.io/gh/Mocksi/bilan)
 [![Bundle Size](https://img.shields.io/badge/Bundle%20Size-4.8KB%20gzipped-brightgreen?style=flat-square)](https://github.com/Mocksi/bilan/tree/main/packages/sdk)
+[![Docker](https://img.shields.io/badge/Docker-Ready-blue?style=flat-square)](https://github.com/Mocksi/bilan/tree/main/docker)
+[![Production](https://img.shields.io/badge/Production-Ready-green?style=flat-square)](https://github.com/Mocksi/bilan/tree/main/docs/deployment.md)
 
 </div>
 
@@ -24,15 +26,25 @@ Bilan is an open source analytics tool that helps you understand how users react
 
 **Perfect for:** Individual developers, startups, and teams who want to understand AI user experience without external dependencies.
 
-### SDK Features
+### Platform Features
 
-- **🚀 Lightweight**: <2KB gzipped bundle size
+#### SDK
+- **🚀 Lightweight**: <5KB gzipped bundle size
 - **🔒 Type Safe**: Full TypeScript support with branded types
 - **🏃‍♂️ Zero Dependencies**: Uses only native web APIs
 - **📱 Universal**: Works in browsers, Node.js, and edge environments
 - **🔧 Configurable**: Advanced trend analysis with customizable parameters
 - **🛡️ Robust**: Comprehensive error handling and graceful degradation
 - **📊 Smart Analytics**: Time-weighted trend detection with statistical significance
+
+#### Production Infrastructure
+- **🐳 Docker Ready**: Complete containerization with multi-stage builds
+- **📈 Real-time Dashboard**: Live analytics with conversation tracking
+- **🔍 Health Monitoring**: Comprehensive health checks and metrics
+- **💾 Database Support**: PostgreSQL and SQLite with migration scripts
+- **⚡ Performance Tested**: <500ms API response times, <3s dashboard loads
+- **🔐 Security Hardened**: Input validation, secure headers, rate limiting
+- **📊 Observability**: Prometheus metrics, structured logging, alerting
 
 ### Quick Start
 
