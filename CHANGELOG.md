@@ -8,31 +8,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.3.1] - 2024-01-15
 
 ### Added
-- **Docker Deployment Support**: Complete containerization for production deployment
+- **Conversation Tracking SDK**: Complete conversation lifecycle management
+  - `conversation.start()` - Start new conversation sessions
+  - `conversation.addMessage()` - Track messages in conversations
+  - `conversation.recordFrustration()` - Record user frustration events
+  - `conversation.recordRegeneration()` - Track AI response regenerations
+  - `conversation.recordFeedback()` - Capture explicit user feedback
+  - `conversation.end()` - End conversations with success/failure outcomes
+  - ConversationId branded type for type safety
+- **Journey Analytics SDK**: User workflow completion tracking
+  - `journey.trackStep()` - Record progress through predefined journey steps
+  - `journey.complete()` - Mark journey completion
+  - Journey funnel analysis with step-by-step completion rates
+  - Drop-off point identification for workflow optimization
+- **Enhanced Analytics API**: Comprehensive metrics beyond simple votes
+  - `getStats()` returns conversation success rates, journey completion rates, and quality signals
+  - `getConversationStats()` for detailed conversation analytics
+  - `getJourneyStats()` for journey-specific metrics
+  - Trust score calculation incorporating conversation and journey data
+- **Database Schema Extensions**: Support for conversation and journey tracking
+  - `conversations` table with session management and outcome tracking
+  - `feedback_events` table for quality signals and user feedback
+  - `journey_steps` table for workflow step tracking
+  - Optimized indexes for analytics queries
+- **API Endpoints**: Server-side conversation and journey tracking
+  - `POST /api/conversations` - Start conversation sessions
+  - `PUT /api/conversations/:id/end` - End conversations with outcomes
+  - `POST /api/conversations/:id/feedback` - Record feedback events
+  - `POST /api/journeys/step` - Track journey step completion
+  - `GET /api/dashboard` - Comprehensive analytics data endpoint
+- **Analytics Dashboard**: Visualize conversation and journey analytics
+  - Conversation success rate tracking with trend analysis
+  - Journey completion funnel visualization
+  - Quality signals monitoring (frustration, regeneration, feedback)
+  - Recent activity feed with conversation details
+  - Time-series trust score visualization
+- **Docker Deployment Support**: Production-ready containerization
   - Multi-stage Dockerfile with production optimizations
-  - Docker Compose configuration with PostgreSQL and Redis
+  - Docker Compose configuration with PostgreSQL support
   - Health check endpoints for container orchestration
   - Environment configuration with secure defaults
   - Database migration scripts for PostgreSQL and SQLite
-  - Comprehensive deployment documentation
-- **Enhanced Analytics Dashboard**: Improved dashboard with real-time updates
-  - Conversation analytics with success rate tracking
-  - User journey analysis with completion metrics
-  - Quality signals monitoring (regenerations, frustration events)
-  - Time-series trust score visualization
-  - Recent activity feed with detailed conversation data
 - **Comprehensive Test Suite**: End-to-end testing and performance benchmarks
-  - E2E tests covering complete user workflows
-  - Performance benchmarks for SDK, API, and dashboard
+  - E2E tests covering complete conversation and journey workflows
+  - Performance benchmarks for SDK, API, and dashboard components
   - Deployment verification tests for production readiness
-  - Health check verification for monitoring systems
   - Load testing with concurrent user simulation
-- **Production Monitoring**: Full observability and alerting capabilities
-  - Prometheus-compatible metrics endpoint
-  - Structured logging with configurable levels
-  - Database connection pooling and monitoring
-  - Resource usage tracking and alerting
-  - Circuit breaker pattern for service resilience
 
 ### Fixed
 - **Script Robustness**: Improved deployment and validation scripts
@@ -144,26 +165,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Migration Guides
 
-### Upgrading from 0.2.x to 0.3.0
+### Upgrading from 0.2.x to 0.3.1
 
-No breaking changes. New features are opt-in:
+No breaking changes. New conversation and journey tracking features are opt-in:
 
 ```typescript
-// Before (0.2.x)
-await init({
-  mode: 'local',
-  userId: createUserId('user-123')
-})
+// Before (0.2.x) - Simple vote tracking
+await init({ mode: 'local', userId: createUserId('user-123') })
+await vote(createPromptId('prompt-abc'), 1, 'Helpful!')
+const stats = await getStats()
+console.log(`Trust score: ${stats.positiveRate}`)
 
-// After (0.3.0) - with telemetry
-await init({
-  mode: 'local',
-  userId: createUserId('user-123'),
-  telemetry: {
-    enabled: true,
-    endpoint: 'https://your-analytics.com'
-  }
-})
+// After (0.3.1) - Full conversation and journey tracking
+await init({ mode: 'local', userId: createUserId('user-123') })
+
+// Track complete conversations
+const conversationId = await conversation.start(createUserId('user-123'))
+await conversation.addMessage(conversationId)
+await conversation.recordFeedback(conversationId, 1, 'Great response!')
+await conversation.end(conversationId, 'completed')
+
+// Track user journeys
+await journey.trackStep('email-workflow', 'draft-created', createUserId('user-123'))
+await journey.complete('email-workflow', createUserId('user-123'))
+
+// Get comprehensive analytics
+const stats = await getStats()
+console.log(`Conversation success rate: ${stats.conversationSuccessRate}`)
+console.log(`Journey completion rate: ${stats.journeyCompletionRate}`)
+console.log(`Trust score: ${stats.trustScore}`)
+
+// Original vote methods still work
+await vote(createPromptId('prompt-abc'), 1, 'Helpful!')
 ```
 
 ### Upgrading from 0.1.x to 0.2.0
