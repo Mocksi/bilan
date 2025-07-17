@@ -1,6 +1,6 @@
 import { EventTracker } from './event-tracker'
 import { InitConfig, generateTurnId, TurnId } from '../types'
-import { ContentProcessor, PrivacyConfig } from './privacy-controls'
+import { ContentProcessor, PrivacyController, PrivacyConfig } from './privacy-controls'
 
 /**
  * Error classification for AI failures
@@ -15,7 +15,7 @@ export class ErrorClassifier {
   } {
     const message = error.message.toLowerCase()
     
-    if (message === 'ai_timeout') {
+    if (message === 'ai_timeout' || message.includes('ai request timeout')) {
       return {
         errorType: 'timeout',
         errorMessage: 'AI request timed out after 30 seconds'
@@ -77,7 +77,7 @@ export class TurnTracker {
     this.eventTracker = eventTracker
     this.config = config
     this.timeoutMs = 30000 // 30 seconds default timeout
-    this.contentProcessor = new ContentProcessor(config.privacyConfig)
+    this.contentProcessor = new ContentProcessor(new PrivacyController(config.privacyConfig))
   }
 
   /**
@@ -113,7 +113,7 @@ export class TurnTracker {
       const response = await Promise.race([
         aiCall(),
         new Promise<never>((_, reject) => 
-          setTimeout(() => reject(new Error('AI_TIMEOUT')), this.timeoutMs)
+          setTimeout(() => reject(new Error('AI request timeout')), this.timeoutMs)
         )
       ])
 
