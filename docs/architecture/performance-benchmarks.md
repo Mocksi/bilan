@@ -398,8 +398,7 @@ export let options = {
     { duration: '2m', target: 0 } // Ramp down
   ],
   thresholds: {
-    'http_req_duration{expected_response:true}': ['p(95) < 25'], // 95% < 25ms
-    'http_req_duration{expected_response:true}': ['p(99) < 50'], // 99% < 50ms
+    'http_req_duration{expected_response:true}': ['p(95) < 25', 'p(99) < 50'], // 95% < 25ms, 99% < 50ms
     'http_req_failed': ['rate < 0.01'] // Error rate < 1%
   }
 };
