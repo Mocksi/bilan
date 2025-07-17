@@ -1,13 +1,19 @@
 'use client'
 
+import React from 'react'
 import { VoteAnalytics } from '@/lib/types'
 
-interface CommentAnalysisProps {
+/**
+ * Props for the CommentAnalysis component
+ */
+export interface CommentAnalysisProps {
+  /** Vote analytics data containing comment analysis information */
   analytics: VoteAnalytics | null
+  /** Whether the component is in loading state */
   loading: boolean
 }
 
-export function CommentAnalysis({ analytics, loading }: CommentAnalysisProps) {
+export const CommentAnalysis: React.FC<CommentAnalysisProps> = ({ analytics, loading }) => {
   if (loading) {
     return (
       <div className="row row-deck row-cards">
