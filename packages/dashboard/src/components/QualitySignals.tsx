@@ -7,7 +7,14 @@ interface QualitySignalsProps {
   className?: string
 }
 
-export function QualitySignals({ data, className = '' }: QualitySignalsProps) {
+/**
+ * QualitySignals component displays quality metrics including positive/negative feedback,
+ * regenerations, and frustration signals with visual indicators and percentages.
+ * 
+ * @param data - Dashboard data containing quality signals
+ * @param className - Optional CSS class name for styling
+ */
+export const QualitySignals: React.FC<QualitySignalsProps> = ({ data, className = '' }) => {
   const { qualitySignals } = data
   const total = qualitySignals.positive + qualitySignals.negative + qualitySignals.regenerations + qualitySignals.frustration
   
