@@ -408,8 +408,7 @@ class DataEncryptor {
   
   encrypt(data: any): EncryptedData {
     const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipher('aes-256-gcm', this.key);
-    cipher.setIV(iv);
+    const cipher = crypto.createCipheriv('aes-256-gcm', this.key, iv);
     
     const encrypted = Buffer.concat([
       cipher.update(JSON.stringify(data), 'utf8'),
@@ -426,8 +425,7 @@ class DataEncryptor {
   }
   
   decrypt(encryptedData: EncryptedData): any {
-    const decipher = crypto.createDecipher('aes-256-gcm', this.key);
-    decipher.setIV(Buffer.from(encryptedData.iv, 'hex'));
+    const decipher = crypto.createDecipheriv('aes-256-gcm', this.key, Buffer.from(encryptedData.iv, 'hex'));
     decipher.setAuthTag(Buffer.from(encryptedData.tag, 'hex'));
     
     const decrypted = Buffer.concat([
