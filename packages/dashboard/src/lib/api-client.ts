@@ -339,21 +339,30 @@ export function useDashboardData(timeRange: TimeRange = '30d', includeComparison
 }
 
 // Custom hook for votes data fetching
-export function useVoteAnalytics(timeRange: TimeRange = '7d') {
+export function useVoteAnalytics(timeRange: TimeRange = '30d') {
   const [data, setData] = useState<VoteAnalytics | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const isMountedRef = useRef(true)
 
   const fetchData = async (range: TimeRange = timeRange) => {
     try {
-      setLoading(true)
-      setError(null)
+      if (isMountedRef.current) {
+        setLoading(true)
+        setError(null)
+      }
       const analytics = await apiClient.fetchVoteAnalytics(range)
-      setData(analytics)
+      if (isMountedRef.current) {
+        setData(analytics)
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch vote analytics')
+      if (isMountedRef.current) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch vote analytics')
+      }
     } finally {
-      setLoading(false)
+      if (isMountedRef.current) {
+        setLoading(false)
+      }
     }
   }
 
@@ -363,6 +372,10 @@ export function useVoteAnalytics(timeRange: TimeRange = '7d') {
 
   useEffect(() => {
     fetchData(timeRange)
+    
+    return () => {
+      isMountedRef.current = false
+    }
   }, [timeRange])
 
   return { data, loading, error, refresh, fetchData }
