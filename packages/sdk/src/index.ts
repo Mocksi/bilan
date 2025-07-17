@@ -1,8 +1,9 @@
-import { InitConfig, VoteEvent, BasicStats, PromptStats, StorageAdapter, TrendConfig, UserId, PromptId, ConversationId, createUserId, createPromptId, createConversationId, ConversationData, FeedbackEvent, JourneyStep } from './types'
+import { InitConfig, VoteEvent, BasicStats, PromptStats, StorageAdapter, TrendConfig, UserId, PromptId, ConversationId, createUserId, createPromptId, createConversationId, ConversationData, FeedbackEvent, JourneyStep, Event, EventType } from './types'
 import { LocalStorageAdapter } from './storage/local-storage'
 import { BasicAnalytics } from './analytics/basic-analytics'
 import { initTelemetry, trackVote, trackStatsRequest, trackError } from './telemetry'
 import { ErrorHandler, GracefulDegradation } from './error-handling'
+import { EventTracker, EventQueueManager } from './events'
 
 /**
  * Bilan SDK for tracking user feedback on AI suggestions and calculating trust metrics.
@@ -53,6 +54,8 @@ class BilanSDK {
   private config: InitConfig | null = null
   private storage: StorageAdapter | null = null
   private isInitialized = false
+  private eventTracker: EventTracker | null = null
+  private eventQueue: EventQueueManager | null = null
 
   constructor() {
     this.storage = new LocalStorageAdapter()
@@ -125,6 +128,18 @@ class BilanSDK {
 
       // Initialize telemetry
       initTelemetry(config)
+
+      // Initialize event system
+      this.eventQueue = new EventQueueManager(
+        config,
+        this.storage,
+        this.sendEventsToStorage.bind(this)
+      )
+
+      // Load any persisted events
+      await this.eventQueue.loadPersistedQueue()
+
+      this.eventTracker = new EventTracker(config, this.eventQueue)
 
       this.isInitialized = true
       
@@ -549,6 +564,81 @@ class BilanSDK {
       await this.storeData(`feedback:${this.config!.userId}`, event)
     }
   }
+
+  /**
+   * Send events to storage or server (event queue callback)
+   */
+  private async sendEventsToStorage(events: Event[]): Promise<void> {
+    if (!this.config) return
+
+    try {
+      if (this.config.mode === 'local') {
+        // Store events locally
+        const key = `events:${this.config.userId}`
+        const existingData = await this.storage?.get(key)
+        const allEvents: Event[] = existingData ? JSON.parse(existingData) : []
+        
+        allEvents.push(...events)
+        
+        // Keep only last 1000 events to prevent storage bloat
+        if (allEvents.length > 1000) {
+          allEvents.splice(0, allEvents.length - 1000)
+        }
+        
+        await this.storage?.set(key, JSON.stringify(allEvents))
+      } else if (this.config.mode === 'server') {
+        // Send to server
+        const response = await fetch(`${this.config.endpoint}/api/events`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ events })
+        })
+
+        if (!response.ok) {
+          throw new Error(`Server error: ${response.status} ${response.statusText}`)
+        }
+      }
+    } catch (error) {
+      if (this.config.debug) {
+        console.error('Bilan: Failed to send events:', error)
+        throw error
+      } else {
+        console.warn('Bilan: Failed to send events:', error)
+      }
+    }
+  }
+
+  /**
+   * Core event tracking method (v0.4.0 foundation)
+   * @param eventType - Type of event to track
+   * @param properties - Event properties
+   * @param content - Optional content (prompt/response)
+   */
+  track(
+    eventType: EventType,
+    properties: Record<string, any> = {},
+    content?: {
+      promptText?: string
+      aiResponse?: string
+      context?: string
+    }
+  ): void {
+    if (!this.eventTracker) {
+      if (this.config?.debug) {
+        console.error('Bilan: Event tracker not initialized')
+      }
+      return
+    }
+
+    // Fire and forget - don't await
+    this.eventTracker.track(eventType, properties, content).catch(error => {
+      if (this.config?.debug) {
+        console.error('Bilan: Track failed:', error)
+      }
+    })
+  }
 }
 
 // Create a default instance for convenience
@@ -559,6 +649,9 @@ export const init = defaultBilan.init.bind(defaultBilan)
 export const vote = defaultBilan.vote.bind(defaultBilan)
 export const getStats = defaultBilan.getStats.bind(defaultBilan)
 export const getPromptStats = defaultBilan.getPromptStats.bind(defaultBilan)
+
+// New v0.4.0 event tracking method
+export const track = defaultBilan.track.bind(defaultBilan)
 
 // Conversation tracking methods
 export const startConversation = defaultBilan.startConversation.bind(defaultBilan)
@@ -592,4 +685,5 @@ export {
 // Export telemetry types for advanced users
 export type { TelemetryEvent, TelemetryConfig } from './telemetry'
 
-export * from './types' 
+export * from './types'
+export * from './events' 

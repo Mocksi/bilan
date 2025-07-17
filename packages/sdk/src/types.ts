@@ -7,6 +7,93 @@ export type PromptId = string & { __brand: 'PromptId' }
 export type ConversationId = string & { __brand: 'ConversationId' }
 
 /**
+ * New event-based architecture types for v0.4.0
+ */
+export type EventId = string & { __brand: 'EventId' }
+export type TurnId = string & { __brand: 'TurnId' }
+
+/**
+ * Standard event types for consistent taxonomy
+ */
+export type EventType = 
+  | 'turn_started'
+  | 'turn_completed'
+  | 'turn_failed'
+  | 'user_action'
+  | 'vote_cast'
+  | 'journey_step'
+  | 'conversation_started'
+  | 'conversation_ended'
+  | 'custom'
+
+/**
+ * Core event interface for flexible analytics
+ */
+export interface Event {
+  /** Unique identifier for this event */
+  eventId: EventId
+  /** Type of event from standard taxonomy */
+  eventType: EventType
+  /** When the event occurred (milliseconds since epoch) */
+  timestamp: number
+  /** User who triggered this event */
+  userId: UserId
+  /** Flexible properties for any additional data */
+  properties: Record<string, any>
+  /** Optional user prompt text (privacy-controlled) */
+  promptText?: string
+  /** Optional AI response text (privacy-controlled) */
+  aiResponse?: string
+}
+
+/**
+ * Event for AI turn tracking (core v0.4.0 feature)
+ */
+export interface TurnEvent extends Event {
+  eventType: 'turn_started' | 'turn_completed' | 'turn_failed'
+  properties: {
+    turnId: TurnId
+    modelUsed?: string
+    conversationId?: string
+    responseTime?: number
+    status?: 'success' | 'failed'
+    errorType?: 'timeout' | 'rate_limit' | 'network_error' | 'context_limit' | 'unknown_error'
+    errorMessage?: string
+    retryCount?: number
+    [key: string]: any
+  }
+}
+
+/**
+ * Event for user actions and interactions
+ */
+export interface UserActionEvent extends Event {
+  eventType: 'user_action'
+  properties: {
+    actionType: string
+    turnId?: TurnId
+    conversationId?: string
+    satisfaction?: 'high' | 'medium' | 'low'
+    [key: string]: any
+  }
+}
+
+/**
+ * Event for vote casting (backward compatibility)
+ */
+export interface VoteCastEvent extends Event {
+  eventType: 'vote_cast'
+  properties: {
+    promptId: PromptId
+    value: 1 | -1
+    comment?: string
+    turnId?: TurnId
+    conversationId?: string
+    [key: string]: any
+  }
+}
+
+/**
  * Configuration options for initializing the Bilan SDK.
  */
 export interface InitConfig {
@@ -29,6 +116,37 @@ export interface InitConfig {
     /** Custom endpoint for telemetry data (default: Bilan analytics endpoint) */
     endpoint?: string
   }
+  
+  // New privacy controls for v0.4.0
+  /** Capture user prompts in events (default: true) */
+  capturePrompts?: boolean
+  /** Capture AI responses in events (default: false) */
+  captureResponses?: boolean
+  /** Selective response capture for specific contexts */
+  captureResponsesFor?: string[]
+  /** Enable PII sanitization for captured content (default: true) */
+  sanitizeContent?: boolean
+  /** Event batching configuration */
+  eventBatching?: {
+    /** Maximum number of events to batch (default: 10) */
+    batchSize?: number
+    /** Maximum time to wait before flushing batch in ms (default: 5000) */
+    flushInterval?: number
+    /** Maximum number of batches to keep in memory (default: 5) */
+    maxBatches?: number
+  }
+}
+
+/**
+ * Event queue configuration for batching and offline support
+ */
+export interface EventQueue {
+  /** Events waiting to be sent */
+  events: Event[]
+  /** Maximum size of the queue */
+  maxSize: number
+  /** Whether to persist events to storage */
+  persistent: boolean
 }
 
 /**
@@ -201,4 +319,58 @@ export const createPromptId = (id: string): PromptId => id as PromptId
  * await addMessage(conversationId)
  * ```
  */
-export const createConversationId = (id: string): ConversationId => id as ConversationId 
+export const createConversationId = (id: string): ConversationId => id as ConversationId
+
+/**
+ * Helper function to create a branded EventId from a string.
+ * 
+ * @param id - The event identifier string
+ * @returns Branded EventId type
+ * 
+ * @example
+ * ```typescript
+ * const eventId = createEventId('event-123')
+ * const event = { eventId, eventType: 'turn_started', ... }
+ * ```
+ */
+export const createEventId = (id: string): EventId => id as EventId
+
+/**
+ * Helper function to create a branded TurnId from a string.
+ * 
+ * @param id - The turn identifier string  
+ * @returns Branded TurnId type
+ * 
+ * @example
+ * ```typescript
+ * const turnId = createTurnId('turn-123')
+ * await trackTurn(prompt, aiCall, { turnId })
+ * ```
+ */
+export const createTurnId = (id: string): TurnId => id as TurnId
+
+/**
+ * Helper function to generate a new unique EventId.
+ * 
+ * @returns New unique EventId
+ * 
+ * @example
+ * ```typescript
+ * const eventId = generateEventId()
+ * const event = { eventId, eventType: 'user_action', ... }
+ * ```
+ */
+export const generateEventId = (): EventId => createEventId(crypto.randomUUID())
+
+/**
+ * Helper function to generate a new unique TurnId.
+ * 
+ * @returns New unique TurnId
+ * 
+ * @example
+ * ```typescript
+ * const turnId = generateTurnId()
+ * await trackTurn(prompt, aiCall, { turnId })
+ * ```
+ */
+export const generateTurnId = (): TurnId => createTurnId(`turn-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`) 
