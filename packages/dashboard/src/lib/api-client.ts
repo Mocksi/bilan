@@ -884,17 +884,26 @@ export function useJourneys(
   } | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const isMountedRef = useRef(true)
 
   const fetchData = async () => {
     try {
-      setLoading(true)
-      setError(null)
+      if (isMountedRef.current) {
+        setLoading(true)
+        setError(null)
+      }
       const journeys = await fetchJourneys(filters, page, limit)
-      setData(journeys)
+      if (isMountedRef.current) {
+        setData(journeys)
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch journeys')
+      if (isMountedRef.current) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch journeys')
+      }
     } finally {
-      setLoading(false)
+      if (isMountedRef.current) {
+        setLoading(false)
+      }
     }
   }
 
@@ -903,7 +912,12 @@ export function useJourneys(
   }
 
   useEffect(() => {
+    isMountedRef.current = true
     fetchData()
+    
+    return () => {
+      isMountedRef.current = false
+    }
   }, [filters, page, limit])
 
   return { data, loading, error, refresh, fetchData }
