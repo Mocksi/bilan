@@ -315,6 +315,15 @@ main() {
         # Run all migrations in order
         local migrations=("001_create_events_table")
         
+        # Reverse order for down migrations to maintain dependency integrity
+        if [ "$DIRECTION" = "down" ]; then
+            local temp_array=()
+            for (( i=${#migrations[@]}-1; i>=0; i-- )); do
+                temp_array+=("${migrations[$i]}")
+            done
+            migrations=("${temp_array[@]}")
+        fi
+        
         for migration in "${migrations[@]}"; do
             if validate_migration "$migration" "$DIRECTION"; then
                 run_migration "$migration" "$DIRECTION"
