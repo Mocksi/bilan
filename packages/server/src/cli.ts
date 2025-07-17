@@ -1,18 +1,18 @@
 #!/usr/bin/env node
 import { BilanServer } from './server.js'
 
-const portEnv = process.env.PORT
+const portEnv = process.env.BILAN_PORT || process.env.PORT
 const port = portEnv ? parseInt(portEnv, 10) : 3001
 
 // Validate port number
 if (portEnv && (isNaN(port) || port < 1 || port > 65535)) {
-  console.error(`Invalid PORT environment variable: ${portEnv}. Must be a number between 1 and 65535.`)
+  console.error(`Invalid BILAN_PORT environment variable: ${portEnv}. Must be a number between 1 and 65535.`)
   process.exit(1)
 }
 
 const config = {
   port,
-  dbPath: process.env.DB_PATH || './bilan.db'
+  dbPath: process.env.BILAN_DB_PATH || process.env.DB_PATH || './bilan.db'
 }
 
 const server = new BilanServer(config)

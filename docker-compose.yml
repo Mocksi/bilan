@@ -7,10 +7,10 @@ services:
     ports:
       - "3002:3002"
     environment:
-      - NODE_ENV=development
-      - PORT=3002
-      - DB_PATH=/app/data/bilan.db
-      - DEBUG=true
+      - BILAN_NODE_ENV=development
+      - BILAN_PORT=3002
+      - BILAN_DB_PATH=/app/data/bilan.db
+      - BILAN_DEBUG=true
     volumes:
       - bilan-data:/app/data
       - ./logs:/app/logs

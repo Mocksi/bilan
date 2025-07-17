@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 # Bilan Database Migration Script
 # Handles database initialization and migrations
@@ -69,11 +69,13 @@ done
 
 # Load environment variables
 if [ -f ".env" ]; then
-    export $(cat .env | grep -v '^#' | xargs)
+    set -a
+    source .env
+    set +a
 fi
 
 # Set default database path if not provided
-DB_PATH=${DB_PATH:-"./bilan.db"}
+DB_PATH=${BILAN_DB_PATH:-${DB_PATH:-"./bilan.db"}}
 
 # Check database type
 if [ -n "$DATABASE_URL" ] || [ -n "$POSTGRES_HOST" ]; then
@@ -93,8 +95,8 @@ check_database_exists() {
         if command -v psql > /dev/null 2>&1; then
             psql "$DATABASE_URL" -c "SELECT 1;" > /dev/null 2>&1
         else
-            print_warning "psql not found, skipping database connectivity check"
-            return 0
+            print_error "psql not found. Please install PostgreSQL client tools."
+            exit 1
         fi
     fi
 }

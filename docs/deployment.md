@@ -58,24 +58,24 @@ Edit `.env` with your deployment settings:
 
 ```env
 # Server Configuration
-PORT=3002
-NODE_ENV=production
-HOST=0.0.0.0
+BILAN_PORT=3002
+BILAN_NODE_ENV=production
+BILAN_HOST=0.0.0.0
 
 # Database Configuration (Choose one)
 # SQLite (recommended for small deployments)
-DB_PATH=./bilan.db
+BILAN_DB_PATH=./bilan.db
 
 # PostgreSQL (recommended for production)
 # DATABASE_URL=postgresql://username:password@localhost:5432/bilan
 
 # Security (IMPORTANT: Change these in production!)
-SESSION_SECRET=your-unique-session-secret-here
-JWT_SECRET=your-unique-jwt-secret-here
+BILAN_SESSION_SECRET=your-unique-session-secret-here
+BILAN_JWT_SECRET=your-unique-jwt-secret-here
 
 # CORS Configuration
-CORS_ORIGIN=http://localhost:3004,https://yourdomain.com
-CORS_CREDENTIALS=true
+BILAN_CORS_ORIGIN=http://localhost:3004,https://yourdomain.com
+BILAN_CORS_CREDENTIALS=true
 ```
 
 ### 3. Generate Secure Secrets
@@ -140,9 +140,9 @@ docker run -d \
   --name bilan-server \
   -p 3002:3002 \
   -v $(pwd)/data:/app/data \
-  -e NODE_ENV=production \
-  -e PORT=3002 \
-  -e DB_PATH=/app/data/bilan.db \
+  -e BILAN_NODE_ENV=production \
+  -e BILAN_PORT=3002 \
+  -e BILAN_DB_PATH=/app/data/bilan.db \
   bilan-server
 ```
 
@@ -156,8 +156,8 @@ version: '3.8'
 services:
   bilan-server:
     environment:
-      - DB_PATH=/app/data/custom.db
-      - LOG_LEVEL=debug
+      - BILAN_DB_PATH=/app/data/custom.db
+      - BILAN_LOG_LEVEL=debug
     volumes:
       - ./custom-data:/app/data
     ports:
@@ -172,7 +172,7 @@ SQLite is the default database and requires minimal setup:
 
 ```env
 # .env
-DB_PATH=./data/bilan.db
+BILAN_DB_PATH=./data/bilan.db
 ```
 
 The database will be automatically created on first run.
@@ -431,9 +431,9 @@ Enable debug mode for troubleshooting:
 
 ```env
 # .env
-DEBUG=true
-LOG_LEVEL=debug
-NODE_ENV=development
+BILAN_DEBUG=true
+BILAN_LOG_LEVEL=debug
+BILAN_NODE_ENV=development
 ```
 
 ### Performance Issues

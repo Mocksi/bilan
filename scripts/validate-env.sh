@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 # Bilan Environment Validation Script
 # Validates environment configuration for deployment
@@ -167,10 +167,10 @@ echo ""
 # 1. Core Server Configuration
 echo "🔧 Core Server Configuration:"
 echo "=============================="
-validate_optional "NODE_ENV" "$NODE_ENV" "Node.js environment" "production"
-validate_required "PORT" "$PORT" "Server port"
-if [ -n "$PORT" ]; then
-    validate_port "$PORT" "PORT"
+validate_optional "BILAN_NODE_ENV" "$BILAN_NODE_ENV" "Node.js environment" "production"
+validate_required "BILAN_PORT" "$BILAN_PORT" "Server port"
+if [ -n "$BILAN_PORT" ]; then
+    validate_port "$BILAN_PORT" "BILAN_PORT"
 fi
 
 # 2. Database Configuration
@@ -186,9 +186,9 @@ if [ -n "$DATABASE_URL" ] || [ -n "$POSTGRES_HOST" ]; then
     check_command "pg_dump" "PostgreSQL backup tool"
 else
     print_status "SQLite database configuration detected"
-    validate_required "DB_PATH" "$DB_PATH" "SQLite database path"
-    if [ -n "$DB_PATH" ]; then
-        validate_db_path "$DB_PATH"
+    validate_required "BILAN_DB_PATH" "$BILAN_DB_PATH" "SQLite database path"
+    if [ -n "$BILAN_DB_PATH" ]; then
+        validate_db_path "$BILAN_DB_PATH"
     fi
     
     # Check SQLite tools
@@ -199,42 +199,42 @@ fi
 echo ""
 echo "🔒 Security Configuration:"
 echo "=========================="
-validate_optional "SESSION_SECRET" "$SESSION_SECRET" "Session secret key" "random-generated-key"
-validate_optional "JWT_SECRET" "$JWT_SECRET" "JWT secret key" "random-generated-key"
+validate_optional "BILAN_SESSION_SECRET" "$BILAN_SESSION_SECRET" "Session secret key" "random-generated-key"
+validate_optional "BILAN_JWT_SECRET" "$BILAN_JWT_SECRET" "JWT secret key" "random-generated-key"
 
 # Check for default/weak secrets
-if [ "$SESSION_SECRET" = "your-session-secret-change-this-in-production" ]; then
-    add_error "SESSION_SECRET is set to default value. Please change it for production."
+if [ "$BILAN_SESSION_SECRET" = "<CHANGE_ME>" ]; then
+    add_error "BILAN_SESSION_SECRET is set to placeholder value. Please change it for production."
 fi
 
-if [ "$JWT_SECRET" = "your-jwt-secret-change-this-in-production" ]; then
-    add_error "JWT_SECRET is set to default value. Please change it for production."
+if [ "$BILAN_JWT_SECRET" = "<CHANGE_ME>" ]; then
+    add_error "BILAN_JWT_SECRET is set to placeholder value. Please change it for production."
 fi
 
 # 4. CORS Configuration
 echo ""
 echo "🌐 CORS Configuration:"
 echo "======================"
-validate_optional "CORS_ORIGIN" "$CORS_ORIGIN" "CORS allowed origins" "http://localhost:3004"
-validate_optional "CORS_CREDENTIALS" "$CORS_CREDENTIALS" "CORS credentials support" "true"
+validate_optional "BILAN_CORS_ORIGIN" "$BILAN_CORS_ORIGIN" "CORS allowed origins" "http://localhost:3004"
+validate_optional "BILAN_CORS_CREDENTIALS" "$BILAN_CORS_CREDENTIALS" "CORS credentials support" "true"
 
 # 5. Performance Configuration
 echo ""
 echo "⚡ Performance Configuration:"
 echo "============================="
-validate_optional "RATE_LIMIT_MAX" "$RATE_LIMIT_MAX" "Rate limit maximum requests" "100"
-validate_optional "RATE_LIMIT_WINDOW" "$RATE_LIMIT_WINDOW" "Rate limit time window" "60000"
+validate_optional "BILAN_RATE_LIMIT_MAX" "$BILAN_RATE_LIMIT_MAX" "Rate limit maximum requests" "100"
+validate_optional "BILAN_RATE_LIMIT_WINDOW" "$BILAN_RATE_LIMIT_WINDOW" "Rate limit time window" "60000"
 
 # 6. Logging Configuration
 echo ""
 echo "📝 Logging Configuration:"
 echo "========================="
-validate_optional "LOG_LEVEL" "$LOG_LEVEL" "Log level" "info"
-validate_optional "LOG_FILE" "$LOG_FILE" "Log file path" "./logs/bilan.log"
+validate_optional "BILAN_LOG_LEVEL" "$BILAN_LOG_LEVEL" "Log level" "info"
+validate_optional "BILAN_LOG_FILE" "$BILAN_LOG_FILE" "Log file path" "./logs/bilan.log"
 
 # Check if log directory exists
-if [ -n "$LOG_FILE" ]; then
-    log_dir=$(dirname "$LOG_FILE")
+if [ -n "$BILAN_LOG_FILE" ]; then
+    log_dir=$(dirname "$BILAN_LOG_FILE")
     if [ ! -d "$log_dir" ]; then
         if mkdir -p "$log_dir" 2>/dev/null; then
             print_success "Log directory created: $log_dir"
@@ -257,7 +257,7 @@ fi
 echo ""
 echo "🐳 Docker Configuration:"
 echo "========================"
-validate_optional "DOCKER_DATA_PATH" "$DOCKER_DATA_PATH" "Docker data volume path" "/app/data"
+validate_optional "BILAN_DOCKER_DATA_PATH" "$BILAN_DOCKER_DATA_PATH" "Docker data volume path" "/app/data"
 
 # 9. System Dependencies
 echo ""

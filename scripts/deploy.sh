@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 # Bilan Docker Deployment Script
 # Handles Docker deployment with proper configuration and health checks
@@ -151,7 +151,7 @@ $DOCKER_COMPOSE down || true
 # Remove existing images if rebuild requested
 if [ "$REBUILD" = true ]; then
     print_status "Removing existing Docker images for rebuild..."
-    docker images | grep bilan | awk '{print $3}' | xargs -r docker rmi -f || true
+    docker images --format '{{.Repository}} {{.ID}}' | awk '/^bilan\// {print $2}' | xargs -r docker rmi -f || true
 fi
 
 # Build and start containers

@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 # Bilan Build Script
 # Builds all packages in the correct order
@@ -49,32 +49,21 @@ npm ci
 print_status "Building SDK package..."
 cd packages/sdk
 npm run build
-if [ $? -eq 0 ]; then
-    print_success "SDK build completed"
-else
-    print_error "SDK build failed"
-    exit 1
-fi
+print_success "SDK build completed"
 cd ../..
 
 # Build server package
 print_status "Building server package..."
 cd packages/server
 npm run build
-if [ $? -eq 0 ]; then
-    print_success "Server build completed"
-else
-    print_error "Server build failed"
-    exit 1
-fi
+print_success "Server build completed"
 cd ../..
 
 # Build dashboard package (if exists)
 if [ -d "packages/dashboard" ]; then
     print_status "Building dashboard package..."
     cd packages/dashboard
-    npm run build
-    if [ $? -eq 0 ]; then
+    if npm run build; then
         print_success "Dashboard build completed"
     else
         print_warning "Dashboard build failed (optional)"
