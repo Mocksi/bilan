@@ -1,5 +1,6 @@
 'use client'
 
+import React from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
@@ -13,7 +14,14 @@ interface BreadcrumbsProps {
   items?: BreadcrumbItem[]
 }
 
-export function Breadcrumbs({ className = '', items }: BreadcrumbsProps) {
+/**
+ * Breadcrumbs component displays a navigational breadcrumb trail
+ * showing the current page's position in the site hierarchy.
+ * 
+ * @param className - Optional CSS class name for styling
+ * @param items - Array of breadcrumb items, auto-generated from pathname if not provided
+ */
+export const Breadcrumbs: React.FC<BreadcrumbsProps> = ({ className = '', items }) => {
   const pathname = usePathname()
   
   // Generate breadcrumbs from pathname if items not provided
@@ -24,8 +32,8 @@ export function Breadcrumbs({ className = '', items }: BreadcrumbsProps) {
   }
 
   return (
-    <nav className={`breadcrumb ${className}`} aria-label="breadcrumb">
-      <ol className="breadcrumb-item">
+    <nav className={className} aria-label="breadcrumb">
+      <ol className="breadcrumb">
         {breadcrumbItems.map((item, index) => {
           const isLast = index === breadcrumbItems.length - 1
           
