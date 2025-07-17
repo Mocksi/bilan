@@ -2,15 +2,22 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import Database from 'better-sqlite3'
 import { V3DataExtractor } from '../src/extractor.js'
 import { MigrationConfig } from '../src/types.js'
+import { unlinkSync, existsSync } from 'fs'
 
 describe('V3DataExtractor', () => {
   let testDb: Database.Database
   let extractor: V3DataExtractor
   let config: MigrationConfig
+  const testDbPath = './test-source.db'
 
   beforeEach(() => {
-    // Create in-memory database with v0.3.x schema
-    testDb = new Database(':memory:')
+    // Clean up any existing test database
+    if (existsSync(testDbPath)) {
+      unlinkSync(testDbPath)
+    }
+    
+    // Create file-based test database
+    testDb = new Database(testDbPath)
     
     // Create the v0.3.x events table
     testDb.exec(`
@@ -48,61 +55,37 @@ describe('V3DataExtractor', () => {
     
     // Create extractor with test database
     config = {
-      sourceDbPath: ':memory:',
-      targetDbPath: ':memory:',
+      sourceDbPath: testDbPath,
+      targetDbPath: './test-target.db',
       batchSize: 10,
       verbose: false
     }
     
-    // We need to recreate the database for the extractor since in-memory databases don't persist
-    extractor = new V3DataExtractor({
-      ...config,
-      sourceDbPath: './test-source.db'
-    })
+    extractor = new V3DataExtractor(config)
   })
 
   afterEach(() => {
     extractor?.close()
+    
+    // Clean up test database files
+    if (existsSync(testDbPath)) {
+      unlinkSync(testDbPath)
+    }
+    if (existsSync('./test-target.db')) {
+      unlinkSync('./test-target.db')
+    }
   })
 
   describe('validateV3Database', () => {
     it('should validate database schema correctly', async () => {
-      // Create a test database file for validation
-      const testDbFile = new Database('./test-source.db')
-      
-      testDbFile.exec(`
-        CREATE TABLE events (
-          id TEXT PRIMARY KEY,
-          user_id TEXT NOT NULL,
-          prompt_id TEXT NOT NULL,
-          value INTEGER NOT NULL,
-          comment TEXT,
-          timestamp INTEGER NOT NULL,
-          metadata TEXT,
-          prompt_text TEXT,
-          ai_output TEXT,
-          model_used TEXT,
-          response_time REAL
-        );
-      `)
-      
-      // Insert test data
-      const insertStmt = testDbFile.prepare(`
-        INSERT INTO events (id, user_id, prompt_id, value, comment, timestamp, metadata, prompt_text, ai_output, model_used, response_time)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `)
-      
-      insertStmt.run('vote-1', 'user-1', 'prompt-1', 1, 'Great!', 1000, '{"test": true}', 'Test prompt', 'Test response', 'gpt-4', 2.5)
-      insertStmt.run('vote-2', 'user-2', 'prompt-2', -1, 'Bad', 2000, '{}', null, null, null, null)
-      
-      testDbFile.close()
+      // Database is already created in beforeEach
       
       const result = extractor.validateV3Database()
       
       expect(result.isValid).toBe(true)
       expect(result.errors).toHaveLength(0)
-      expect(result.summary.totalEvents).toBe(2)
-      expect(result.summary.eventTypes['vote_cast']).toBe(2)
+      expect(result.summary.totalEvents).toBe(3)
+      expect(result.summary.eventTypes['vote_cast']).toBe(3)
       
       // Clean up
       const fs = await import('fs')
