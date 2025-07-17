@@ -84,7 +84,13 @@ export const SimpleLineChart: React.FC<SimpleLineChartProps> = ({
 
   return (
     <div ref={containerRef} style={{ width: '100%', height }}>
-      <svg width="100%" height={height} style={{ overflow: 'visible' }}>
+      <svg 
+        width="100%" 
+        height={height} 
+        style={{ overflow: 'visible' }}
+        role="img"
+        aria-label="Line chart showing data trends over time"
+      >
         {/* Grid lines */}
         {gridLines}
         
@@ -110,11 +116,20 @@ export const SimpleLineChart: React.FC<SimpleLineChartProps> = ({
         {data.map((point, index) => {
           if (index % Math.ceil(data.length / 3) === 0 || index === data.length - 1) {
             const x = padding + index * xScale
-            const date = new Date(point.date)
-            const label = date.toLocaleDateString('en-US', { 
-              month: 'short', 
-              day: 'numeric' 
-            })
+            let label: string
+            try {
+              const date = new Date(point.date)
+              if (isNaN(date.getTime())) {
+                label = 'Invalid Date'
+              } else {
+                label = date.toLocaleDateString('en-US', { 
+                  month: 'short', 
+                  day: 'numeric' 
+                })
+              }
+            } catch (error) {
+              label = 'Invalid Date'
+            }
             return (
               <text
                 key={`x-label-${index}`}
