@@ -572,9 +572,10 @@ export function useConversationAnalytics(timeRange: string = '7d') {
  * Hook for fetching conversations with filtering and pagination
  */
 export function useConversations(
-  filters: any = {},
+  filters: Partial<ConversationFilterState> = {},
   page: number = 1,
-  limit: number = 50
+  limit: number = 50,
+  timeRange: string = '30d'
 ) {
   const [data, setData] = useState<{ conversations: ConversationData[]; total: number; page: number; limit: number } | null>(null)
   const [loading, setLoading] = useState(true)
@@ -586,7 +587,9 @@ export function useConversations(
       setError(null)
       
       // Use the actual API function that returns empty data
-      const result = await fetchConversations(filters, page, limit)
+      // Include timeRange in the filters for consistency with other hooks
+      const filtersWithTimeRange = { ...filters, timeRange }
+      const result = await fetchConversations(filtersWithTimeRange, page, limit)
       
       setData({
         conversations: result.conversations,
@@ -603,7 +606,7 @@ export function useConversations(
 
   useEffect(() => {
     fetchData()
-  }, [filters, page, limit])
+  }, [filters, page, limit, timeRange])
 
   return { data, loading, error, refresh: fetchData }
 }
