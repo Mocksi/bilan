@@ -80,15 +80,11 @@ validate_db_path() {
         return 1
     fi
     
-    # Check if directory exists or can be created
+    # Check if directory exists
     local db_dir=$(dirname "$db_path")
     if [ ! -d "$db_dir" ]; then
-        if mkdir -p "$db_dir" 2>/dev/null; then
-            print_success "Database directory created: $db_dir"
-        else
-            add_error "Cannot create database directory: $db_dir"
-            return 1
-        fi
+        add_error "Database directory does not exist: $db_dir"
+        return 1
     else
         print_success "Database directory exists: $db_dir"
     fi
