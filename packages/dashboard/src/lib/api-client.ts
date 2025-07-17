@@ -91,11 +91,15 @@ export class ApiClient {
     filters: Partial<VoteFilterState> = {},
     page: number = 1,
     limit: number = 50,
-    timeRange: TimeRange = '7d'
+    timeRange: TimeRange = '30d'
   ): Promise<{ votes: VoteData[]; total: number; page: number; limit: number }> {
+    // Create AbortController for request cancellation
+    const abortController = new AbortController()
+    
     const params = new URLSearchParams({
       limit: limit.toString(),
-      offset: ((page - 1) * limit).toString()
+      offset: ((page - 1) * limit).toString(),
+      timeRange: timeRange.toString()
     })
 
     const response = await fetch(`${this.baseUrl}/api/events?${params}`, {
@@ -103,6 +107,7 @@ export class ApiClient {
       headers: {
         'Content-Type': 'application/json',
       },
+      signal: abortController.signal,
     })
 
     if (!response.ok) {
@@ -111,9 +116,9 @@ export class ApiClient {
 
     const data = await response.json()
     
-    // Transform the events into VoteData format
-    const votes: VoteData[] = data.events.map((event: any) => ({
-      id: `${event.userId}-${event.promptId}-${event.timestamp}`,
+    // Transform the events into VoteData format with improved ID generation
+    const votes: VoteData[] = data.events.map((event: any, index: number) => ({
+      id: `${event.userId}-${event.promptId}-${event.timestamp}-${index}-${Math.random().toString(36).substring(2, 8)}`,
       promptId: event.promptId,
       userId: event.userId,
       value: event.value,
