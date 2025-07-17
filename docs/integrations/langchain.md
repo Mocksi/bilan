@@ -16,7 +16,7 @@ npm install @mocksi/bilan-sdk langchain @langchain/openai
 
 ```typescript
 // lib/bilan.ts
-import { init } from '@mocksi/bilan-sdk'
+import { Bilan } from '@mocksi/bilan-sdk'
 
 // Cross-platform UUID generation
 function generateId(): string {
@@ -27,22 +27,18 @@ function generateId(): string {
   return Math.random().toString(36).substring(2) + Date.now().toString(36)
 }
 
-export const bilan = await init({
-  mode: process.env.BILAN_MODE || 'local', // 'local' or 'server'
-  apiKey: process.env.BILAN_API_KEY, // Required for server mode
-  userId: process.env.BILAN_USER_ID || 'anonymous', // Your user identifier
-  telemetry: { 
-    enabled: process.env.BILAN_TELEMETRY !== 'false' // opt-in to usage analytics
-  }
+export const bilan = new Bilan({
+  apiKey: process.env.BILAN_API_KEY,
+  projectId: process.env.BILAN_PROJECT_ID,
+  userId: process.env.BILAN_USER_ID || 'anonymous'
 })
 ```
 
 **Required Environment Variables:**
 - `OPENAI_API_KEY` - Your OpenAI API key for LangChain models
-- `BILAN_MODE` - Set to 'server' for production, 'local' for development
-- `BILAN_API_KEY` - Your Bilan API key (required for server mode)
+- `BILAN_API_KEY` - Your Bilan API key
+- `BILAN_PROJECT_ID` - Your Bilan project identifier
 - `BILAN_USER_ID` - Unique identifier for the current user
-- `BILAN_TELEMETRY` - Set to 'false' to disable telemetry (optional)
 
 ### 2. Create a tracked LangChain chain
 
@@ -75,7 +71,8 @@ Answer:`)
 
 export interface TrackedChainResponse {
   answer: string
-  promptId: string
+  turnId: string
+  conversationId: string
   metadata?: Record<string, any>
 }
 
@@ -87,22 +84,56 @@ export const createQAChain = () => {
   ])
 
   return {
-    async invoke(question: string): Promise<TrackedChainResponse> {
-      const promptId = generateId()
+    async invoke(question: string, conversationId?: string): Promise<TrackedChainResponse> {
+      const turnId = generateId()
+      const actualConversationId = conversationId || generateId()
       
       try {
+        // Track turn start
+        await bilan.track('turn_started', {
+          turn_id: turnId,
+          conversation_id: actualConversationId,
+          model: 'gpt-3.5-turbo',
+          provider: 'openai',
+          chain_type: 'qa',
+          question: question.substring(0, 100)
+        })
+
+        const startTime = Date.now()
         const answer = await chain.invoke({ question })
+        
+        // Track turn completion
+        await bilan.track('turn_completed', {
+          turn_id: turnId,
+          conversation_id: actualConversationId,
+          model: 'gpt-3.5-turbo',
+          provider: 'openai',
+          chain_type: 'qa',
+          latency: Date.now() - startTime
+        })
         
         return {
           answer,
-          promptId,
+          turnId,
+          conversationId: actualConversationId,
           metadata: {
             model: 'gpt-3.5-turbo',
             timestamp: Date.now(),
-            question: question.substring(0, 100) // First 100 chars for context
+            question: question.substring(0, 100)
           }
         }
       } catch (error) {
+        // Track turn failure
+        await bilan.track('turn_failed', {
+          turn_id: turnId,
+          conversation_id: actualConversationId,
+          model: 'gpt-3.5-turbo',
+          provider: 'openai',
+          chain_type: 'qa',
+          error: error.message,
+          error_type: error.name
+        })
+        
         console.error('Chain execution failed:', error)
         throw error
       }
