@@ -43,6 +43,10 @@ describe('E2E: Complete Conversation Flow', () => {
 
   afterEach(() => {
     vi.clearAllMocks()
+    // Close database connection to prevent resource leaks
+    if (database) {
+      database.close()
+    }
   })
 
   describe('Complete User Journey', () => {
