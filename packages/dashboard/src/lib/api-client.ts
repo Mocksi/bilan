@@ -543,17 +543,26 @@ export function useConversationAnalytics(timeRange: string = '7d') {
   const [data, setData] = useState<ConversationAnalytics | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const isMountedRef = useRef(true)
 
   const fetchData = async () => {
     try {
-      setLoading(true)
-      setError(null)
+      if (isMountedRef.current) {
+        setLoading(true)
+        setError(null)
+      }
       const analytics = await fetchConversationAnalytics(timeRange)
-      setData(analytics)
+      if (isMountedRef.current) {
+        setData(analytics)
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch conversation analytics')
+      if (isMountedRef.current) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch conversation analytics')
+      }
     } finally {
-      setLoading(false)
+      if (isMountedRef.current) {
+        setLoading(false)
+      }
     }
   }
 
@@ -563,6 +572,10 @@ export function useConversationAnalytics(timeRange: string = '7d') {
 
   useEffect(() => {
     fetchData()
+    
+    return () => {
+      isMountedRef.current = false
+    }
   }, [timeRange])
 
   return { data, loading, error, refresh, fetchData }
