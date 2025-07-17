@@ -6,6 +6,9 @@ export type UserId = string & { __brand: 'UserId' }
 export type PromptId = string & { __brand: 'PromptId' }
 export type ConversationId = string & { __brand: 'ConversationId' }
 
+// Import privacy types for use in config
+import type { PrivacyConfig } from './events/privacy-controls'
+
 /**
  * New event-based architecture types for v0.4.0
  */
@@ -117,7 +120,8 @@ export interface InitConfig {
     endpoint?: string
   }
   
-  // New privacy controls for v0.4.0
+  /** Privacy controls for content capture */
+  privacyConfig?: PrivacyConfig
   /** Capture user prompts in events (default: true) */
   capturePrompts?: boolean
   /** Capture AI responses in events (default: false) */
@@ -373,4 +377,7 @@ export const generateEventId = (): EventId => createEventId(crypto.randomUUID())
  * await trackTurn(prompt, aiCall, { turnId })
  * ```
  */
-export const generateTurnId = (): TurnId => createTurnId(`turn-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`) 
+export const generateTurnId = (): TurnId => createTurnId(`turn-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`)
+
+// Re-export privacy types
+export type { CaptureLevel, PrivacyConfig } from './events/privacy-controls' 

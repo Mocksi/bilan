@@ -5,4 +5,6 @@
 
 export { EventQueueManager } from './event-queue'
 export { EventTracker, ContentSanitizer } from './event-tracker'
-export { TurnTracker, ErrorClassifier } from './turn-tracker' 
+export { TurnTracker, ErrorClassifier } from './turn-tracker'
+export { ContentProcessor, PrivacyController, PrivacyUtils } from './privacy-controls'
+export type { CaptureLevel, PrivacyConfig } from './privacy-controls' 

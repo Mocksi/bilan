@@ -1,20 +1,25 @@
 import { Event, EventType, InitConfig, generateEventId, UserId } from '../types'
 import { EventQueueManager } from './event-queue'
+import { ContentProcessor, PrivacyConfig } from './privacy-controls'
 
 /**
- * Privacy controls for content capture
+ * Privacy controls for content capture - enhanced with new privacy system
  */
 export class ContentSanitizer {
   private sanitizeContent: boolean
   private capturePrompts: boolean
   private captureResponses: boolean
   private captureResponsesFor: string[]
+  private contentProcessor: ContentProcessor
 
   constructor(config: InitConfig) {
     this.sanitizeContent = config.sanitizeContent ?? true
     this.capturePrompts = config.capturePrompts ?? true
     this.captureResponses = config.captureResponses ?? false
     this.captureResponsesFor = config.captureResponsesFor || []
+    
+    // Initialize content processor with privacy config
+    this.contentProcessor = new ContentProcessor(config.privacyConfig)
   }
 
   /**
@@ -38,16 +43,42 @@ export class ContentSanitizer {
   }
 
   /**
-   * Sanitize content to remove PII
+   * Sanitize content to remove PII using enhanced privacy controls
    */
   sanitizeText(text: string): string {
     if (!this.sanitizeContent) return text
     
-    return text
-      .replace(/\b[\w\.-]+@[\w\.-]+\.\w+\b/g, '[EMAIL]')
-      .replace(/\b\d{3}-\d{3}-\d{4}\b/g, '[PHONE]')
-      .replace(/\b\d{4}\s?\d{4}\s?\d{4}\s?\d{4}\b/g, '[CARD]')
-      .replace(/\b\d{3}-\d{2}-\d{4}\b/g, '[SSN]')
+    // Use new privacy system for sanitization
+    return this.contentProcessor.processResponse(text) || '[CONTENT_BLOCKED]'
+  }
+
+  /**
+   * Process prompt text with privacy controls
+   */
+  processPrompt(prompt: string): string | null {
+    if (!this.capturePrompts) return null
+    return this.contentProcessor.processPrompt(prompt)
+  }
+
+  /**
+   * Process response text with privacy controls
+   */
+  processResponse(response: string): string | null {
+    return this.contentProcessor.processResponse(response)
+  }
+
+  /**
+   * Process error text with privacy controls
+   */
+  processError(error: string): string | null {
+    return this.contentProcessor.processError(error)
+  }
+
+  /**
+   * Update privacy configuration
+   */
+  updatePrivacyConfig(config: Partial<PrivacyConfig>): void {
+    this.contentProcessor.updatePrivacyConfig(config)
   }
 }
 

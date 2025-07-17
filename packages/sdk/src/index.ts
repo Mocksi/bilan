@@ -1,9 +1,9 @@
-import { InitConfig, VoteEvent, BasicStats, PromptStats, StorageAdapter, TrendConfig, UserId, PromptId, ConversationId, createUserId, createPromptId, createConversationId, ConversationData, FeedbackEvent, JourneyStep, Event, EventType } from './types'
+import { InitConfig, VoteEvent, BasicStats, PromptStats, StorageAdapter, TrendConfig, UserId, PromptId, ConversationId, createUserId, createPromptId, createConversationId, ConversationData, FeedbackEvent, JourneyStep, Event, EventType, PrivacyConfig } from './types'
 import { LocalStorageAdapter } from './storage/local-storage'
 import { BasicAnalytics } from './analytics/basic-analytics'
 import { initTelemetry, trackVote, trackStatsRequest, trackError } from './telemetry'
 import { ErrorHandler, GracefulDegradation } from './error-handling'
-import { EventTracker, EventQueueManager, TurnTracker } from './events'
+import { EventTracker, EventQueueManager, TurnTracker, ContentProcessor, PrivacyUtils } from './events'
 
 /**
  * Bilan SDK for tracking user feedback on AI suggestions and calculating trust metrics.
@@ -720,6 +720,8 @@ class BilanSDK {
 
     return await this.turnTracker.trackTurnWithRetry(promptText, aiCall, properties, maxRetries)
   }
+
+
 }
 
 // Create a default instance for convenience
@@ -737,6 +739,10 @@ export const track = defaultBilan.track.bind(defaultBilan)
 // New v0.4.0 AI turn tracking methods (flagship feature)
 export const trackTurn = defaultBilan.trackTurn.bind(defaultBilan)
 export const trackTurnWithRetry = defaultBilan.trackTurnWithRetry.bind(defaultBilan)
+
+// Privacy utilities for content control
+export { ContentProcessor, PrivacyController, PrivacyUtils } from './events'
+export type { CaptureLevel, PrivacyConfig } from './types'
 
 // Conversation tracking methods
 export const startConversation = defaultBilan.startConversation.bind(defaultBilan)

@@ -1,5 +1,6 @@
 import { EventTracker } from './event-tracker'
 import { InitConfig, generateTurnId, TurnId } from '../types'
+import { ContentProcessor, PrivacyConfig } from './privacy-controls'
 
 /**
  * Error classification for AI failures
@@ -70,11 +71,13 @@ export class TurnTracker {
   private eventTracker: EventTracker
   private config: InitConfig
   private timeoutMs: number
+  private contentProcessor: ContentProcessor
 
   constructor(eventTracker: EventTracker, config: InitConfig) {
     this.eventTracker = eventTracker
     this.config = config
     this.timeoutMs = 30000 // 30 seconds default timeout
+    this.contentProcessor = new ContentProcessor(config.privacyConfig)
   }
 
   /**
@@ -117,6 +120,12 @@ export class TurnTracker {
       const endTime = Date.now()
       const responseTime = (endTime - startTime) / 1000
 
+      // Process content with privacy controls
+      const processedPrompt = this.contentProcessor.processPrompt(promptText)
+      const processedResponse = this.contentProcessor.processResponse(
+        typeof response === 'string' ? response : JSON.stringify(response)
+      )
+
       // Track successful completion
       await this.eventTracker.track('turn_completed', {
         turnId,
@@ -129,8 +138,8 @@ export class TurnTracker {
         retryCount: properties.retryCount || 0,
         ...properties
       }, {
-        promptText,
-        aiResponse: typeof response === 'string' ? response : JSON.stringify(response),
+        promptText: processedPrompt || undefined,
+        aiResponse: processedResponse || undefined,
         context: properties.context
       })
 
@@ -141,12 +150,16 @@ export class TurnTracker {
       const attemptedDuration = (endTime - startTime) / 1000
       const { errorType, errorMessage } = ErrorClassifier.classify(error as Error)
 
+      // Process content with privacy controls for failure case
+      const processedPrompt = this.contentProcessor.processPrompt(promptText)
+      const processedError = this.contentProcessor.processError(errorMessage)
+
       // Track failure with detailed error information
       await this.eventTracker.track('turn_failed', {
         turnId,
         status: 'failed',
         errorType,
-        errorMessage,
+        errorMessage: processedError || errorMessage,
         attemptedDuration,
         failedAt: endTime,
         modelUsed: properties.modelUsed || properties.model,
@@ -154,7 +167,7 @@ export class TurnTracker {
         retryCount: properties.retryCount || 0,
         ...properties
       }, {
-        promptText,
+        promptText: processedPrompt || undefined,
         context: properties.context
       })
 
