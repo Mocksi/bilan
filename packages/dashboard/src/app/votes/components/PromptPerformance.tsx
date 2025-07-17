@@ -1,13 +1,19 @@
 'use client'
 
+import React from 'react'
 import { VoteAnalytics } from '@/lib/types'
 
-interface PromptPerformanceProps {
+/**
+ * Props for the PromptPerformance component
+ */
+export interface PromptPerformanceProps {
+  /** Vote analytics data containing prompt performance information */
   analytics: VoteAnalytics | null
+  /** Whether the component is in loading state */
   loading: boolean
 }
 
-export function PromptPerformance({ analytics, loading }: PromptPerformanceProps) {
+export const PromptPerformance: React.FC<PromptPerformanceProps> = ({ analytics, loading }) => {
   if (loading) {
     return (
       <div className="row row-deck row-cards">
