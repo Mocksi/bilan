@@ -1,13 +1,76 @@
 import Fastify, { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 import cors from '@fastify/cors'
-import { BilanDatabase, Event, EVENT_TYPES, EventType } from './database/schema.js'
-import { VoteCastEvent, TurnEvent, UserActionEvent } from '@mocksi/bilan-sdk'
+import rateLimit from '@fastify/rate-limit'
+import { BilanDatabase, Event, EVENT_TYPES, EventType, validateEvent } from './database/schema.js'
 import { BasicAnalyticsProcessor, DashboardData } from './analytics/basic-processor.js'
 
+/**
+ * SDK Event types for API compatibility (local definitions)
+ */
+interface VoteCastEvent {
+  eventId: string
+  eventType: 'vote_cast'
+  timestamp: number
+  userId: string
+  properties: {
+    promptId: string
+    value: 1 | -1
+    comment?: string
+    responseTime?: number
+    [key: string]: any
+  }
+  promptText?: string
+  aiResponse?: string
+}
+
+interface TurnEvent {
+  eventId: string
+  eventType: 'turn_started' | 'turn_completed' | 'turn_failed'
+  timestamp: number
+  userId: string
+  properties: {
+    turnId: string
+    modelUsed?: string
+    conversationId?: string
+    responseTime?: number
+    status?: 'success' | 'failed'
+    errorType?: string
+    [key: string]: any
+  }
+  promptText?: string
+  aiResponse?: string
+}
+
+interface UserActionEvent {
+  eventId: string
+  eventType: 'user_action'
+  timestamp: number
+  userId: string
+  properties: {
+    actionType: string
+    context?: string
+    [key: string]: any
+  }
+  promptText?: string
+  aiResponse?: string
+}
+
+/**
+ * Server configuration options
+ */
 export interface ServerConfig {
+  /** Port number for the server to listen on (default: 3000) */
   port?: number
+  /** Path to the SQLite database file (default: './bilan.db') */
   dbPath?: string
+  /** Enable CORS middleware for cross-origin requests (default: false) */
   cors?: boolean
+  /** API key for authentication on protected endpoints */
+  apiKey?: string
+  /** Maximum number of requests per time window for rate limiting (default: 100) */
+  rateLimitMax?: number
+  /** Time window for rate limiting (default: '1 minute') */
+  rateLimitTimeWindow?: string
 }
 
 /**
@@ -90,16 +153,38 @@ export class BilanServer {
   private analyticsProcessor: BasicAnalyticsProcessor
   private dashboardCache = new Map<string, { data: DashboardData; timestamp: number }>()
   private readonly CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+  private config: ServerConfig
 
   constructor(config: ServerConfig = {}) {
+    this.config = config
     this.fastify = Fastify({ logger: true })
     this.db = new BilanDatabase(config.dbPath)
     this.analyticsProcessor = new BasicAnalyticsProcessor(this.db)
     
+    this.setupMiddleware()
     this.setupRoutes()
+  }
+
+  /**
+   * API key authentication middleware
+   */
+  private async authenticateApiKey(request: FastifyRequest, reply: FastifyReply) {
+    const apiKey = request.headers.authorization?.replace('Bearer ', '')
     
-    if (config.cors) {
-      // Configure CORS with specific security settings
+    if (!apiKey) {
+      return reply.status(401).send({ error: 'Missing API key' })
+    }
+    
+    // Validate API key against configured value
+    const validApiKey = this.config.apiKey
+    if (validApiKey && apiKey !== validApiKey) {
+      return reply.status(401).send({ error: 'Invalid API key' })
+    }
+  }
+
+  private setupMiddleware(): void {
+    // Configure CORS if enabled
+    if (this.config.cors) {
       const corsOptions = {
         origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000', 'http://localhost:3001'],
         methods: ['GET', 'POST', 'OPTIONS'],
@@ -108,114 +193,523 @@ export class BilanServer {
       }
       this.fastify.register(cors, corsOptions)
     }
+    
+    // Configure rate limiting
+    this.fastify.register(rateLimit, {
+      global: false, // Don't apply globally, configure per route
+      max: this.config.rateLimitMax || 100,
+      timeWindow: this.config.rateLimitTimeWindow || '1 minute',
+      keyGenerator: (request) => {
+        return request.headers.authorization || request.ip
+      }
+    })
   }
 
   private setupRoutes(): void {
     // Health check endpoint
     this.fastify.get('/health', async (request, reply) => {
-      return { status: 'healthy', timestamp: Date.now() }
+      return { status: 'ok', timestamp: new Date().toISOString() }
     })
 
-    // Events ingestion endpoint - updated for v0.4.0 SDK compatibility
-    this.fastify.post<{ Body: EventsBody }>('/api/events', async (request, reply) => {
+    // Enhanced event ingestion endpoint with rate limiting and validation
+    this.fastify.post('/api/events', {
+      config: {
+        rateLimit: {
+          max: this.config.rateLimitMax || 100,
+          timeWindow: this.config.rateLimitTimeWindow || '1 minute'
+        }
+      },
+      preHandler: this.authenticateApiKey.bind(this)
+    }, async (request, reply) => {
       try {
-        const { events } = request.body
+        const body = request.body as any
+        let events: SdkEvent[] = []
         
-        if (!Array.isArray(events)) {
-          return reply.status(400).send({ error: 'Events must be an array' })
+        // Handle both single event and batch
+        if (Array.isArray(body)) {
+          events = body
+        } else if (body.events && Array.isArray(body.events)) {
+          events = body.events
+        } else {
+          events = [body]
         }
 
-        // Convert SDK events to unified Event format and insert with deduplication
+        // Validate batch size
+        if (events.length > 1000) {
+          return reply.status(400).send({
+            error: 'Batch size too large',
+            message: 'Maximum 1000 events per request'
+          })
+        }
+
+        const results = {
+          processed: 0,
+          skipped: 0,
+          errors: 0,
+          eventIds: [] as string[]
+        }
+
+        // Check for existing event IDs in database before processing
+        const incomingEventIds = events.map(event => event.eventId).filter(Boolean)
+        const existingEventIds = new Set<string>()
+        
+        if (incomingEventIds.length > 0) {
+          // Query database for existing event IDs
+          const placeholders = incomingEventIds.map(() => '?').join(', ')
+          const existingEvents = this.db.query(
+            `SELECT event_id FROM events WHERE event_id IN (${placeholders})`,
+            incomingEventIds
+          )
+          
+          existingEvents.forEach(row => {
+            existingEventIds.add(row.event_id)
+          })
+        }
+
+        // Process each event
         for (const sdkEvent of events) {
           try {
-            const unifiedEvent = sdkEventToEvent(sdkEvent)
+            // Validate required fields
+            if (!sdkEvent.eventId || !sdkEvent.eventType || !sdkEvent.userId) {
+              results.errors++
+              continue
+            }
+
+            // Check for duplicate event_id in database
+            if (existingEventIds.has(sdkEvent.eventId)) {
+              results.skipped++
+              continue
+            }
+
+            // Check for duplicate event_id within current batch
+            if (results.eventIds.includes(sdkEvent.eventId)) {
+              results.skipped++
+              continue
+            }
+
+            // Convert SDK event to database event
+            const dbEvent = sdkEventToEvent(sdkEvent)
             
-            // Check for duplicate event_id before insertion
-            const existingEvent = this.db.queryOne(
-              'SELECT event_id FROM events WHERE event_id = ?',
-              [unifiedEvent.event_id]
-            )
-            
-            if (!existingEvent) {
-              this.db.insertEvent(unifiedEvent)
+            // Validate and insert
+            if (validateEvent(dbEvent)) {
+              this.db.insertEvent(dbEvent)
+              results.processed++
+              results.eventIds.push(sdkEvent.eventId)
+              // Add to existing set to prevent duplicates in subsequent iterations
+              existingEventIds.add(sdkEvent.eventId)
             } else {
-              this.fastify.log.debug(`Skipping duplicate event: ${unifiedEvent.event_id}`)
+              results.errors++
             }
           } catch (error) {
-            this.fastify.log.error('Failed to insert event:', error)
-            // Continue processing other events rather than failing completely
+            results.errors++
+            this.fastify.log.error('Error processing event:', error)
           }
         }
 
-        // Clear dashboard cache when new events arrive
-        this.dashboardCache.clear()
-
-        return { success: true, processed: events.length }
-      } catch (error) {
-        this.fastify.log.error('Error in POST /api/events:', error)
-        return reply.status(500).send({ error: 'Internal server error' })
-      }
-    })
-
-    // Dashboard data endpoint with caching
-    this.fastify.get<{ Querystring: DashboardQuery }>('/api/dashboard', async (request, reply) => {
-      try {
-        const { start, end, range } = request.query
-        
-        // Parse date range
-        let startDate: Date | undefined
-        let endDate: Date | undefined
-        
-        if (range) {
-          const now = new Date()
-          switch (range) {
-            case '7d':
-              startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-              endDate = now
-              break
-            case '30d':
-              startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-              endDate = now
-              break
-            case '90d':
-              startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
-              endDate = now
-              break
+        return reply.send({
+          success: true,
+          message: `Processed ${results.processed} events`,
+          stats: {
+            processed: results.processed,
+            skipped: results.skipped,
+            errors: results.errors,
+            total: events.length
           }
-        } else if (start && end) {
-          startDate = new Date(start)
-          endDate = new Date(end)
-          
-          if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-            return reply.status(400).send({ error: 'Invalid date format' })
-          }
-        }
-
-        // Check cache
-        const cacheKey = `${startDate?.getTime() || 'all'}-${endDate?.getTime() || 'all'}`
-        const cached = this.dashboardCache.get(cacheKey)
-        
-        if (cached && (Date.now() - cached.timestamp) < this.CACHE_TTL) {
-          return cached.data
-        }
-
-        // Calculate fresh dashboard data with date filtering
-        const dashboardData = await this.analyticsProcessor.calculateDashboardData(startDate, endDate)
-        
-        // Update cache
-        this.dashboardCache.set(cacheKey, {
-          data: dashboardData,
-          timestamp: Date.now()
         })
 
-        return dashboardData
       } catch (error) {
-        this.fastify.log.error('Error in GET /api/dashboard:', error)
-        return reply.status(500).send({ error: 'Internal server error' })
+        this.fastify.log.error('Error in POST /api/events:', error)
+        return reply.status(500).send({
+          error: 'Internal server error',
+          message: 'Failed to process events'
+        })
       }
     })
 
-    // Legacy endpoints for backward compatibility
+    // Main dashboard data endpoint
+    this.fastify.get('/api/dashboard', async (request, reply) => {
+      try {
+        const { start, end, range } = request.query as {
+          start?: string
+          end?: string
+          range?: string
+        }
+
+        let startDate: Date | undefined
+        let endDate: Date | undefined
+
+        if (start) startDate = new Date(start)
+        if (end) endDate = new Date(end)
+
+        const dashboardData = await this.analyticsProcessor.calculateDashboardData(startDate, endDate)
+        return reply.send(dashboardData)
+
+      } catch (error) {
+        this.fastify.log.error('Error in GET /api/dashboard:', error)
+        return reply.status(500).send({
+          error: 'Internal server error',
+          message: 'Failed to fetch dashboard data'
+        })
+      }
+    })
+
+    // Enhanced events listing endpoint with pagination and filtering
+    this.fastify.get('/api/events', async (request, reply) => {
+      try {
+        const {
+          limit = '50',
+          offset = '0',
+          timeRange = '30d',
+          eventType,
+          userId,
+          search
+        } = request.query as {
+          limit?: string
+          offset?: string
+          timeRange?: string
+          eventType?: string
+          userId?: string
+          search?: string
+        }
+
+        const limitNum = Math.min(parseInt(limit, 10), 1000) // Cap at 1000
+        const offsetNum = parseInt(offset, 10)
+
+        // Calculate date range
+        const now = new Date()
+        let startDate: Date
+        
+        switch (timeRange) {
+          case '24h':
+            startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+            break
+          case '7d':
+            startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+            break
+          case '30d':
+          default:
+            startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+            break
+        }
+
+        // Get filtered events
+        const allEvents = this.db.getEvents()
+        let filteredEvents = allEvents.filter(event => {
+          // Time range filter
+          if (event.timestamp < startDate.getTime()) return false
+          
+          // Event type filter
+          if (eventType && event.event_type !== eventType) return false
+          
+          // User ID filter
+          if (userId && event.user_id !== userId) return false
+          
+          // Search filter (search in prompt text, AI response, or comment)
+          if (search) {
+            const searchLower = search.toLowerCase()
+            const promptText = event.prompt_text?.toLowerCase() || ''
+            const aiResponse = event.ai_response?.toLowerCase() || ''
+            const comment = event.properties.comment?.toLowerCase() || ''
+            
+            if (!promptText.includes(searchLower) && 
+                !aiResponse.includes(searchLower) && 
+                !comment.includes(searchLower)) {
+              return false
+            }
+          }
+          
+          return true
+        })
+
+        // Sort by timestamp descending
+        filteredEvents.sort((a, b) => b.timestamp - a.timestamp)
+
+        // Apply pagination
+        const totalCount = filteredEvents.length
+        const paginatedEvents = filteredEvents.slice(offsetNum, offsetNum + limitNum)
+
+        return reply.send({
+          events: paginatedEvents,
+          total: totalCount,
+          limit: limitNum,
+          offset: offsetNum,
+          hasMore: (offsetNum + limitNum) < totalCount
+        })
+
+      } catch (error) {
+        this.fastify.log.error('Error in GET /api/events:', error)
+        return reply.status(500).send({
+          error: 'Internal server error',
+          message: 'Failed to fetch events'
+        })
+      }
+    })
+
+    // Vote analytics endpoint
+    this.fastify.get('/api/analytics/votes', async (request, reply) => {
+      try {
+        const { timeRange = '30d' } = request.query as { timeRange?: string }
+
+        // Calculate date range
+        const now = new Date()
+        let startDate: Date
+        
+        switch (timeRange) {
+          case '24h':
+            startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+            break
+          case '7d':
+            startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+            break
+          case '30d':
+          default:
+            startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+            break
+        }
+
+        const events = this.db.getEvents().filter(event => 
+          event.event_type === 'vote_cast' && event.timestamp >= startDate.getTime()
+        )
+
+        const voteEvents = events.filter(event => event.properties.value !== undefined)
+        const positiveVotes = voteEvents.filter(event => event.properties.value > 0)
+        const negativeVotes = voteEvents.filter(event => event.properties.value < 0)
+        const commentsCount = voteEvents.filter(event => event.properties.comment).length
+
+        // Calculate daily trends
+        const dailyMap = new Map<string, { positive: number; negative: number; total: number }>()
+        
+        voteEvents.forEach(event => {
+          const date = new Date(event.timestamp).toISOString().split('T')[0]
+          const current = dailyMap.get(date) || { positive: 0, negative: 0, total: 0 }
+          
+          current.total++
+          if (event.properties.value > 0) current.positive++
+          else current.negative++
+          
+          dailyMap.set(date, current)
+        })
+
+        const dailyTrends = Array.from(dailyMap.entries())
+          .map(([date, stats]) => ({
+            date,
+            totalVotes: stats.total,
+            positiveVotes: stats.positive,
+            negativeVotes: stats.negative,
+            positiveRate: stats.total > 0 ? (stats.positive / stats.total) * 100 : 0
+          }))
+          .sort((a, b) => a.date.localeCompare(b.date))
+
+        // Calculate hourly distribution
+        const hourlyMap = new Map<number, { positive: number; negative: number; total: number }>()
+        
+        voteEvents.forEach(event => {
+          const hour = new Date(event.timestamp).getHours()
+          const current = hourlyMap.get(hour) || { positive: 0, negative: 0, total: 0 }
+          
+          current.total++
+          if (event.properties.value > 0) current.positive++
+          else current.negative++
+          
+          hourlyMap.set(hour, current)
+        })
+
+        const hourlyTrends = Array.from({ length: 24 }, (_, hour) => {
+          const stats = hourlyMap.get(hour) || { positive: 0, negative: 0, total: 0 }
+          return {
+            hour,
+            totalVotes: stats.total,
+            positiveVotes: stats.positive,
+            negativeVotes: stats.negative,
+            positiveRate: stats.total > 0 ? (stats.positive / stats.total) * 100 : 0
+          }
+        })
+
+        // User behavior analysis
+        const userVotesMap = new Map<string, { positive: number; negative: number; total: number; lastActivity: number }>()
+        
+        voteEvents.forEach(event => {
+          const current = userVotesMap.get(event.user_id) || { positive: 0, negative: 0, total: 0, lastActivity: 0 }
+          
+          current.total++
+          if (event.properties.value > 0) current.positive++
+          else current.negative++
+          current.lastActivity = Math.max(current.lastActivity, event.timestamp)
+          
+          userVotesMap.set(event.user_id, current)
+        })
+
+        const topUsers = Array.from(userVotesMap.entries())
+          .map(([userId, stats]) => ({
+            userId,
+            totalVotes: stats.total,
+            positiveVotes: stats.positive,
+            negativeVotes: stats.negative,
+            positiveRate: stats.total > 0 ? (stats.positive / stats.total) * 100 : 0,
+            lastActivity: stats.lastActivity
+          }))
+          .sort((a, b) => b.totalVotes - a.totalVotes)
+          .slice(0, 10)
+
+        // Prompt performance analysis
+        const promptVotesMap = new Map<string, { positive: number; negative: number; total: number; promptText?: string }>()
+        
+        voteEvents.forEach(event => {
+          const promptId = event.properties.promptId || 'unknown'
+          const current = promptVotesMap.get(promptId) || { positive: 0, negative: 0, total: 0 }
+          
+          current.total++
+          if (event.properties.value > 0) current.positive++
+          else current.negative++
+          if (event.prompt_text) current.promptText = event.prompt_text
+          
+          promptVotesMap.set(promptId, current)
+        })
+
+        const topPrompts = Array.from(promptVotesMap.entries())
+          .map(([promptId, stats]) => ({
+            promptId,
+            promptText: stats.promptText,
+            totalVotes: stats.total,
+            positiveVotes: stats.positive,
+            negativeVotes: stats.negative,
+            positiveRate: stats.total > 0 ? (stats.positive / stats.total) * 100 : 0
+          }))
+          .sort((a, b) => b.totalVotes - a.totalVotes)
+          .slice(0, 10)
+
+        // Comment analysis
+        const comments = voteEvents
+          .filter(event => event.properties.comment)
+          .map(event => ({
+            comment: event.properties.comment,
+            vote: event.properties.value,
+            timestamp: event.timestamp,
+            userId: event.user_id
+          }))
+          .sort((a, b) => b.timestamp - a.timestamp)
+          .slice(0, 10)
+
+        const userVotes = Array.from(userVotesMap.values())
+        const totalUsers = userVotes.length
+        const voteCounts = userVotes.map(u => u.total)
+        const averageVotesPerUser = totalUsers > 0 ? voteCounts.reduce((a, b) => a + b, 0) / totalUsers : 0
+        const medianVotesPerUser = totalUsers > 0 ? voteCounts.sort((a, b) => a - b)[Math.floor(totalUsers / 2)] : 0
+
+        const analytics = {
+          overview: {
+            totalVotes: voteEvents.length,
+            positiveVotes: positiveVotes.length,
+            negativeVotes: negativeVotes.length,
+            positiveRate: voteEvents.length > 0 ? (positiveVotes.length / voteEvents.length) * 100 : 0,
+            averageRating: voteEvents.length > 0 ? voteEvents.reduce((sum, event) => sum + event.properties.value, 0) / voteEvents.length : 0,
+            commentsCount,
+            uniqueUsers: userVotesMap.size,
+            uniquePrompts: promptVotesMap.size
+          },
+          trends: {
+            daily: dailyTrends,
+            hourly: hourlyTrends
+          },
+          userBehavior: {
+            topUsers,
+            votingPatterns: {
+              averageVotesPerUser,
+              medianVotesPerUser,
+              powerUsers: userVotes.filter(u => u.total > 10).length,
+              oneTimeVoters: userVotes.filter(u => u.total === 1).length
+            }
+          },
+          promptPerformance: {
+            topPrompts,
+            performanceMetrics: {
+              averagePositiveRate: topPrompts.length > 0 ? topPrompts.reduce((sum, p) => sum + p.positiveRate, 0) / topPrompts.length : 0,
+              bestPerformingPrompt: topPrompts.length > 0 ? topPrompts[0].promptId : '',
+              worstPerformingPrompt: topPrompts.length > 0 ? topPrompts[topPrompts.length - 1].promptId : '',
+              promptsWithoutVotes: 0 // We only track prompts that have votes
+            }
+          },
+          commentAnalysis: {
+            totalComments: commentsCount,
+            averageCommentLength: comments.length > 0 ? comments.reduce((sum, c) => sum + c.comment.length, 0) / comments.length : 0,
+            topComments: comments,
+            sentimentAnalysis: {
+              positive: comments.filter(c => c.vote > 0).length,
+              negative: comments.filter(c => c.vote < 0).length,
+              neutral: 0
+            },
+            commonThemes: [] // Basic implementation doesn't include theme analysis
+          }
+        }
+
+        return reply.send(analytics)
+
+      } catch (error) {
+        this.fastify.log.error('Error in GET /api/analytics/votes:', error)
+        return reply.status(500).send({
+          error: 'Internal server error',
+          message: 'Failed to fetch vote analytics'
+        })
+      }
+    })
+
+    // Overview analytics endpoint
+    this.fastify.get('/api/analytics/overview', async (request, reply) => {
+      try {
+        const { timeRange = '30d' } = request.query as { timeRange?: string }
+
+        // Calculate date range
+        const now = new Date()
+        let startDate: Date
+        
+        switch (timeRange) {
+          case '24h':
+            startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+            break
+          case '7d':
+            startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+            break
+          case '30d':
+          default:
+            startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+            break
+        }
+
+        const events = this.db.getEvents().filter(event => 
+          event.timestamp >= startDate.getTime()
+        )
+
+        const eventsByType = new Map<string, number>()
+        const userIds = new Set<string>()
+
+        events.forEach(event => {
+          eventsByType.set(event.event_type, (eventsByType.get(event.event_type) || 0) + 1)
+          userIds.add(event.user_id)
+        })
+
+        const overview = {
+          totalEvents: events.length,
+          totalUsers: userIds.size,
+          eventTypes: Array.from(eventsByType.entries()).map(([type, count]) => ({ type, count })),
+          timeRange,
+          dateRange: {
+            start: startDate.toISOString(),
+            end: now.toISOString()
+          }
+        }
+
+        return reply.send(overview)
+
+      } catch (error) {
+        this.fastify.log.error('Error in GET /api/analytics/overview:', error)
+        return reply.status(500).send({
+          error: 'Internal server error',
+          message: 'Failed to fetch overview analytics'
+        })
+      }
+    })
+
+    // Legacy endpoints (keeping for backward compatibility)
     this.fastify.get('/api/stats', async (request, reply) => {
       try {
         const { userId } = request.query as { userId?: string }
