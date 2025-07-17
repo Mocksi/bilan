@@ -4,4 +4,5 @@
  */
 
 export { EventQueueManager } from './event-queue'
-export { EventTracker, ContentSanitizer } from './event-tracker' 
+export { EventTracker, ContentSanitizer } from './event-tracker'
+export { TurnTracker, ErrorClassifier } from './turn-tracker' 

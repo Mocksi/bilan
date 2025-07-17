@@ -3,7 +3,7 @@ import { LocalStorageAdapter } from './storage/local-storage'
 import { BasicAnalytics } from './analytics/basic-analytics'
 import { initTelemetry, trackVote, trackStatsRequest, trackError } from './telemetry'
 import { ErrorHandler, GracefulDegradation } from './error-handling'
-import { EventTracker, EventQueueManager } from './events'
+import { EventTracker, EventQueueManager, TurnTracker } from './events'
 
 /**
  * Bilan SDK for tracking user feedback on AI suggestions and calculating trust metrics.
@@ -56,6 +56,7 @@ class BilanSDK {
   private isInitialized = false
   private eventTracker: EventTracker | null = null
   private eventQueue: EventQueueManager | null = null
+  private turnTracker: TurnTracker | null = null
 
   constructor() {
     this.storage = new LocalStorageAdapter()
@@ -140,6 +141,7 @@ class BilanSDK {
       await this.eventQueue.loadPersistedQueue()
 
       this.eventTracker = new EventTracker(config, this.eventQueue)
+      this.turnTracker = new TurnTracker(this.eventTracker, config)
 
       this.isInitialized = true
       
@@ -639,6 +641,85 @@ class BilanSDK {
       }
     })
   }
+
+  /**
+   * Track an AI turn with automatic failure detection (v0.4.0 flagship feature)
+   * @param promptText - The user's prompt/question
+   * @param aiCall - Function that makes the AI API call
+   * @param properties - Additional properties to track
+   * @returns The AI response
+   * 
+   * @example
+   * ```typescript
+   * const response = await trackTurn(
+   *   'How do I center a div?',
+   *   () => openai.chat.completions.create({
+   *     model: 'gpt-4',
+   *     messages: [{ role: 'user', content: prompt }]
+   *   }),
+   *   { conversationId: 'conv_123', modelUsed: 'gpt-4' }
+   * )
+   * ```
+   */
+  async trackTurn<T = string>(
+    promptText: string,
+    aiCall: () => Promise<T>,
+    properties: Record<string, any> = {}
+  ): Promise<T> {
+    if (!this.turnTracker) {
+      const error = new Error('Bilan SDK not initialized. Call init() first.')
+      if (this.config?.debug) {
+        throw error
+      } else {
+        console.error('Bilan: Turn tracker not initialized')
+        // Fall back to executing the AI call without tracking
+        return await aiCall()
+      }
+    }
+
+    return await this.turnTracker.trackTurn(promptText, aiCall, properties)
+  }
+
+  /**
+   * Track an AI turn with automatic retry logic
+   * @param promptText - The user's prompt/question
+   * @param aiCall - Function that makes the AI API call
+   * @param properties - Additional properties to track
+   * @param maxRetries - Maximum number of retries (default: 2)
+   * @returns The AI response
+   * 
+   * @example
+   * ```typescript
+   * const response = await trackTurnWithRetry(
+   *   'Summarize this document',
+   *   () => anthropic.messages.create({
+   *     model: 'claude-3-haiku',
+   *     messages: [{ role: 'user', content: prompt }]
+   *   }),
+   *   { conversationId: 'conv_123', modelUsed: 'claude-3-haiku' },
+   *   3 // retry up to 3 times
+   * )
+   * ```
+   */
+  async trackTurnWithRetry<T = string>(
+    promptText: string,
+    aiCall: () => Promise<T>,
+    properties: Record<string, any> = {},
+    maxRetries: number = 2
+  ): Promise<T> {
+    if (!this.turnTracker) {
+      const error = new Error('Bilan SDK not initialized. Call init() first.')
+      if (this.config?.debug) {
+        throw error
+      } else {
+        console.error('Bilan: Turn tracker not initialized')
+        // Fall back to executing the AI call without tracking
+        return await aiCall()
+      }
+    }
+
+    return await this.turnTracker.trackTurnWithRetry(promptText, aiCall, properties, maxRetries)
+  }
 }
 
 // Create a default instance for convenience
@@ -652,6 +733,10 @@ export const getPromptStats = defaultBilan.getPromptStats.bind(defaultBilan)
 
 // New v0.4.0 event tracking method
 export const track = defaultBilan.track.bind(defaultBilan)
+
+// New v0.4.0 AI turn tracking methods (flagship feature)
+export const trackTurn = defaultBilan.trackTurn.bind(defaultBilan)
+export const trackTurnWithRetry = defaultBilan.trackTurnWithRetry.bind(defaultBilan)
 
 // Conversation tracking methods
 export const startConversation = defaultBilan.startConversation.bind(defaultBilan)
