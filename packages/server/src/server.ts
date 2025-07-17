@@ -1,8 +1,6 @@
 import Fastify, { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 import cors from '@fastify/cors'
 import { BilanDatabase } from './database/schema.js'
-import { BasicAnalytics } from '@mocksi/bilan-sdk'
-import { createPromptId } from '@mocksi/bilan-sdk'
 import { BasicAnalyticsProcessor, DashboardData } from './analytics/basic-processor.js'
 
 export interface ServerConfig {
@@ -146,8 +144,13 @@ export class BilanServer {
           return reply.status(400).send({ error: 'Missing userId parameter' })
         }
 
-        const events = this.db.getEvents({ userId })
-        const stats = BasicAnalytics.calculateBasicStats(events)
+        const events = this.db.getVoteEvents({ userId })
+        const stats = {
+          totalEvents: events.length,
+          positiveVotes: events.filter(e => e.value > 0).length,
+          negativeVotes: events.filter(e => e.value < 0).length,
+          positiveRate: events.length > 0 ? events.filter(e => e.value > 0).length / events.length : 0
+        }
         
         return stats
       } catch (error) {
@@ -167,8 +170,14 @@ export class BilanServer {
         }
 
         // Use simplified filtering
-        const events = this.db.getEvents({ promptId, userId })
-        const stats = BasicAnalytics.calculatePromptStats(events, createPromptId(promptId))
+        const events = this.db.getVoteEvents({ promptId, userId })
+        const stats = {
+          promptId,
+          totalEvents: events.length,
+          positiveVotes: events.filter(e => e.value > 0).length,
+          negativeVotes: events.filter(e => e.value < 0).length,
+          positiveRate: events.length > 0 ? events.filter(e => e.value > 0).length / events.length : 0
+        }
         
         return stats
       } catch (error) {

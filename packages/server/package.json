@@ -4,6 +4,9 @@
   "description": "Self-hostable server for Bilan trust analytics",
   "main": "dist/index.js",
   "type": "module",
+  "engines": {
+    "node": ">=14.17.0"
+  },
   "bin": {
     "bilan": "dist/cli.js"
   },

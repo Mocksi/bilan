@@ -1,4 +1,4 @@
-import { VoteEvent } from '@mocksi/bilan-sdk'
+import { VoteEvent } from '../database/schema.js'
 import { BilanDatabase } from '../database/schema.js'
 
 export interface DashboardData {
@@ -74,7 +74,7 @@ export class BasicAnalyticsProcessor {
   private async getFilteredEvents(startDate?: Date, endDate?: Date): Promise<VoteEvent[]> {
     if (!startDate || !endDate) {
       // If no date range specified, return all events
-      return await this.db.getEvents({ limit: 10000 })
+      return await this.db.getVoteEvents({ limit: 10000 })
     }
 
     // Convert dates to timestamps
@@ -82,7 +82,7 @@ export class BasicAnalyticsProcessor {
     const endTimestamp = endDate.getTime()
 
     // Use database-level filtering for better performance
-    return await this.db.getEvents({ 
+    return await this.db.getVoteEvents({ 
       limit: 10000, 
       startTimestamp, 
       endTimestamp 

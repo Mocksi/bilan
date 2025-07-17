@@ -135,70 +135,27 @@ init_sqlite_database() {
 -- Enable foreign key support
 PRAGMA foreign_keys = ON;
 
--- Create conversations table
-CREATE TABLE IF NOT EXISTS conversations (
-    id TEXT PRIMARY KEY,
+-- Create unified events table (v0.4.0)
+CREATE TABLE IF NOT EXISTS events (
+    event_id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL,
-    journey_id TEXT,
-    journey_name TEXT,
-    success_outcome BOOLEAN,
-    created_at INTEGER NOT NULL,
-    updated_at INTEGER NOT NULL,
-    ended_at INTEGER,
-    metadata TEXT
+    event_type TEXT NOT NULL CHECK (event_type IN (
+        'turn_created', 'turn_completed', 'turn_failed',
+        'user_action', 'vote_cast', 'journey_step',
+        'conversation_started', 'conversation_ended',
+        'regeneration_requested', 'frustration_detected'
+    )),
+    timestamp BIGINT NOT NULL CHECK (timestamp > 0),
+    properties TEXT NOT NULL DEFAULT '{}' CHECK (JSON_VALID(properties)),
+    prompt_text TEXT,
+    ai_response TEXT
 );
 
--- Create messages table
-CREATE TABLE IF NOT EXISTS messages (
-    id TEXT PRIMARY KEY,
-    conversation_id TEXT NOT NULL,
-    role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
-    content TEXT NOT NULL,
-    created_at INTEGER NOT NULL,
-    metadata TEXT,
-    FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
-);
-
--- Create feedback_events table
-CREATE TABLE IF NOT EXISTS feedback_events (
-    id TEXT PRIMARY KEY,
-    conversation_id TEXT,
-    message_id TEXT,
-    user_id TEXT NOT NULL,
-    event_type TEXT NOT NULL CHECK (event_type IN ('vote', 'regeneration', 'frustration', 'success')),
-    rating INTEGER,
-    comment TEXT,
-    created_at INTEGER NOT NULL,
-    metadata TEXT,
-    FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
-    FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE
-);
-
--- Create journey_steps table
-CREATE TABLE IF NOT EXISTS journey_steps (
-    id TEXT PRIMARY KEY,
-    journey_id TEXT NOT NULL,
-    journey_name TEXT NOT NULL,
-    step_name TEXT NOT NULL,
-    user_id TEXT NOT NULL,
-    conversation_id TEXT,
-    completed BOOLEAN DEFAULT FALSE,
-    created_at INTEGER NOT NULL,
-    metadata TEXT,
-    FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE SET NULL
-);
-
--- Create indexes for performance
-CREATE INDEX IF NOT EXISTS idx_conversations_user_id ON conversations(user_id);
-CREATE INDEX IF NOT EXISTS idx_conversations_journey_name ON conversations(journey_name);
-CREATE INDEX IF NOT EXISTS idx_conversations_created_at ON conversations(created_at);
-CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id);
-CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at);
-CREATE INDEX IF NOT EXISTS idx_feedback_events_conversation_id ON feedback_events(conversation_id);
-CREATE INDEX IF NOT EXISTS idx_feedback_events_created_at ON feedback_events(created_at);
-CREATE INDEX IF NOT EXISTS idx_journey_steps_journey_name ON journey_steps(journey_name);
-CREATE INDEX IF NOT EXISTS idx_journey_steps_user_id ON journey_steps(user_id);
-CREATE INDEX IF NOT EXISTS idx_journey_steps_created_at ON journey_steps(created_at);
+-- Create indexes for performance (time-series optimized)
+CREATE INDEX IF NOT EXISTS idx_events_user_timestamp ON events(user_id, timestamp);
+CREATE INDEX IF NOT EXISTS idx_events_event_type ON events(event_type, timestamp);
+CREATE INDEX IF NOT EXISTS idx_events_timestamp ON events(timestamp);
+CREATE INDEX IF NOT EXISTS idx_events_user_id ON events(user_id);
 EOF
     
     print_success "SQLite database initialized successfully"
@@ -215,70 +172,27 @@ init_postgresql_database() {
     
     # Create tables using SQL
     psql "${DATABASE_URL:-}" << 'EOF'
--- Create conversations table
-CREATE TABLE IF NOT EXISTS conversations (
-    id VARCHAR(255) PRIMARY KEY,
+-- Create unified events table (v0.4.0)
+CREATE TABLE IF NOT EXISTS events (
+    event_id VARCHAR(255) PRIMARY KEY,
     user_id VARCHAR(255) NOT NULL,
-    journey_id VARCHAR(255),
-    journey_name VARCHAR(255),
-    success_outcome BOOLEAN,
-    created_at BIGINT NOT NULL,
-    updated_at BIGINT NOT NULL,
-    ended_at BIGINT,
-    metadata JSONB
+    event_type VARCHAR(100) NOT NULL CHECK (event_type IN (
+        'turn_created', 'turn_completed', 'turn_failed',
+        'user_action', 'vote_cast', 'journey_step',
+        'conversation_started', 'conversation_ended',
+        'regeneration_requested', 'frustration_detected'
+    )),
+    timestamp BIGINT NOT NULL CHECK (timestamp > 0),
+    properties JSONB NOT NULL DEFAULT '{}',
+    prompt_text TEXT,
+    ai_response TEXT
 );
 
--- Create messages table
-CREATE TABLE IF NOT EXISTS messages (
-    id VARCHAR(255) PRIMARY KEY,
-    conversation_id VARCHAR(255) NOT NULL,
-    role VARCHAR(50) NOT NULL CHECK (role IN ('user', 'assistant')),
-    content TEXT NOT NULL,
-    created_at BIGINT NOT NULL,
-    metadata JSONB,
-    FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
-);
-
--- Create feedback_events table
-CREATE TABLE IF NOT EXISTS feedback_events (
-    id VARCHAR(255) PRIMARY KEY,
-    conversation_id VARCHAR(255),
-    message_id VARCHAR(255),
-    user_id VARCHAR(255) NOT NULL,
-    event_type VARCHAR(50) NOT NULL CHECK (event_type IN ('vote', 'regeneration', 'frustration', 'success')),
-    rating INTEGER,
-    comment TEXT,
-    created_at BIGINT NOT NULL,
-    metadata JSONB,
-    FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE,
-    FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE CASCADE
-);
-
--- Create journey_steps table
-CREATE TABLE IF NOT EXISTS journey_steps (
-    id VARCHAR(255) PRIMARY KEY,
-    journey_id VARCHAR(255) NOT NULL,
-    journey_name VARCHAR(255) NOT NULL,
-    step_name VARCHAR(255) NOT NULL,
-    user_id VARCHAR(255) NOT NULL,
-    conversation_id VARCHAR(255),
-    completed BOOLEAN DEFAULT FALSE,
-    created_at BIGINT NOT NULL,
-    metadata JSONB,
-    FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE SET NULL
-);
-
--- Create indexes for performance
-CREATE INDEX IF NOT EXISTS idx_conversations_user_id ON conversations(user_id);
-CREATE INDEX IF NOT EXISTS idx_conversations_journey_name ON conversations(journey_name);
-CREATE INDEX IF NOT EXISTS idx_conversations_created_at ON conversations(created_at);
-CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id);
-CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at);
-CREATE INDEX IF NOT EXISTS idx_feedback_events_conversation_id ON feedback_events(conversation_id);
-CREATE INDEX IF NOT EXISTS idx_feedback_events_created_at ON feedback_events(created_at);
-CREATE INDEX IF NOT EXISTS idx_journey_steps_journey_name ON journey_steps(journey_name);
-CREATE INDEX IF NOT EXISTS idx_journey_steps_user_id ON journey_steps(user_id);
-CREATE INDEX IF NOT EXISTS idx_journey_steps_created_at ON journey_steps(created_at);
+-- Create indexes for performance (time-series optimized)
+CREATE INDEX IF NOT EXISTS idx_events_user_timestamp ON events(user_id, timestamp);
+CREATE INDEX IF NOT EXISTS idx_events_event_type ON events(event_type, timestamp);
+CREATE INDEX IF NOT EXISTS idx_events_timestamp ON events(timestamp);
+CREATE INDEX IF NOT EXISTS idx_events_user_id ON events(user_id);
 EOF
     
     print_success "PostgreSQL database initialized successfully"
@@ -330,11 +244,12 @@ main() {
     # Verify database initialization
     if [ "$DB_TYPE" = "sqlite" ]; then
         if [ -f "$DB_PATH" ]; then
-            table_count=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';")
-            if [ "$table_count" -ge 4 ]; then
-                print_success "Database verification passed: $table_count tables created"
+            # Check if events table exists
+            events_table_exists=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='events';")
+            if [ "$events_table_exists" -eq 1 ]; then
+                print_success "Database verification passed: events table created"
             else
-                print_error "Database verification failed: expected 4+ tables, found $table_count"
+                print_error "Database verification failed: events table not found"
                 exit 1
             fi
         else
