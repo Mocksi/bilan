@@ -146,7 +146,7 @@ run_sqlite_migration() {
     print_status "Running SQLite migration: $migration_name"
     
     # Execute migration
-    if sqlite3 "$DB_PATH" < "$migration_file"; then
+    if sqlite3 -bail "$DB_PATH" < "$migration_file"; then
         print_success "Migration completed: $migration_name"
         return 0
     else
