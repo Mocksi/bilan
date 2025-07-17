@@ -1,8 +1,6 @@
 import Fastify, { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 import cors from '@fastify/cors'
 import { BilanDatabase } from './database/schema.js'
-// BasicAnalytics removed in v0.4.0 - using event-based architecture
-import { createPromptId } from '@mocksi/bilan-sdk'
 import { BasicAnalyticsProcessor, DashboardData } from './analytics/basic-processor.js'
 
 export interface ServerConfig {
@@ -98,7 +96,7 @@ export class BilanServer {
         }
 
         // Calculate fresh dashboard data with date filtering
-        const dashboardData = await this.analyticsProcessor.getDashboardData(startDate, endDate)
+        const dashboardData = await this.analyticsProcessor.calculateDashboardData(startDate, endDate)
         
         // Update cache
         this.dashboardCache.set(cacheKey, {
@@ -146,14 +144,12 @@ export class BilanServer {
           return reply.status(400).send({ error: 'Missing userId parameter' })
         }
 
-        const events = this.db.getEvents({ userId })
-        const totalVotes = events.length
-        const positiveVotes = events.filter(e => e.properties.value > 0).length
+        const events = this.db.getVoteEvents({ userId })
         const stats = {
-          totalVotes,
-          positiveVotes,
-          negativeVotes: totalVotes - positiveVotes,
-          positiveRate: totalVotes > 0 ? (positiveVotes / totalVotes) * 100 : 0
+          totalEvents: events.length,
+          positiveVotes: events.filter(e => e.value > 0).length,
+          negativeVotes: events.filter(e => e.value < 0).length,
+          positiveRate: events.length > 0 ? events.filter(e => e.value > 0).length / events.length : 0
         }
         
         return stats
@@ -174,16 +170,13 @@ export class BilanServer {
         }
 
         // Use simplified filtering
-        const events = this.db.getEvents({ promptId, userId })
-        const totalVotes = events.length
-        const positiveVotes = events.filter(e => e.properties.value > 0).length
+        const events = this.db.getVoteEvents({ promptId, userId })
         const stats = {
           promptId,
-          totalVotes,
-          positiveVotes,
-          negativeVotes: totalVotes - positiveVotes,
-          positiveRate: totalVotes > 0 ? (positiveVotes / totalVotes) * 100 : 0,
-          recentComments: events.filter(e => e.properties.comment).slice(0, 5).map(e => e.properties.comment)
+          totalEvents: events.length,
+          positiveVotes: events.filter(e => e.value > 0).length,
+          negativeVotes: events.filter(e => e.value < 0).length,
+          positiveRate: events.length > 0 ? events.filter(e => e.value > 0).length / events.length : 0
         }
         
         return stats

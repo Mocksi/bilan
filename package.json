@@ -5,6 +5,9 @@
   "main": "index.js",
   "type": "module",
   "workspaces": ["packages/*"],
+  "engines": {
+    "node": ">=14.17.0"
+  },
   "directories": {
     "doc": "docs"
   },
