@@ -7,8 +7,11 @@ import { DashboardLayout } from '@/components/DashboardLayout'
 import StatsCard from '@/components/StatsCard'
 import { ThumbsUpIcon } from '@/components/icons'
 
-// Wrapper component for useSearchParams
-function VotesContent() {
+/**
+ * VotesContent component renders the main votes analytics interface
+ * including statistics, filters, and vote data table with pagination state management.
+ */
+const VotesContent: React.FC = () => {
   const [page, setPage] = useState(1)
   const [limit] = useState(1000) // Increased limit to show all votes
   
@@ -241,6 +244,10 @@ function VotesContent() {
   )
 }
 
+/**
+ * Votes component is the main page component that renders the votes analytics
+ * section with a Suspense fallback for loading states.
+ */
 export default function Votes() {
   return (
     <Suspense fallback={<div>Loading votes...</div>}>
