@@ -15,7 +15,7 @@ import { TimeRange } from '@/components/TimeRangeSelector'
 import { formatDateForAPI, getDateRange, getPreviousDateRange } from './time-utils'
 
 // API Configuration
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3002'
+const API_BASE_URL = process.env.BILAN_PUBLIC_API_BASE_URL || 'http://localhost:3002'
 
 export interface DashboardDataWithComparison extends DashboardData {
   comparison?: {
