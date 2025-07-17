@@ -43,6 +43,73 @@ export const EVENT_TYPES = {
 export type EventType = typeof EVENT_TYPES[keyof typeof EVENT_TYPES]
 
 /**
+ * Validation helpers for event data
+ */
+export class EventValidator {
+  /**
+   * Validate event type against allowed types
+   */
+  static isValidEventType(eventType: string): eventType is EventType {
+    return Object.values(EVENT_TYPES).includes(eventType as EventType)
+  }
+
+  /**
+   * Validate timestamp (must be positive integer)
+   */
+  static isValidTimestamp(timestamp: number): boolean {
+    return Number.isInteger(timestamp) && timestamp > 0
+  }
+
+  /**
+   * Validate event properties (must be valid JSON object)
+   */
+  static isValidProperties(properties: any): boolean {
+    if (typeof properties !== 'object' || properties === null) {
+      return false
+    }
+    
+    try {
+      JSON.stringify(properties)
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  /**
+   * Validate complete event object
+   */
+  static validateEvent(event: Event): { valid: boolean; errors: string[] } {
+    const errors: string[] = []
+
+    if (!event.event_id || typeof event.event_id !== 'string') {
+      errors.push('event_id must be a non-empty string')
+    }
+
+    if (!event.user_id || typeof event.user_id !== 'string') {
+      errors.push('user_id must be a non-empty string')
+    }
+
+    if (!this.isValidEventType(event.event_type)) {
+      errors.push(`event_type must be one of: ${Object.values(EVENT_TYPES).join(', ')}`)
+    }
+
+    if (!this.isValidTimestamp(event.timestamp)) {
+      errors.push('timestamp must be a positive integer')
+    }
+
+    if (!this.isValidProperties(event.properties)) {
+      errors.push('properties must be a valid JSON object')
+    }
+
+    return {
+      valid: errors.length === 0,
+      errors
+    }
+  }
+}
+
+/**
  * Unified event structure for flexible AI analytics
  */
 export interface Event {
@@ -68,16 +135,16 @@ export class BilanDatabase {
       CREATE TABLE IF NOT EXISTS events (
         event_id TEXT PRIMARY KEY,
         user_id TEXT NOT NULL,
-        event_type TEXT NOT NULL,
-        timestamp BIGINT NOT NULL,
-        properties TEXT NOT NULL DEFAULT '{}',
+        event_type TEXT NOT NULL CHECK (event_type IN (
+          'turn_created', 'turn_completed', 'turn_failed',
+          'user_action', 'vote_cast', 'journey_step',
+          'conversation_started', 'conversation_ended',
+          'regeneration_requested', 'frustration_detected'
+        )),
+        timestamp BIGINT NOT NULL CHECK (timestamp > 0),
+        properties TEXT NOT NULL DEFAULT '{}' CHECK (JSON_VALID(properties)),
         prompt_text TEXT,
-        ai_response TEXT,
-        
-        -- Performance indexes for time-series queries
-        INDEX idx_user_timestamp (user_id, timestamp),
-        INDEX idx_event_type (event_type, timestamp),
-        INDEX idx_timestamp (timestamp)
+        ai_response TEXT
       );
       
       -- Create indexes separately for better SQLite compatibility
@@ -102,6 +169,12 @@ export class BilanDatabase {
    * Insert a new event into the unified events table
    */
   insertEvent(event: Event): void {
+    // Validate event before insertion
+    const validation = EventValidator.validateEvent(event)
+    if (!validation.valid) {
+      throw new Error(`Invalid event data: ${validation.errors.join(', ')}`)
+    }
+
     const stmt = this.db.prepare(`
       INSERT INTO events (event_id, user_id, event_type, timestamp, properties, prompt_text, ai_response)
       VALUES (?, ?, ?, ?, ?, ?, ?)

@@ -139,9 +139,14 @@ PRAGMA foreign_keys = ON;
 CREATE TABLE IF NOT EXISTS events (
     event_id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL,
-    event_type TEXT NOT NULL,
-    timestamp BIGINT NOT NULL,
-    properties TEXT NOT NULL DEFAULT '{}',
+    event_type TEXT NOT NULL CHECK (event_type IN (
+        'turn_created', 'turn_completed', 'turn_failed',
+        'user_action', 'vote_cast', 'journey_step',
+        'conversation_started', 'conversation_ended',
+        'regeneration_requested', 'frustration_detected'
+    )),
+    timestamp BIGINT NOT NULL CHECK (timestamp > 0),
+    properties TEXT NOT NULL DEFAULT '{}' CHECK (JSON_VALID(properties)),
     prompt_text TEXT,
     ai_response TEXT
 );
@@ -171,8 +176,13 @@ init_postgresql_database() {
 CREATE TABLE IF NOT EXISTS events (
     event_id VARCHAR(255) PRIMARY KEY,
     user_id VARCHAR(255) NOT NULL,
-    event_type VARCHAR(100) NOT NULL,
-    timestamp BIGINT NOT NULL,
+    event_type VARCHAR(100) NOT NULL CHECK (event_type IN (
+        'turn_created', 'turn_completed', 'turn_failed',
+        'user_action', 'vote_cast', 'journey_step',
+        'conversation_started', 'conversation_ended',
+        'regeneration_requested', 'frustration_detected'
+    )),
+    timestamp BIGINT NOT NULL CHECK (timestamp > 0),
     properties JSONB NOT NULL DEFAULT '{}',
     prompt_text TEXT,
     ai_response TEXT
