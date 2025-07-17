@@ -39,6 +39,10 @@ BACKUP_BEFORE_MIGRATION=true
 while [[ $# -gt 0 ]]; do
     case $1 in
         -e|--env)
+            if [ -z "${2-}" ]; then
+                print_error "Environment argument required for -e|--env option"
+                exit 1
+            fi
             ENVIRONMENT="$2"
             shift 2
             ;;
@@ -81,6 +85,20 @@ DB_PATH=${BILAN_DB_PATH:-${DB_PATH:-"./bilan.db"}}
 if [ -n "${DATABASE_URL:-}" ] || [ -n "${POSTGRES_HOST:-}" ]; then
     DB_TYPE="postgresql"
     print_status "Using PostgreSQL database"
+    
+    # If DATABASE_URL is not set but POSTGRES_HOST is set, construct DATABASE_URL
+    if [ -z "${DATABASE_URL:-}" ] && [ -n "${POSTGRES_HOST:-}" ]; then
+        POSTGRES_PORT=${POSTGRES_PORT:-5432}
+        POSTGRES_DB=${POSTGRES_DB:-bilan}
+        POSTGRES_USER=${POSTGRES_USER:-bilan}
+        
+        if [ -n "${POSTGRES_PASSWORD:-}" ]; then
+            DATABASE_URL="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}"
+        else
+            DATABASE_URL="postgresql://${POSTGRES_USER}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}"
+        fi
+        print_status "Constructed DATABASE_URL from split variables"
+    fi
 else
     DB_TYPE="sqlite"
     print_status "Using SQLite database at: $DB_PATH"

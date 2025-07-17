@@ -179,7 +179,18 @@ echo "🗄️  Database Configuration:"
 echo "============================"
 if [ -n "${DATABASE_URL-}" ] || [ -n "${POSTGRES_HOST-}" ]; then
     print_status "PostgreSQL database configuration detected"
-    validate_required "DATABASE_URL" "${DATABASE_URL-}" "PostgreSQL connection string"
+    
+    if [ -n "${DATABASE_URL-}" ]; then
+        # Validate DATABASE_URL connection string approach
+        validate_required "DATABASE_URL" "${DATABASE_URL-}" "PostgreSQL connection string"
+    else
+        # Validate split variables approach
+        validate_required "POSTGRES_HOST" "${POSTGRES_HOST-}" "PostgreSQL host"
+        validate_optional "POSTGRES_PORT" "${POSTGRES_PORT-}" "PostgreSQL port" "5432"
+        validate_required "POSTGRES_DB" "${POSTGRES_DB-}" "PostgreSQL database name"
+        validate_required "POSTGRES_USER" "${POSTGRES_USER-}" "PostgreSQL username"
+        validate_optional "POSTGRES_PASSWORD" "${POSTGRES_PASSWORD-}" "PostgreSQL password" "prompt-required"
+    fi
     
     # Check PostgreSQL tools
     check_command "psql" "PostgreSQL client"
