@@ -371,6 +371,7 @@ export function useVoteAnalytics(timeRange: TimeRange = '30d') {
   }
 
   useEffect(() => {
+    isMountedRef.current = true
     fetchData(timeRange)
     
     return () => {
@@ -431,6 +432,7 @@ export function useVotes(
   ])
 
   useEffect(() => {
+    isMountedRef.current = true
     fetchData()
     
     return () => {
@@ -614,6 +616,7 @@ export function useConversationAnalytics(timeRange: string = '7d') {
   }
 
   useEffect(() => {
+    isMountedRef.current = true
     fetchData()
     
     return () => {
@@ -840,6 +843,7 @@ export function useJourneyAnalytics(timeRange: string = '30d') {
   }
 
   useEffect(() => {
+    isMountedRef.current = true
     fetchData()
     
     return () => {
