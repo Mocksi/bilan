@@ -473,7 +473,24 @@ export async function fetchConversations(
  * Fetch a single conversation by ID
  */
 export async function fetchConversation(id: string): Promise<ConversationData> {
-  const response = await fetch(`${API_BASE_URL}/conversations/${id}`)
+  // Input validation
+  if (!id || typeof id !== 'string') {
+    throw new Error('Conversation ID is required and must be a non-empty string')
+  }
+  
+  if (id.trim().length === 0) {
+    throw new Error('Conversation ID cannot be empty or contain only whitespace')
+  }
+  
+  // Basic format validation - should only contain alphanumeric characters, hyphens, and underscores
+  if (!/^[a-zA-Z0-9_-]+$/.test(id.trim())) {
+    throw new Error('Conversation ID contains invalid characters. Only letters, numbers, hyphens, and underscores are allowed')
+  }
+  
+  // Encode the ID to safely handle any special characters and prevent injection
+  const sanitizedId = id.trim()
+  const encodedId = encodeURIComponent(sanitizedId)
+  const response = await fetch(`${API_BASE_URL}/conversations/${encodedId}`)
   
   if (!response.ok) {
     throw new Error(`Failed to fetch conversation: ${response.statusText}`)
