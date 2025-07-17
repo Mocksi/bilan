@@ -55,12 +55,21 @@ interface UserActionEvent {
   aiResponse?: string
 }
 
+/**
+ * Server configuration options
+ */
 export interface ServerConfig {
+  /** Port number for the server to listen on (default: 3000) */
   port?: number
+  /** Path to the SQLite database file (default: './bilan.db') */
   dbPath?: string
+  /** Enable CORS middleware for cross-origin requests (default: false) */
   cors?: boolean
+  /** API key for authentication on protected endpoints */
   apiKey?: string
+  /** Maximum number of requests per time window for rate limiting (default: 100) */
   rateLimitMax?: number
+  /** Time window for rate limiting (default: '1 minute') */
   rateLimitTimeWindow?: string
 }
 
@@ -166,8 +175,8 @@ export class BilanServer {
       return reply.status(401).send({ error: 'Missing API key' })
     }
     
-    // Basic API key validation - in production, validate against a secure store
-    const validApiKey = process.env.BILAN_API_KEY
+    // Validate API key against configured value
+    const validApiKey = this.config.apiKey
     if (validApiKey && apiKey !== validApiKey) {
       return reply.status(401).send({ error: 'Invalid API key' })
     }
@@ -187,30 +196,11 @@ export class BilanServer {
     
     // Configure rate limiting
     this.fastify.register(rateLimit, {
+      global: false, // Don't apply globally, configure per route
       max: this.config.rateLimitMax || 100,
       timeWindow: this.config.rateLimitTimeWindow || '1 minute',
       keyGenerator: (request) => {
         return request.headers.authorization || request.ip
-      }
-    })
-    
-    // Authentication middleware for protected endpoints
-    this.fastify.addHook('onRequest', async (request, reply) => {
-      const protectedPaths = ['/api/events', '/api/analytics']
-      const isProtectedPath = protectedPaths.some(path => request.url.startsWith(path))
-      
-      if (isProtectedPath && this.config.apiKey) {
-        const authHeader = request.headers.authorization
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
-          reply.status(401).send({ error: 'Missing or invalid authorization header' })
-          return
-        }
-        
-        const token = authHeader.substring(7)
-        if (token !== this.config.apiKey) {
-          reply.status(401).send({ error: 'Invalid API key' })
-          return
-        }
       }
     })
   }
@@ -225,8 +215,8 @@ export class BilanServer {
     this.fastify.post('/api/events', {
       config: {
         rateLimit: {
-          max: parseInt(process.env.RATE_LIMIT_MAX || '100', 10),
-          timeWindow: '1 minute'
+          max: this.config.rateLimitMax || 100,
+          timeWindow: this.config.rateLimitTimeWindow || '1 minute'
         }
       },
       preHandler: this.authenticateApiKey.bind(this)
@@ -259,6 +249,23 @@ export class BilanServer {
           eventIds: [] as string[]
         }
 
+        // Check for existing event IDs in database before processing
+        const incomingEventIds = events.map(event => event.eventId).filter(Boolean)
+        const existingEventIds = new Set<string>()
+        
+        if (incomingEventIds.length > 0) {
+          // Query database for existing event IDs
+          const placeholders = incomingEventIds.map(() => '?').join(', ')
+          const existingEvents = this.db.query(
+            `SELECT event_id FROM events WHERE event_id IN (${placeholders})`,
+            incomingEventIds
+          )
+          
+          existingEvents.forEach(row => {
+            existingEventIds.add(row.event_id)
+          })
+        }
+
         // Process each event
         for (const sdkEvent of events) {
           try {
@@ -268,7 +275,13 @@ export class BilanServer {
               continue
             }
 
-            // Check for duplicate event_id
+            // Check for duplicate event_id in database
+            if (existingEventIds.has(sdkEvent.eventId)) {
+              results.skipped++
+              continue
+            }
+
+            // Check for duplicate event_id within current batch
             if (results.eventIds.includes(sdkEvent.eventId)) {
               results.skipped++
               continue
@@ -282,6 +295,8 @@ export class BilanServer {
               this.db.insertEvent(dbEvent)
               results.processed++
               results.eventIds.push(sdkEvent.eventId)
+              // Add to existing set to prevent duplicates in subsequent iterations
+              existingEventIds.add(sdkEvent.eventId)
             } else {
               results.errors++
             }
