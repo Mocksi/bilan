@@ -1,7 +1,7 @@
 import Fastify, { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 import cors from '@fastify/cors'
 import { BilanDatabase } from './database/schema.js'
-import { BasicAnalytics } from '@mocksi/bilan-sdk'
+// BasicAnalytics removed in v0.4.0 - using event-based architecture
 import { createPromptId } from '@mocksi/bilan-sdk'
 import { BasicAnalyticsProcessor, DashboardData } from './analytics/basic-processor.js'
 
@@ -98,7 +98,7 @@ export class BilanServer {
         }
 
         // Calculate fresh dashboard data with date filtering
-        const dashboardData = await this.analyticsProcessor.calculateDashboardData(startDate, endDate)
+        const dashboardData = await this.analyticsProcessor.getDashboardData(startDate, endDate)
         
         // Update cache
         this.dashboardCache.set(cacheKey, {
@@ -147,7 +147,14 @@ export class BilanServer {
         }
 
         const events = this.db.getEvents({ userId })
-        const stats = BasicAnalytics.calculateBasicStats(events)
+        const totalVotes = events.length
+        const positiveVotes = events.filter(e => e.properties.value > 0).length
+        const stats = {
+          totalVotes,
+          positiveVotes,
+          negativeVotes: totalVotes - positiveVotes,
+          positiveRate: totalVotes > 0 ? (positiveVotes / totalVotes) * 100 : 0
+        }
         
         return stats
       } catch (error) {
@@ -168,7 +175,16 @@ export class BilanServer {
 
         // Use simplified filtering
         const events = this.db.getEvents({ promptId, userId })
-        const stats = BasicAnalytics.calculatePromptStats(events, createPromptId(promptId))
+        const totalVotes = events.length
+        const positiveVotes = events.filter(e => e.properties.value > 0).length
+        const stats = {
+          promptId,
+          totalVotes,
+          positiveVotes,
+          negativeVotes: totalVotes - positiveVotes,
+          positiveRate: totalVotes > 0 ? (positiveVotes / totalVotes) * 100 : 0,
+          recentComments: events.filter(e => e.properties.comment).slice(0, 5).map(e => e.properties.comment)
+        }
         
         return stats
       } catch (error) {

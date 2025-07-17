@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3'
-import { VoteEvent } from '@mocksi/bilan-sdk'
+import { VoteCastEvent } from '@mocksi/bilan-sdk'
 
 export class BilanDatabase {
   private db: Database.Database
@@ -41,24 +41,24 @@ export class BilanDatabase {
     return this.db.prepare(sql).get(...params)
   }
 
-  insertEvent(event: VoteEvent): void {
+  insertEvent(event: VoteCastEvent): void {
     const stmt = this.db.prepare(`
       INSERT INTO events (id, user_id, prompt_id, value, comment, timestamp, metadata, prompt_text, ai_output, model_used, response_time)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
     
     stmt.run(
-      crypto.randomUUID(),
+      event.eventId,
       event.userId,
-      event.promptId,
-      event.value,
-      event.comment || null,
+      event.properties.promptId,
+      event.properties.value,
+      event.properties.comment || null,
       event.timestamp,
-      JSON.stringify(event.metadata || {}),
+      JSON.stringify(event.properties),
       event.promptText || null,
-      event.aiOutput || null,
-      event.modelUsed || null,
-      event.responseTime || null
+      event.aiResponse || null,
+      event.properties.modelUsed || null,
+      event.properties.responseTime || null
     )
   }
 
@@ -70,7 +70,7 @@ export class BilanDatabase {
     offset?: number;
     startTimestamp?: number;
     endTimestamp?: number;
-  } = {}): VoteEvent[] {
+  } = {}): VoteCastEvent[] {
     const { userId, promptId, limit = 100, offset = 0, startTimestamp, endTimestamp } = filters
     
     let sql = 'SELECT * FROM events WHERE 1=1'
@@ -139,29 +139,31 @@ export class BilanDatabase {
     return result?.count || 0
   }
 
-  private mapRowToEvent(row: any): VoteEvent {
-    let metadata = {}
+  private mapRowToEvent(row: any): VoteCastEvent {
+    let properties = {}
     try {
-      metadata = JSON.parse(row.metadata || '{}')
+      properties = JSON.parse(row.metadata || '{}')
     } catch (error) {
       // Log the error in development but don't crash the application
       if (process.env.NODE_ENV === 'development') {
-        console.warn('Failed to parse event metadata:', error)
+        console.warn('Failed to parse event properties:', error)
       }
-      metadata = {}
+      properties = {}
     }
 
     return {
-      promptId: row.prompt_id,
-      value: row.value,
-      comment: row.comment,
+      eventId: row.id,
+      eventType: 'vote_cast',
       timestamp: row.timestamp,
       userId: row.user_id,
-      metadata,
+      properties: {
+        promptId: row.prompt_id,
+        value: row.value,
+        comment: row.comment,
+        ...properties
+      },
       promptText: row.prompt_text,
-      aiOutput: row.ai_output,
-      modelUsed: row.model_used,
-      responseTime: row.response_time
+      aiResponse: row.ai_output
     }
   }
 
