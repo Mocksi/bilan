@@ -56,6 +56,11 @@ while [[ $# -gt 0 ]]; do
                 exit 1
             fi
             DB_TYPE="$2"
+            # Validate database type value
+            if [ "$DB_TYPE" != "sqlite" ] && [ "$DB_TYPE" != "postgresql" ]; then
+                print_error "Invalid database type '$DB_TYPE'. Must be 'sqlite' or 'postgresql'"
+                exit 1
+            fi
             USER_SET_DB_TYPE=true
             shift 2
             ;;
