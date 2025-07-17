@@ -17,35 +17,23 @@ export class BilanError extends Error {
 
 export class BilanInitializationError extends BilanError {
   constructor(message: string, suggestion?: string) {
-    super(message, 'INIT_ERROR', 'initialization', suggestion)
+    super(message, 'INIT_ERROR', 'init', suggestion)
     this.name = 'BilanInitializationError'
   }
 }
 
-export class BilanVoteError extends BilanError {
-  constructor(message: string, suggestion?: string) {
-    super(message, 'VOTE_ERROR', 'vote recording', suggestion)
-    this.name = 'BilanVoteError'
-  }
-}
 
-export class BilanStatsError extends BilanError {
-  constructor(message: string, suggestion?: string) {
-    super(message, 'STATS_ERROR', 'stats retrieval', suggestion)
-    this.name = 'BilanStatsError'
-  }
-}
 
 export class BilanNetworkError extends BilanError {
   constructor(message: string, suggestion?: string) {
-    super(message, 'NETWORK_ERROR', 'network request', suggestion)
+    super(message, 'NETWORK_ERROR', 'network', suggestion)
     this.name = 'BilanNetworkError'
   }
 }
 
 export class BilanStorageError extends BilanError {
   constructor(message: string, suggestion?: string) {
-    super(message, 'STORAGE_ERROR', 'storage operation', suggestion)
+    super(message, 'STORAGE_ERROR', 'storage', suggestion)
     this.name = 'BilanStorageError'
   }
 }
@@ -58,125 +46,70 @@ export class ErrorHandler {
   }
 
   static handleInitError(error: Error, config?: InitConfig): BilanInitializationError {
-    let message = error.message
+    const msg = error.message
     let suggestion = ''
 
-    if (error.message.includes('mode')) {
-      suggestion = 'Use mode: "local" or "server"'
-    } else if (error.message.includes('userId')) {
+    if (msg.includes('mode')) {
+      suggestion = 'Use mode: "local or server"'
+    } else if (msg.includes('userId')) {
       suggestion = 'Use createUserId("your-user-id")'
-    } else if (error.message.includes('endpoint')) {
+    } else if (msg.includes('endpoint')) {
       suggestion = 'Add endpoint URL for server mode'
+    } else if (msg.includes('localStorage')) {
+      suggestion = 'localStorage not available, try server mode or check storage support'
     }
 
-    return new BilanInitializationError(message, suggestion)
+    return new BilanInitializationError(msg, suggestion)
   }
 
-  static handleVoteError(error: Error, promptId?: string, value?: number): BilanVoteError {
-    let message = error.message
+
+
+  static handleNetworkError(error: Error, operation: string = 'request'): BilanNetworkError {
+    const msg = error.message
     let suggestion = ''
 
-    if (error.message.includes('not initialized')) {
-      suggestion = 'Call init() first'
-    } else if (error.message.includes('promptId')) {
-      suggestion = 'Use createPromptId()'
-    } else if (error.message.includes('value')) {
-      suggestion = 'Use 1 or -1 for vote value'
-    } else if (error.message.includes('network') || error.message.includes('fetch')) {
-      suggestion = 'Check network connection'
+    if (msg.includes('fetch') || msg.includes('Connection refused')) {
+      suggestion = 'Check network connection and ensure server is accessible'
+    } else if (msg.includes('timeout')) {
+      suggestion = 'Request timeout - check network or increase timeout'
+    } else if (msg.includes('404')) {
+      suggestion = 'Check endpoint URL'
+    } else if (msg.includes('401') || msg.includes('403')) {
+      suggestion = 'Check API key'
     }
 
-    return new BilanVoteError(message, suggestion)
+    return new BilanNetworkError(msg, suggestion)
   }
 
-  static handleStatsError(error: Error, type: string = 'basic'): BilanStatsError {
-    let message = error.message
+  static handleStorageError(error: Error, operation: string = 'storage'): BilanStorageError {
+    const msg = error.message
     let suggestion = ''
 
-    if (error.message.includes('not initialized')) {
-      suggestion = 'Call init() first'
-    } else if (error.message.includes('no data') || error.message.includes('empty')) {
-      suggestion = 'Record some votes first'
-    } else if (error.message.includes('server') || error.message.includes('endpoint')) {
-      suggestion = 'Check endpoint configuration'
+    if (msg.includes('localStorage')) {
+      suggestion = 'localStorage not available - try server mode or check storage support'
+    } else if (msg.toLowerCase().includes('quota')) {
+      suggestion = 'Storage quota exceeded - clear storage or use server mode'
+    } else if (msg.includes('parse')) {
+      suggestion = 'Invalid data format'
     }
 
-    return new BilanStatsError(message, suggestion)
+    return new BilanStorageError(msg, suggestion)
   }
 
-  static handleNetworkError(error: Error, endpoint?: string): BilanNetworkError {
-    let message = error.message
-    let suggestion = ''
-
-    if (error.message.includes('CORS')) {
-      suggestion = 'Configure CORS on server'
-    } else if (error.message.includes('timeout')) {
-      suggestion = 'Check server availability'
-    } else if (error.message.includes('404')) {
-      suggestion = 'Verify API endpoints'
-    }
-
-    return new BilanNetworkError(message, suggestion)
-  }
-
-  static handleStorageError(error: Error): BilanStorageError {
-    let message = error.message
-    let suggestion = ''
-
-    if (error.message.includes('localStorage')) {
-      suggestion = 'Use server mode or custom storage'
-    } else if (error.message.includes('quota') || error.message.includes('storage')) {
-      suggestion = 'Clear storage or use server mode'
-    }
-
-    return new BilanStorageError(message, suggestion)
-  }
-
-  static logError(error: BilanError): void {
+  static log(error: Error, context?: string): void {
     if (ErrorHandler.isDebugMode) {
-      console.group(`🔴 Bilan SDK Error: ${error.code}`)
-      console.error(`Message: ${error.message}`)
-      if (error.context) {
-        console.error(`Context: ${error.context}`)
-      }
-      if (error.suggestion) {
-        console.error(`Suggestion: ${error.suggestion}`)
-      }
-      console.groupEnd()
-    } else {
-      console.warn(`Bilan SDK (${error.code}): ${error.message}`)
+      console.error(`[Bilan SDK] ${context || 'Error'} error:`, error)
     }
   }
 
-  static handleGracefully<T>(
-    error: Error,
-    context: string,
-    fallback?: T
-  ): T | undefined {
-    let bilanError: BilanError
-
-    switch (context) {
-      case 'init':
-        bilanError = ErrorHandler.handleInitError(error)
-        break
-      case 'vote':
-        bilanError = ErrorHandler.handleVoteError(error)
-        break
-      case 'stats':
-        bilanError = ErrorHandler.handleStatsError(error)
-        break
-      case 'network':
-        bilanError = ErrorHandler.handleNetworkError(error)
-        break
-      case 'storage':
-        bilanError = ErrorHandler.handleStorageError(error)
-        break
-      default:
-        bilanError = new BilanError(error.message, 'UNKNOWN_ERROR', context)
+  static warn(message: string, context?: string): void {
+    if (ErrorHandler.isDebugMode) {
+      console.warn(`[Bilan] ${context || 'Warning'}:`, message)
     }
+  }
 
-    ErrorHandler.logError(bilanError)
-    return fallback
+  static createSafeError(message: string, code: string = 'UNKNOWN_ERROR'): BilanError {
+    return new BilanError(message, code)
   }
 }
 
@@ -203,21 +136,5 @@ export class GracefulDegradation {
     return typeof navigator === 'undefined' || navigator.onLine
   }
 
-  static getStatsFallback() {
-    return {
-      totalVotes: 0,
-      positiveRate: 0,
-      recentTrend: 'stable' as const,
-      topFeedback: []
-    }
-  }
 
-  static getPromptStatsFallback(promptId: PromptId) {
-    return {
-      promptId,
-      totalVotes: 0,
-      positiveRate: 0,
-      comments: []
-    }
-  }
 } 
