@@ -45,7 +45,7 @@ export const useTimeRange = () => {
   const router = useRouter()
   const searchParams = useSearchParams()
   
-  const currentRange = (searchParams.get('range') as TimeRange) || '7d'
+  const currentRange = (searchParams.get('range') as TimeRange) || '30d'
   
   const setTimeRange = (range: TimeRange) => {
     const params = new URLSearchParams(searchParams.toString())

@@ -55,8 +55,8 @@ export class BasicAnalyticsProcessor {
   /**
    * Calculate comprehensive dashboard analytics
    */
-  async calculateDashboardData(): Promise<DashboardData> {
-    const events = this.db.getEvents({ limit: 1000 })
+  async calculateDashboardData(startDate?: Date, endDate?: Date): Promise<DashboardData> {
+    const events = await this.getFilteredEvents(startDate, endDate)
     
     return {
       conversationStats: this.calculateConversationStats(events),
@@ -69,15 +69,36 @@ export class BasicAnalyticsProcessor {
   }
 
   /**
+   * Get filtered events based on date range
+   */
+  private async getFilteredEvents(startDate?: Date, endDate?: Date): Promise<VoteEvent[]> {
+    if (!startDate || !endDate) {
+      // If no date range specified, return all events
+      return await this.db.getEvents({ limit: 10000 })
+    }
+
+    // Convert dates to timestamps
+    const startTimestamp = startDate.getTime()
+    const endTimestamp = endDate.getTime()
+
+    // Use database-level filtering for better performance
+    return await this.db.getEvents({ 
+      limit: 10000, 
+      startTimestamp, 
+      endTimestamp 
+    })
+  }
+
+  /**
    * Calculate conversation stats - but be honest about what we actually have
    */
   private calculateConversationStats(events: VoteEvent[]): DashboardData['conversationStats'] {
     // We don't actually have conversation tracking, just individual votes
-    // So we can't accurately calculate conversation success rates
-    const uniquePrompts = new Set(events.map(e => e.promptId)).size
+    // Conversations are real objects that need to be tracked separately
+    // We should NOT count prompts as conversations
     
     return {
-      totalConversations: uniquePrompts, // These are prompts, not actual conversations
+      totalConversations: 0, // We don't have real conversation tracking
       successRate: null, // We don't have real conversation outcomes
       averageMessages: null, // We don't track messages per conversation
       completionRate: null // We don't track conversation completion
@@ -234,7 +255,10 @@ export class BasicAnalyticsProcessor {
         value: event.value,
         timestamp: event.timestamp,
         comment: event.comment,
-        metadata: event.metadata
+        metadata: {
+          ...event.metadata,
+          promptText: event.promptText
+        }
       }))
 
     return {

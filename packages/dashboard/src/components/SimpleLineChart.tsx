@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 
 interface TimeSeriesDataPoint {
   date: string
@@ -10,14 +10,27 @@ interface TimeSeriesDataPoint {
 interface SimpleLineChartProps {
   data: TimeSeriesDataPoint[]
   height?: number
-  width?: number
 }
 
 export const SimpleLineChart: React.FC<SimpleLineChartProps> = ({ 
   data, 
-  height = 200, 
-  width = 800 
+  height = 200
 }) => {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [width, setWidth] = useState(600)
+
+  useEffect(() => {
+    const updateWidth = () => {
+      if (containerRef.current) {
+        setWidth(containerRef.current.offsetWidth)
+      }
+    }
+
+    updateWidth()
+    window.addEventListener('resize', updateWidth)
+    return () => window.removeEventListener('resize', updateWidth)
+  }, [])
+
   if (data.length === 0) {
     return (
       <div className="d-flex justify-content-center align-items-center" style={{ height }}>
@@ -48,99 +61,96 @@ export const SimpleLineChart: React.FC<SimpleLineChartProps> = ({
   // Generate path
   const pathData = data.map((point, index) => {
     const x = padding + index * xScale
-    const y = padding + chartHeight - ((point.trustScore - yMin) * yScale)
+    const y = padding + chartHeight - ((point.trustScore - yMin) / yRange) * chartHeight
     return `${index === 0 ? 'M' : 'L'} ${x} ${y}`
   }).join(' ')
 
-  // Format date for display
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr)
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  // Generate grid lines
+  const gridLines = []
+  for (let i = 0; i <= 4; i++) {
+    const y = padding + (i * chartHeight) / 4
+    gridLines.push(
+      <line
+        key={`grid-${i}`}
+        x1={padding}
+        y1={y}
+        x2={padding + chartWidth}
+        y2={y}
+        stroke="#e9ecef"
+        strokeWidth="1"
+      />
+    )
   }
 
   return (
-    <div className="position-relative">
-      <svg width={width} height={height} style={{ overflow: 'visible' }}>
+    <div ref={containerRef} style={{ width: '100%', height }}>
+      <svg 
+        width="100%" 
+        height={height} 
+        style={{ overflow: 'visible' }}
+        role="img"
+        aria-label="Line chart showing data trends over time"
+      >
         {/* Grid lines */}
-        <defs>
-          <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#e9ecef" strokeWidth="1" opacity="0.5"/>
-          </pattern>
-        </defs>
-        <rect width={width} height={height} fill="url(#grid)" />
-        
-        {/* Chart area */}
-        <rect 
-          x={padding} 
-          y={padding} 
-          width={chartWidth} 
-          height={chartHeight} 
-          fill="none" 
-          stroke="#dee2e6" 
-          strokeWidth="1"
-        />
+        {gridLines}
         
         {/* Y-axis labels */}
-        {[0, 0.25, 0.5, 0.75, 1].map(value => {
-          const y = padding + chartHeight - (value * chartHeight)
+        {[0, 1, 2, 3, 4].map(i => {
+          const value = yMin + (yRange * i) / 4
+          const y = padding + chartHeight - (i * chartHeight) / 4
           return (
-            <g key={value}>
-              <line 
-                x1={padding - 5} 
-                y1={y} 
-                x2={padding} 
-                y2={y} 
-                stroke="#6c757d" 
-                strokeWidth="1"
-              />
-              <text 
-                x={padding - 10} 
-                y={y + 4} 
-                textAnchor="end" 
-                fontSize="12" 
-                fill="#6c757d"
-              >
-                {Math.round(value * 100)}%
-              </text>
-            </g>
+            <text
+              key={`y-label-${i}`}
+              x={padding - 10}
+              y={y + 4}
+              textAnchor="end"
+              fontSize="12"
+              fill="#6c757d"
+            >
+              {(value * 100).toFixed(0)}%
+            </text>
           )
         })}
         
         {/* X-axis labels */}
         {data.map((point, index) => {
-          const x = padding + index * xScale
-          const showLabel = index === 0 || index === data.length - 1 || index % Math.max(1, Math.floor(data.length / 5)) === 0
-          
-          if (!showLabel) return null
-          
-          return (
-            <g key={index}>
-              <line 
-                x1={x} 
-                y1={padding + chartHeight} 
-                x2={x} 
-                y2={padding + chartHeight + 5} 
-                stroke="#6c757d" 
-                strokeWidth="1"
-              />
-              <text 
-                x={x} 
-                y={padding + chartHeight + 18} 
-                textAnchor="middle" 
-                fontSize="12" 
+          if (index % Math.ceil(data.length / 3) === 0 || index === data.length - 1) {
+            const x = padding + index * xScale
+            let label: string
+            try {
+              const date = new Date(point.date)
+              if (isNaN(date.getTime())) {
+                label = 'Invalid Date'
+              } else {
+                label = date.toLocaleDateString('en-US', { 
+                  month: 'short', 
+                  day: 'numeric' 
+                })
+              }
+            } catch (error) {
+              label = 'Invalid Date'
+            }
+            return (
+              <text
+                key={`x-label-${index}`}
+                x={x}
+                y={height - 10}
+                textAnchor="middle"
+                fontSize="12"
                 fill="#6c757d"
               >
-                {formatDate(point.date)}
+                {label}
               </text>
-            </g>
-          )
+            )
+          }
+          return null
         })}
         
-        {/* Data line */}
-        <path 
-          d={pathData} 
-          fill="none" 
-          stroke="#0d6efd" 
+        {/* Chart line */}
+        <path
+          d={pathData}
+          fill="none"
+          stroke="#0d6efd"
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -149,23 +159,17 @@ export const SimpleLineChart: React.FC<SimpleLineChartProps> = ({
         {/* Data points */}
         {data.map((point, index) => {
           const x = padding + index * xScale
-          const y = padding + chartHeight - ((point.trustScore - yMin) * yScale)
-          
+          const y = padding + chartHeight - ((point.trustScore - yMin) / yRange) * chartHeight
           return (
-            <g key={index}>
-              <circle 
-                cx={x} 
-                cy={y} 
-                r="4" 
-                fill="#0d6efd"
-                stroke="#ffffff"
-                strokeWidth="2"
-              />
-              <title>
-                {formatDate(point.date)}: {Math.round(point.trustScore * 100)}% 
-                ({point.positiveVotes}/{point.totalVotes} votes)
-              </title>
-            </g>
+            <circle
+              key={`point-${index}`}
+              cx={x}
+              cy={y}
+              r="4"
+              fill="#0d6efd"
+              stroke="#fff"
+              strokeWidth="2"
+            />
           )
         })}
       </svg>

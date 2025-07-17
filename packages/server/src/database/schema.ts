@@ -63,8 +63,15 @@ export class BilanDatabase {
   }
 
   // Get events with simple filtering
-  getEvents(filters: { userId?: string; promptId?: string; limit?: number; offset?: number } = {}): VoteEvent[] {
-    const { userId, promptId, limit = 100, offset = 0 } = filters
+  getEvents(filters: { 
+    userId?: string; 
+    promptId?: string; 
+    limit?: number; 
+    offset?: number;
+    startTimestamp?: number;
+    endTimestamp?: number;
+  } = {}): VoteEvent[] {
+    const { userId, promptId, limit = 100, offset = 0, startTimestamp, endTimestamp } = filters
     
     let sql = 'SELECT * FROM events WHERE 1=1'
     const params: any[] = []
@@ -78,6 +85,16 @@ export class BilanDatabase {
       sql += ' AND prompt_id = ?'
       params.push(promptId)
     }
+
+    if (startTimestamp) {
+      sql += ' AND timestamp >= ?'
+      params.push(startTimestamp)
+    }
+
+    if (endTimestamp) {
+      sql += ' AND timestamp <= ?'
+      params.push(endTimestamp)
+    }
     
     sql += ' ORDER BY timestamp DESC LIMIT ? OFFSET ?'
     params.push(limit, offset)
@@ -87,8 +104,13 @@ export class BilanDatabase {
   }
 
   // Get total count
-  getEventsCount(filters: { userId?: string; promptId?: string } = {}): number {
-    const { userId, promptId } = filters
+  getEventsCount(filters: { 
+    userId?: string; 
+    promptId?: string;
+    startTimestamp?: number;
+    endTimestamp?: number;
+  } = {}): number {
+    const { userId, promptId, startTimestamp, endTimestamp } = filters
     
     let sql = 'SELECT COUNT(*) as count FROM events WHERE 1=1'
     const params: any[] = []
@@ -101,6 +123,16 @@ export class BilanDatabase {
     if (promptId) {
       sql += ' AND prompt_id = ?'
       params.push(promptId)
+    }
+
+    if (startTimestamp) {
+      sql += ' AND timestamp >= ?'
+      params.push(startTimestamp)
+    }
+
+    if (endTimestamp) {
+      sql += ' AND timestamp <= ?'
+      params.push(endTimestamp)
     }
     
     const result = this.queryOne(sql, params)

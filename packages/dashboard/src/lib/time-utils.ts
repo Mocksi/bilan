@@ -9,7 +9,7 @@ export const getTimeRangeInDays = (range: TimeRange): number => {
     case '90d':
       return 90
     default:
-      return 7
+      return 30
   }
 }
 

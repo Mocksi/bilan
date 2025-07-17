@@ -34,15 +34,13 @@ export default function Table({
 
   if (loading) {
     return (
-      <div className={`bg-white rounded-lg shadow-sm border ${className}`}>
-        <div className="p-6">
-          <div className="animate-pulse">
-            <div className="h-4 bg-gray-200 rounded w-1/4 mb-4"></div>
-            <div className="space-y-3">
-              {[...Array(3)].map((_, i) => (
-                <div key={i} className="h-4 bg-gray-200 rounded"></div>
-              ))}
-            </div>
+      <div className={`card ${className}`}>
+        <div className="card-body">
+          <div className="placeholder-glow">
+            <div className="placeholder col-3 mb-3"></div>
+            <div className="placeholder col-12 mb-2"></div>
+            <div className="placeholder col-12 mb-2"></div>
+            <div className="placeholder col-8"></div>
           </div>
         </div>
       </div>
@@ -50,23 +48,23 @@ export default function Table({
   }
 
   return (
-    <div className={`bg-white rounded-lg shadow-sm border overflow-hidden ${className}`}>
+    <div className={`card ${className}`}>
       {title && (
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
+        <div className="card-header">
+          <h3 className="card-title">{title}</h3>
         </div>
       )}
       
-      <div className="overflow-x-auto">
-        <table className="w-full">
-          <thead className="bg-gray-50">
+      <div className="table-responsive">
+        <table className="table table-vcenter">
+          <thead>
             <tr>
               {columns.map((column) => (
                 <th
                   key={column.key}
-                  className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${
+                  className={`${
                     column.align === 'center' ? 'text-center' : 
-                    column.align === 'right' ? 'text-right' : 'text-left'
+                    column.align === 'right' ? 'text-end' : ''
                   }`}
                   style={{ width: column.width }}
                 >
@@ -75,25 +73,25 @@ export default function Table({
               ))}
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody>
             {data.length === 0 ? (
               <tr>
                 <td
                   colSpan={columns.length}
-                  className="px-6 py-8 text-center text-gray-500"
+                  className="text-center text-muted py-4"
                 >
                   {emptyMessage}
                 </td>
               </tr>
             ) : (
               data.map((row, index) => (
-                <tr key={getRowKey(row, index)} className="hover:bg-gray-50">
+                <tr key={getRowKey(row, index)}>
                   {columns.map((column) => (
                     <td
                       key={column.key}
-                      className={`px-6 py-4 whitespace-nowrap text-sm ${
+                      className={`${
                         column.align === 'center' ? 'text-center' : 
-                        column.align === 'right' ? 'text-right' : 'text-left'
+                        column.align === 'right' ? 'text-end' : ''
                       }`}
                     >
                       {column.render ? 

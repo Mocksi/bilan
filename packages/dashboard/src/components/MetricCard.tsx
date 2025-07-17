@@ -46,31 +46,33 @@ export const MetricCard: React.FC<MetricCardProps> = ({
     }
   }
 
-  return (
-    <div className={`bg-white p-6 rounded-lg shadow-sm border ${className}`}>
-      <div className="flex items-center">
-        <div className="flex-shrink-0">
-          <div className="text-3xl">{icon}</div>
+    return (
+    <div className={`card ${className}`}>
+      <div className="card-body">
+        <div className="d-flex align-items-center">
+          <div className="flex-shrink-0">
+            <div className="h2">{icon}</div>
+          </div>
+          <div className="ms-3 flex-fill">
+            <dl className="mb-0">
+              <dt className="small text-muted">{title}</dt>
+              <dd className="h4 mb-0">{value}</dd>
+            </dl>
+          </div>
         </div>
-        <div className="ml-5 w-0 flex-1">
-          <dl>
-            <dt className="text-sm font-medium text-gray-500 truncate">{title}</dt>
-            <dd className="text-2xl font-semibold text-gray-900">{value}</dd>
-          </dl>
-        </div>
+        {(description || trend) && (
+          <div className="mt-3 d-flex align-items-center justify-content-between">
+            {description && (
+              <div className="small text-muted">{description}</div>
+            )}
+            {trend && (
+              <div className={`small fw-medium ${getTrendColor(trend.direction)}`}>
+                {getTrendIcon(trend.direction)} {trend.value}
+              </div>
+            )}
+          </div>
+        )}
       </div>
-      {(description || trend) && (
-        <div className="mt-4 flex items-center justify-between">
-          {description && (
-            <div className="text-sm text-gray-600">{description}</div>
-          )}
-          {trend && (
-            <div className={`text-sm font-medium ${getTrendColor(trend.direction)}`}>
-              {getTrendIcon(trend.direction)} {trend.value}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   )
 } 
