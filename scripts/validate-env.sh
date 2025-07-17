@@ -123,10 +123,11 @@ check_command() {
     
     if command -v "$cmd" > /dev/null 2>&1; then
         print_success "$description is available: $(which "$cmd")"
+        return 0
     else
         add_warning "$description is not available: $cmd"
+        return 1
     fi
-    return 0
 }
 
 # Load environment variables
@@ -172,8 +173,13 @@ if [ -n "${DATABASE_URL-}" ] || [ -n "${POSTGRES_HOST-}" ]; then
     fi
     
     # Check PostgreSQL tools
-    check_command "psql" "PostgreSQL client"
-    check_command "pg_dump" "PostgreSQL backup tool"
+    check_command "psql" "PostgreSQL client" || true
+    check_command "pg_dump" "PostgreSQL backup tool" || true
+    
+    # Validate PostgreSQL connection
+    if [ -n "${BILAN_DATABASE_URL-}" ]; then
+        validate_database_connection
+    fi
 else
     print_status "SQLite database configuration detected"
     validate_required "BILAN_DB_PATH" "${BILAN_DB_PATH-}" "SQLite database path"
@@ -182,7 +188,7 @@ else
     fi
     
     # Check SQLite tools
-    check_command "sqlite3" "SQLite client"
+    check_command "sqlite3" "SQLite client" || true
 fi
 
 # 3. Security Configuration
@@ -253,10 +259,18 @@ validate_optional "BILAN_DOCKER_DATA_PATH" "${BILAN_DOCKER_DATA_PATH-}" "Docker 
 echo ""
 echo "⚙️  System Dependencies:"
 echo "======================="
-check_command "node" "Node.js runtime"
-check_command "npm" "NPM package manager"
-check_command "docker" "Docker runtime"
-check_command "docker-compose" "Docker Compose" || check_command "docker" "Docker with compose plugin"
+check_command "node" "Node.js runtime" || add_error "Node.js is required for the application"
+check_command "npm" "NPM package manager" || add_error "NPM is required for package management"
+check_command "docker" "Docker runtime" || add_error "Docker is required for containerized deployment"
+
+# Check Docker Compose availability
+if ! check_command "docker-compose" "Docker Compose"; then
+    if docker compose version > /dev/null 2>&1; then
+        print_success "Docker Compose plugin is available: docker compose"
+    else
+        add_error "Docker Compose is not available - neither 'docker-compose' nor 'docker compose' commands work"
+    fi
+fi
 
 # 10. File Permissions
 echo ""
