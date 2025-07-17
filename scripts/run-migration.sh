@@ -191,7 +191,7 @@ create_backup() {
     if [ "$DB_TYPE" = "sqlite" ] && [ -f "$DB_PATH" ]; then
         cp "$DB_PATH" "$backup_dir/bilan.db.backup"
         print_success "Database backed up to $backup_dir/bilan.db.backup"
-    elif [ "$DB_TYPE" = "postgres" ]; then
+    elif [ "$DB_TYPE" = "postgresql" ]; then
         if command -v pg_dump > /dev/null 2>&1; then
             pg_dump "${DATABASE_URL:-}" > "$backup_dir/bilan.sql.backup"
             if [ $? -eq 0 ]; then
