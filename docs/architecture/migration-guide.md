@@ -32,6 +32,7 @@ CREATE TABLE conversations (
   id UUID PRIMARY KEY,
   user_id VARCHAR(255),
   status VARCHAR(50),
+  title VARCHAR(255),
   created_at TIMESTAMP
 );
 
