@@ -17,7 +17,7 @@ npm install @mocksi/bilan-sdk openai
 ```typescript
 // lib/openai.ts
 import OpenAI from 'openai'
-import { init } from '@mocksi/bilan-sdk'
+import { Bilan } from '@mocksi/bilan-sdk'
 
 // Cross-platform UUID generation
 function generateId(): string {
@@ -32,28 +32,24 @@ export const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 })
 
-export const bilan = await init({
-  mode: process.env.BILAN_MODE || 'local', // 'local' or 'server'
-  apiKey: process.env.BILAN_API_KEY, // Required for server mode
-  userId: process.env.BILAN_USER_ID || 'anonymous', // Your user identifier
-  telemetry: { 
-    enabled: process.env.BILAN_TELEMETRY !== 'false' // opt-in to usage analytics
-  }
+export const bilan = new Bilan({
+  apiKey: process.env.BILAN_API_KEY,
+  projectId: process.env.BILAN_PROJECT_ID,
+  userId: process.env.BILAN_USER_ID || 'anonymous'
 })
 ```
 
 **Required Environment Variables:**
 - `OPENAI_API_KEY` - Your OpenAI API key for authentication
-- `BILAN_MODE` - Set to 'server' for production, 'local' for development
-- `BILAN_API_KEY` - Your Bilan API key (required for server mode)
+- `BILAN_API_KEY` - Your Bilan API key
+- `BILAN_PROJECT_ID` - Your Bilan project identifier
 - `BILAN_USER_ID` - Unique identifier for the current user
-- `BILAN_TELEMETRY` - Set to 'false' to disable telemetry (optional)
 
 ### 2. Create a tracked chat completion function
 
 ```typescript
 // lib/chat.ts
-import { openai } from './openai'
+import { openai, bilan } from './openai'
 
 // Cross-platform UUID generation
 function generateId(): string {
@@ -66,7 +62,8 @@ function generateId(): string {
 
 export interface TrackedChatResponse {
   content: string
-  promptId: string
+  turnId: string
+  conversationId: string
   model: string
   usage: {
     promptTokens: number
@@ -82,12 +79,24 @@ export async function createChatCompletion(
     model?: string
     temperature?: number
     maxTokens?: number
+    conversationId?: string
   } = {}
 ): Promise<TrackedChatResponse> {
-  const promptId = generateId()
+  const turnId = generateId()
+  const conversationId = options.conversationId || generateId()
   const model = options.model || 'gpt-3.5-turbo'
   
   try {
+    // Track turn start
+    await bilan.track('turn_started', {
+      turn_id: turnId,
+      conversation_id: conversationId,
+      model,
+      provider: 'openai',
+      input_tokens: messages.reduce((sum, msg) => sum + msg.content.length, 0),
+      temperature: options.temperature || 0.7
+    })
+
     const completion = await openai.chat.completions.create({
       model,
       messages,
@@ -101,9 +110,23 @@ export async function createChatCompletion(
       throw new Error('No content in response')
     }
 
+    // Track turn completion
+    await bilan.track('turn_completed', {
+      turn_id: turnId,
+      conversation_id: conversationId,
+      model,
+      provider: 'openai',
+      input_tokens: completion.usage?.prompt_tokens || 0,
+      output_tokens: completion.usage?.completion_tokens || 0,
+      total_tokens: completion.usage?.total_tokens || 0,
+      finish_reason: response.finish_reason,
+      latency: Date.now() - new Date().getTime()
+    })
+
     return {
       content: response.message.content,
-      promptId,
+      turnId,
+      conversationId,
       model,
       usage: {
         promptTokens: completion.usage?.prompt_tokens || 0,
@@ -117,6 +140,16 @@ export async function createChatCompletion(
       }
     }
   } catch (error) {
+    // Track turn failure
+    await bilan.track('turn_failed', {
+      turn_id: turnId,
+      conversation_id: conversationId,
+      model,
+      provider: 'openai',
+      error: error.message,
+      error_type: error.name
+    })
+    
     console.error('OpenAI API error:', error)
     throw error
   }
@@ -196,13 +229,14 @@ export async function createStreamingChat(
 
 import { useState, useRef } from 'react'
 import { createChatCompletion, TrackedChatResponse } from '@/lib/chat'
-import { vote } from '@mocksi/bilan-sdk'
+import { bilan } from '@/lib/openai'
 
 interface Message {
   id: string
   role: 'user' | 'assistant'
   content: string
-  promptId?: string
+  turnId?: string
+  conversationId?: string
   model?: string
   usage?: TrackedChatResponse['usage']
 }
@@ -219,6 +253,7 @@ export default function OpenAIChat() {
   const [isLoading, setIsLoading] = useState(false)
   const [feedbackStates, setFeedbackStates] = useState<Record<string, 1 | -1>>({})
   const [selectedModel, setSelectedModel] = useState<string>('gpt-3.5-turbo')
+  const [currentConversationId, setCurrentConversationId] = useState<string>('')
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -251,14 +286,21 @@ export default function OpenAIChat() {
 
       const response = await createChatCompletion(conversationHistory, {
         model: selectedModel,
-        temperature: 0.7
+        temperature: 0.7,
+        conversationId: currentConversationId
       })
+
+      // Set conversation ID for future messages
+      if (!currentConversationId) {
+        setCurrentConversationId(response.conversationId)
+      }
 
       const assistantMessage: Message = {
         id: `assistant-${Date.now()}`,
         role: 'assistant',
         content: response.content,
-        promptId: response.promptId,
+        turnId: response.turnId,
+        conversationId: response.conversationId,
         model: response.model,
         usage: response.usage
       }
@@ -279,16 +321,22 @@ export default function OpenAIChat() {
     }
   }
 
-  const handleFeedback = async (promptId: string, value: 1 | -1, comment?: string) => {
+  const handleFeedback = async (turnId: string, conversationId: string, value: 1 | -1, comment?: string) => {
     try {
-      await vote(promptId, value, comment)
-      setFeedbackStates(prev => ({ ...prev, [promptId]: value }))
+      await bilan.track('vote', {
+        turn_id: turnId,
+        conversation_id: conversationId,
+        vote_type: value === 1 ? 'up' : 'down',
+        value,
+        comment
+      })
+      setFeedbackStates(prev => ({ ...prev, [turnId]: value }))
     } catch (error) {
       console.error('Failed to submit feedback:', error)
     }
   }
 
-  const handleDetailedFeedback = (promptId: string, value: 1 | -1) => {
+  const handleDetailedFeedback = (turnId: string, conversationId: string, value: 1 | -1) => {
     const comment = window.prompt(
       value === 1 
         ? 'What made this response helpful?' 
@@ -296,7 +344,7 @@ export default function OpenAIChat() {
     )
     
     if (comment) {
-      handleFeedback(promptId, value, comment)
+      handleFeedback(turnId, conversationId, value, comment)
     }
   }
 
@@ -339,13 +387,13 @@ export default function OpenAIChat() {
               )}
               
               {/* Feedback buttons */}
-              {message.role === 'assistant' && message.promptId && (
+              {message.role === 'assistant' && message.turnId && message.conversationId && (
                 <div className="mt-2 flex gap-2">
                   <button
-                    onClick={() => handleFeedback(message.promptId!, 1)}
-                    onDoubleClick={() => handleDetailedFeedback(message.promptId!, 1)}
+                    onClick={() => handleFeedback(message.turnId!, message.conversationId!, 1)}
+                    onDoubleClick={() => handleDetailedFeedback(message.turnId!, message.conversationId!, 1)}
                     className={`text-sm px-2 py-1 rounded ${
-                      feedbackStates[message.promptId] === 1
+                      feedbackStates[message.turnId] === 1
                         ? 'bg-green-500 text-white'
                         : 'bg-gray-100 hover:bg-gray-200'
                     }`}
@@ -354,10 +402,10 @@ export default function OpenAIChat() {
                     👍 Helpful
                   </button>
                   <button
-                    onClick={() => handleFeedback(message.promptId!, -1)}
-                    onDoubleClick={() => handleDetailedFeedback(message.promptId!, -1)}
+                    onClick={() => handleFeedback(message.turnId!, message.conversationId!, -1)}
+                    onDoubleClick={() => handleDetailedFeedback(message.turnId!, message.conversationId!, -1)}
                     className={`text-sm px-2 py-1 rounded ${
-                      feedbackStates[message.promptId] === -1
+                      feedbackStates[message.turnId] === -1
                         ? 'bg-red-500 text-white'
                         : 'bg-gray-100 hover:bg-gray-200'
                     }`}
@@ -637,12 +685,87 @@ for await (const chunk of response.stream) {
 ### 3. Test feedback
 
 ```typescript
-import { vote, getStats } from '@mocksi/bilan-sdk'
+import { bilan } from '@/lib/openai'
 
-await vote('prompt-id-123', 1, 'Great response!')
-const stats = await getStats()
-console.log('Trust score:', stats.trustScore)
+await bilan.track('vote', {
+  turn_id: 'turn-123',
+  conversation_id: 'conv-456',
+  vote_type: 'up',
+  value: 1,
+  comment: 'Great response!'
+})
+
+const analytics = await bilan.getAnalytics()
+console.log('Analytics:', analytics)
 ```
+
+## Migration from v0.3.1 to v0.4.0
+
+### Before (v0.3.1) - Conversation-Centric
+
+```typescript
+// Old initialization
+import { init, vote } from '@mocksi/bilan-sdk'
+
+const bilan = await init({
+  mode: 'local',
+  userId: 'user-123',
+  telemetry: { enabled: true }
+})
+
+// Old voting
+await vote('prompt-id-123', 1, 'Great response!')
+```
+
+### After (v0.4.0) - Event-Driven
+
+```typescript
+// New initialization
+import { Bilan } from '@mocksi/bilan-sdk'
+
+const bilan = new Bilan({
+  apiKey: 'your-api-key',
+  projectId: 'your-project',
+  userId: 'user-123'
+})
+
+// New event tracking
+await bilan.track('vote', {
+  turn_id: 'turn-123',
+  conversation_id: 'conv-456',
+  vote_type: 'up',
+  value: 1,
+  comment: 'Great response!'
+})
+
+// Track full conversation lifecycle
+await bilan.track('conversation_started', {
+  conversation_id: 'conv-456',
+  title: 'OpenAI Chat Session'
+})
+
+await bilan.track('turn_started', {
+  turn_id: 'turn-123',
+  conversation_id: 'conv-456',
+  model: 'gpt-4'
+})
+
+await bilan.track('turn_completed', {
+  turn_id: 'turn-123',
+  conversation_id: 'conv-456',
+  model: 'gpt-4',
+  input_tokens: 50,
+  output_tokens: 100
+})
+```
+
+### Key Changes
+
+1. **Initialization**: `init()` → `new Bilan()`
+2. **Feedback**: `vote()` → `track('vote', properties)`
+3. **Event System**: Single events table with flexible properties
+4. **Conversation Tracking**: Full lifecycle from start to completion
+5. **Analytics**: `getStats()` → `getAnalytics()`
 
 ## Advanced Features
 
@@ -740,18 +863,28 @@ export async function createFunctionCall(
 
 ```typescript
 // lib/adaptive-model.ts
-import { getStats } from '@mocksi/bilan-sdk'
+import { bilan } from './openai'
 import { createChatCompletion } from './chat'
 
 export async function createAdaptiveCompletion(
-  messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>
+  messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
+  conversationId?: string
 ) {
-  const stats = await getStats()
+  const analytics = await bilan.getAnalytics({
+    eventType: 'vote',
+    conversationId,
+    timeRange: '7d'
+  })
   
-  // Use better model if trust score is low
-  const model = stats.trustScore < 0.7 ? 'gpt-4' : 'gpt-3.5-turbo'
+  // Calculate satisfaction rate from recent votes
+  const recentVotes = analytics.events.filter(e => e.event_type === 'vote')
+  const positiveVotes = recentVotes.filter(e => e.properties.value === 1).length
+  const satisfactionRate = recentVotes.length > 0 ? positiveVotes / recentVotes.length : 0.5
   
-  return createChatCompletion(messages, { model })
+  // Use better model if satisfaction rate is low
+  const model = satisfactionRate < 0.7 ? 'gpt-4' : 'gpt-3.5-turbo'
+  
+  return createChatCompletion(messages, { model, conversationId })
 }
 ```
 
