@@ -1,62 +1,91 @@
-# Build stage
-FROM node:18-alpine AS builder
+# Bilan Server Dockerfile
+# Multi-stage build for production deployment
 
+# Build stage
+FROM node:20-alpine AS builder
+
+# Install build dependencies for native modules
+RUN apk add --no-cache python3 make g++ && \
+    ln -sf python3 /usr/bin/python
+
+# Set working directory
 WORKDIR /app
 
 # Copy package files for dependency installation
 COPY package*.json ./
-COPY packages/server/package*.json ./packages/server/
-COPY packages/sdk/package*.json ./packages/sdk/
+COPY packages/sdk/package*.json packages/sdk/
+COPY packages/server/package*.json packages/server/
 
-# Install all dependencies (including devDependencies for building)
+# Install all dependencies (including dev dependencies for building)
 RUN npm ci
 
 # Copy source code
-COPY . .
+COPY packages/sdk/ packages/sdk/
+COPY packages/server/ packages/server/
+COPY tsconfig.json ./
 
-# Build the packages
+# Build SDK first (server depends on it)
+WORKDIR /app/packages/sdk
 RUN npm run build
 
-# Production stage
-FROM node:18-alpine AS production
+# Build server
+WORKDIR /app/packages/server
+RUN npm run build
 
+# Clean install production dependencies only (after building is complete)
 WORKDIR /app
+RUN npm ci --only=production
 
-# Copy package files for production dependencies only
-COPY package*.json ./
-COPY packages/server/package*.json ./packages/server/
-COPY packages/sdk/package*.json ./packages/sdk/
+# Production stage
+FROM node:20-alpine AS production
 
-# Install only production dependencies
-RUN npm ci --only=production && npm cache clean --force
+# Install security updates and required packages
+RUN apk update && apk upgrade && \
+    apk add --no-cache dumb-init && \
+    rm -rf /var/cache/apk/*
 
-# Copy built output from build stage
-COPY --from=builder /app/packages/server/dist ./packages/server/dist
-COPY --from=builder /app/packages/sdk/dist ./packages/sdk/dist
-
-# Copy other necessary files (if any)
-COPY --from=builder /app/packages/server/package.json ./packages/server/
-COPY --from=builder /app/packages/sdk/package.json ./packages/sdk/
-
-# Create a non-root user
+# Create non-root user for security
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S bilan -u 1001
 
-# Create volume for database and set ownership
-RUN mkdir -p /app/data && chown -R bilan:nodejs /app/data
-VOLUME ["/app/data"]
+# Set working directory
+WORKDIR /app
 
-# Switch to non-root user
+# Copy package files and pre-built node_modules
+COPY --from=builder /app/package*.json ./
+COPY --from=builder /app/packages/server/package*.json packages/server/
+COPY --from=builder /app/packages/sdk/package*.json packages/sdk/
+COPY --from=builder /app/node_modules ./node_modules
+
+# Copy built applications
+COPY --from=builder /app/packages/server/dist/ packages/server/dist/
+COPY --from=builder /app/packages/sdk/dist/ packages/sdk/dist/
+
+# Copy package.json files for runtime
+COPY --from=builder /app/packages/sdk/package.json packages/sdk/
+COPY --from=builder /app/packages/server/package.json packages/server/
+
+# Set ownership and permissions
+RUN chown -R bilan:nodejs /app
 USER bilan
 
-# Expose port
-EXPOSE 3001
-
 # Set environment variables
-ENV DB_PATH=/app/data/bilan.db
-ENV PORT=3001
-ENV HOST=0.0.0.0
 ENV NODE_ENV=production
+ENV PORT=3002
+ENV DB_PATH=/app/data/bilan.db
+
+# Create data directory
+RUN mkdir -p /app/data
+
+# Expose port
+EXPOSE 3002
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD node -e "fetch('http://localhost:3002/health').then(() => process.exit(0)).catch(() => process.exit(1))"
+
+# Use dumb-init to handle signals properly
+ENTRYPOINT ["dumb-init", "--"]
 
 # Start the server
 CMD ["node", "packages/server/dist/cli.js"] 
