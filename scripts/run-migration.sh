@@ -172,6 +172,11 @@ run_postgresql_migration() {
     
     print_status "Running PostgreSQL migration: $migration_name"
     
+    # Export PGPASSWORD to avoid interactive prompts
+    if [ -n "${POSTGRES_PASSWORD:-}" ]; then
+        export PGPASSWORD="${POSTGRES_PASSWORD}"
+    fi
+    
     # Build psql command arguments array
     local psql_args=("psql")
     
@@ -193,8 +198,8 @@ run_postgresql_migration() {
         fi
     fi
     
-    # Add ON_ERROR_STOP
-    psql_args+=("-v" "ON_ERROR_STOP=1")
+    # Add safer ON_ERROR_STOP flags
+    psql_args+=("-X" "--set=ON_ERROR_STOP=1")
     
     # Execute migration
     if "${psql_args[@]}" < "$migration_file"; then
