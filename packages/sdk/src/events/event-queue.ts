@@ -9,7 +9,7 @@ export class EventQueueManager {
   private batchSize: number
   private flushInterval: number
   private maxBatches: number
-  private flushTimer: NodeJS.Timeout | null = null
+  private flushTimer: number | null = null
   private isProcessing = false
   private storage: any = null
   private onFlush: (events: Event[]) => Promise<void>
@@ -123,7 +123,7 @@ export class EventQueueManager {
         // Silently handle flush errors in background
         console.warn('Bilan: Background flush failed:', error)
       }
-    }, this.flushInterval)
+    }, this.flushInterval) as unknown as number
   }
 
   /**
