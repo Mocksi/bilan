@@ -668,7 +668,22 @@ export async function fetchJourneys(
  * Fetch a single journey by ID
  */
 export async function fetchJourney(id: string): Promise<JourneyData> {
-  const response = await fetch(`${API_BASE_URL}/journeys/${id}`)
+  // Input validation
+  if (!id || typeof id !== 'string') {
+    throw new Error('Journey ID is required and must be a non-empty string')
+  }
+  
+  if (id.trim().length === 0) {
+    throw new Error('Journey ID cannot be empty or contain only whitespace')
+  }
+  
+  // Basic format validation - should only contain alphanumeric characters, hyphens, and underscores
+  if (!/^[a-zA-Z0-9_-]+$/.test(id.trim())) {
+    throw new Error('Journey ID contains invalid characters. Only letters, numbers, hyphens, and underscores are allowed')
+  }
+  
+  const sanitizedId = id.trim()
+  const response = await fetch(`${API_BASE_URL}/journeys/${sanitizedId}`)
   
   if (!response.ok) {
     throw new Error(`Failed to fetch journey: ${response.statusText}`)
