@@ -243,6 +243,12 @@ npm install @mocksi/bilan-sdk@0.3.1
 ### Docker
 
 ```bash
+# Build the image locally
+git clone https://github.com/Mocksi/bilan.git
+cd bilan
+docker build -t bilan/server:0.3.1 .
+
+# Run the container
 docker run -p 3002:3002 bilan/server:0.3.1
 ```
 
