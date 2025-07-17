@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { BilanServer } from './server'
+import { BilanServer } from './server.js'
 
 const portEnv = process.env.PORT
 const port = portEnv ? parseInt(portEnv, 10) : 3001

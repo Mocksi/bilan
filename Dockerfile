@@ -2,7 +2,11 @@
 # Multi-stage build for production deployment
 
 # Build stage
-FROM node:18-alpine AS builder
+FROM node:20-alpine AS builder
+
+# Install build dependencies for native modules
+RUN apk add --no-cache python3 make g++ && \
+    ln -sf python3 /usr/bin/python
 
 # Set working directory
 WORKDIR /app
@@ -12,8 +16,8 @@ COPY package*.json ./
 COPY packages/sdk/package*.json packages/sdk/
 COPY packages/server/package*.json packages/server/
 
-# Install dependencies
-RUN npm ci --only=production
+# Install all dependencies (including dev dependencies for building)
+RUN npm ci
 
 # Copy source code
 COPY packages/sdk/ packages/sdk/
@@ -29,11 +33,12 @@ WORKDIR /app/packages/server
 RUN npm run build
 
 # Production stage
-FROM node:18-alpine AS production
+FROM node:20-alpine AS production
 
-# Install security updates and required packages
+# Install security updates and required packages (including build tools for native modules)
 RUN apk update && apk upgrade && \
-    apk add --no-cache dumb-init && \
+    apk add --no-cache dumb-init python3 make g++ && \
+    ln -sf python3 /usr/bin/python && \
     rm -rf /var/cache/apk/*
 
 # Create non-root user for security
@@ -48,8 +53,8 @@ COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/packages/server/package*.json packages/server/
 COPY --from=builder /app/packages/sdk/package*.json packages/sdk/
 
-# Install only production dependencies
-RUN npm ci --only=production --ignore-scripts
+# Install only production dependencies (allow scripts to run for native modules)
+RUN npm ci --only=production
 
 # Copy built applications
 COPY --from=builder /app/packages/server/dist/ packages/server/dist/
