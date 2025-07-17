@@ -13,7 +13,7 @@ import { ThumbsUpIcon } from '@/components/icons'
  */
 const VotesContent: React.FC = () => {
   const [page, setPage] = useState(1)
-  const [limit] = useState(1000) // Increased limit to show all votes
+  const [limit] = useState(25) // Reduced limit to enable pagination
   
   // Use useMemo to create a stable filters object
   const filters = useMemo(() => ({}), [])
