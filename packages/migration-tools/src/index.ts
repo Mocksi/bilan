@@ -20,6 +20,9 @@
  */
 
 export { V3DataExtractor } from './extractor.js'
+export { EventFormatConverter } from './converter.js'
+export { V4DatabaseManager } from './v4-schema.js'
+export { BilanMigrator } from './migrator.js'
 export type {
   V3VoteEvent,
   V4Event,

@@ -2,6 +2,7 @@
 
 import { Command } from 'commander'
 import { V3DataExtractor } from './extractor.js'
+import { BilanMigrator } from './migrator.js'
 import { MigrationConfig } from './types.js'
 
 const program = new Command()
@@ -159,6 +160,159 @@ program
       
     } catch (error) {
       console.error('❌ Extraction failed:', error instanceof Error ? error.message : 'Unknown error')
+      process.exit(1)
+    }
+  })
+
+program
+  .command('convert')
+  .description('Convert v0.3.x data to v0.4.0 format (dry run)')
+  .option('--source <path>', 'Path to v0.3.x database file', './bilan.db')
+  .option('--target <path>', 'Path for v0.4.0 database file', './bilan-v4.db')
+  .option('--batch-size <size>', 'Batch size for conversion', '1000')
+  .option('--verbose', 'Enable verbose output', false)
+  .action(async (options) => {
+    console.log('🔄 Converting v0.3.x data to v0.4.0 format (dry run)...')
+    
+    const config: MigrationConfig = {
+      sourceDbPath: options.source,
+      targetDbPath: options.target,
+      batchSize: parseInt(options.batchSize),
+      verbose: options.verbose,
+      dryRun: true
+    }
+    
+    try {
+      const migrator = new BilanMigrator(config)
+      const dryRunResult = await migrator.dryRun()
+      
+      console.log('🔍 Dry Run Results:')
+      console.log(`   Total events to migrate: ${dryRunResult.totalEvents}`)
+      console.log(`   Estimated database size: ${Math.round(dryRunResult.estimatedSize / 1024 / 1024)}MB`)
+      
+      console.log('\n📋 Sample Conversions:')
+      dryRunResult.sampleConversions.forEach((sample, index) => {
+        console.log(`   ${index + 1}. ${sample.originalId} → ${sample.newEventId}`)
+        console.log(`      Event type: ${sample.eventType}`)
+        console.log(`      Properties: ${sample.propertiesCount}`)
+        console.log(`      Has content: ${sample.hasContent ? 'Yes' : 'No'}`)
+      })
+      
+      migrator.close()
+      
+    } catch (error) {
+      console.error('❌ Conversion preview failed:', error instanceof Error ? error.message : 'Unknown error')
+      process.exit(1)
+    }
+  })
+
+program
+  .command('migrate')
+  .description('Perform full migration from v0.3.x to v0.4.0')
+  .option('--source <path>', 'Path to v0.3.x database file', './bilan.db')
+  .option('--target <path>', 'Path for v0.4.0 database file', './bilan-v4.db')
+  .option('--batch-size <size>', 'Batch size for migration', '1000')
+  .option('--verbose', 'Enable verbose output', false)
+  .option('--dry-run', 'Perform dry run without writing to database', false)
+  .action(async (options) => {
+    if (options.dryRun) {
+      console.log('🔍 Performing migration dry run...')
+    } else {
+      console.log('🚀 Starting full migration from v0.3.x to v0.4.0...')
+    }
+    
+    const config: MigrationConfig = {
+      sourceDbPath: options.source,
+      targetDbPath: options.target,
+      batchSize: parseInt(options.batchSize),
+      verbose: options.verbose,
+      dryRun: options.dryRun
+    }
+    
+    try {
+      const migrator = new BilanMigrator(config)
+      
+      if (options.dryRun) {
+        const dryRunResult = await migrator.dryRun()
+        console.log(`✅ Dry run complete: ${dryRunResult.totalEvents} events would be migrated`)
+        console.log(`💾 Estimated size: ${Math.round(dryRunResult.estimatedSize / 1024 / 1024)}MB`)
+      } else {
+        const stats = await migrator.migrate()
+        
+        console.log('\n📊 Migration Statistics:')
+        console.log('   v0.3.x Database:')
+        console.log(`     Total votes: ${stats.v3Stats.totalVotes}`)
+        console.log(`     Unique users: ${stats.v3Stats.uniqueUsers}`)
+        console.log(`     Unique prompts: ${stats.v3Stats.uniquePrompts}`)
+        
+        console.log('   v0.4.0 Database:')
+        console.log(`     Total events: ${stats.v4Stats.totalEvents}`)
+        console.log(`     Unique users: ${stats.v4Stats.uniqueUsers}`)
+        console.log(`     Event types: ${Object.entries(stats.v4Stats.eventTypes).map(([type, count]) => `${type}=${count}`).join(', ')}`)
+        
+        console.log('   Conversion Summary:')
+        console.log(`     Events converted: ${stats.conversionSummary.votesToVoteCast}`)
+        console.log(`     Metadata preserved: ${stats.conversionSummary.metadataPreserved}`)
+        console.log(`     Content preserved: ${stats.conversionSummary.contentPreserved}`)
+        console.log(`     Errors encountered: ${stats.conversionSummary.errorsEncountered}`)
+      }
+      
+      migrator.close()
+      
+    } catch (error) {
+      console.error('❌ Migration failed:', error instanceof Error ? error.message : 'Unknown error')
+      process.exit(1)
+    }
+  })
+
+program
+  .command('validate-migration')
+  .description('Validate migration integrity by comparing v0.3.x and v0.4.0 databases')
+  .option('--source <path>', 'Path to v0.3.x database file', './bilan.db')
+  .option('--target <path>', 'Path to v0.4.0 database file', './bilan-v4.db')
+  .option('--verbose', 'Enable verbose output', false)
+  .action(async (options) => {
+    console.log('🔍 Validating migration integrity...')
+    
+    const config: MigrationConfig = {
+      sourceDbPath: options.source,
+      targetDbPath: options.target,
+      verbose: options.verbose
+    }
+    
+    try {
+      const migrator = new BilanMigrator(config)
+      const validation = await migrator.validateMigration()
+      
+      if (validation.isValid) {
+        console.log('✅ Migration validation passed')
+        
+        console.log('\n📊 Database Comparison:')
+        console.log(`   Events: ${validation.comparison.v3Events} → ${validation.comparison.v4Events}`)
+        console.log(`   Users: ${validation.comparison.v3Users} → ${validation.comparison.v4Users}`)
+        console.log(`   Date range: ${new Date(validation.comparison.v3DateRange.start).toISOString()} → ${new Date(validation.comparison.v4DateRange.start).toISOString()}`)
+        
+        if (validation.warnings.length > 0) {
+          console.log('\n⚠️  Warnings:')
+          validation.warnings.forEach(warning => console.log(`   - ${warning}`))
+        }
+      } else {
+        console.log('❌ Migration validation failed')
+        console.log('\n🚨 Errors:')
+        validation.errors.forEach(error => console.log(`   - ${error}`))
+        
+        if (validation.warnings.length > 0) {
+          console.log('\n⚠️  Warnings:')
+          validation.warnings.forEach(warning => console.log(`   - ${warning}`))
+        }
+        
+        process.exit(1)
+      }
+      
+      migrator.close()
+      
+    } catch (error) {
+      console.error('❌ Migration validation failed:', error instanceof Error ? error.message : 'Unknown error')
       process.exit(1)
     }
   })
