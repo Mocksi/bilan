@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { 
   DashboardData, 
   VoteData, 
@@ -386,22 +386,31 @@ export function useVotes(
   filters: Partial<VoteFilterState> = {},
   page: number = 1,
   limit: number = 50,
-  timeRange: TimeRange = '7d'
+  timeRange: TimeRange = '30d'
 ) {
   const [data, setData] = useState<{ votes: VoteData[]; total: number; page: number; limit: number } | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const isMountedRef = useRef(true)
 
   const fetchData = async () => {
     try {
-      setLoading(true)
-      setError(null)
+      if (isMountedRef.current) {
+        setLoading(true)
+        setError(null)
+      }
       const votes = await apiClient.fetchVotes(filters, page, limit, timeRange)
-      setData(votes)
+      if (isMountedRef.current) {
+        setData(votes)
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch votes')
+      if (isMountedRef.current) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch votes')
+      }
     } finally {
-      setLoading(false)
+      if (isMountedRef.current) {
+        setLoading(false)
+      }
     }
   }
 
@@ -409,9 +418,25 @@ export function useVotes(
     fetchData()
   }
 
+  // Memoize filters to avoid unnecessary re-renders from property order differences
+  const memoizedFilters = useMemo(() => filters, [
+    filters.search,
+    filters.rating, 
+    filters.user,
+    filters.prompt,
+    filters.timeRange,
+    filters.hasComment,
+    filters.sortBy,
+    filters.sortOrder
+  ])
+
   useEffect(() => {
     fetchData()
-  }, [JSON.stringify(filters), page, limit, timeRange])
+    
+    return () => {
+      isMountedRef.current = false
+    }
+  }, [memoizedFilters, page, limit, timeRange])
 
   return { data, loading, error, refresh, fetchData }
 } 
