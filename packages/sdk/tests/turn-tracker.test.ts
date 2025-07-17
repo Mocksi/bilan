@@ -99,7 +99,7 @@ describe('TurnTracker', () => {
       )
       const trackSpy = vi.spyOn(eventTracker, 'track')
 
-      await expect(turnTracker.trackTurn('Test prompt', mockAiCall)).rejects.toThrow('AI_TIMEOUT')
+      await expect(turnTracker.trackTurn('Test prompt', mockAiCall)).rejects.toThrow('AI request timeout')
       
       expect(trackSpy).toHaveBeenCalledTimes(2)
       
