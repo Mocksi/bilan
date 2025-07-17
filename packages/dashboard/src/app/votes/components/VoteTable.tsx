@@ -18,7 +18,7 @@ interface VoteTableProps {
   className?: string
 }
 
-export function VoteTable({ votes, loading, onVoteClick, className = '' }: VoteTableProps) {
+export const VoteTable: React.FC<VoteTableProps> = ({ votes, loading, onVoteClick, className = '' }) => {
   const [selectedVotes, setSelectedVotes] = useState<Set<string>>(new Set())
 
   const handleSelectAll = (checked: boolean) => {
@@ -39,21 +39,7 @@ export function VoteTable({ votes, loading, onVoteClick, className = '' }: VoteT
     setSelectedVotes(newSelected)
   }
 
-  const formatTimestamp = (timestamp: number) => {
-    return new Date(timestamp).toLocaleString()
-  }
 
-  const getVoteIcon = (value: number) => {
-    return value === 1 ? (
-      <ThumbsUpIcon width={16} height={16} className="text-success" />
-    ) : (
-      <ThumbsDownIcon width={16} height={16} className="text-danger" />
-    )
-  }
-
-  const getVoteBadge = (value: number) => {
-    return value === 1 ? 'badge bg-success' : 'badge bg-danger'
-  }
 
   if (loading) {
     return (
@@ -163,9 +149,9 @@ export function VoteTable({ votes, loading, onVoteClick, className = '' }: VoteT
                       <div className="fw-medium text-truncate" style={{ maxWidth: '200px' }}>
                         {vote.promptId}
                       </div>
-                      {vote.metadata?.promptText && (
+                      {vote.promptText && (
                         <small className="text-muted">
-                          {truncateText(vote.metadata.promptText, 50)}
+                          {truncateText(vote.promptText, 50)}
                         </small>
                       )}
                     </div>
@@ -215,9 +201,9 @@ export function VoteTable({ votes, loading, onVoteClick, className = '' }: VoteT
                           {vote.metadata.step || 'Journey'}
                         </span>
                       )}
-                      {vote.metadata?.model && (
-                        <span className="badge bg-secondary" title={`Model: ${vote.metadata.model}`}>
-                          {vote.metadata.model}
+                      {vote.model && (
+                        <span className="badge bg-secondary" title={`Model: ${vote.model}`}>
+                          {vote.model}
                         </span>
                       )}
                     </div>
