@@ -160,6 +160,35 @@ function JourneysContent() {
                 </tbody>
               </table>
             </div>
+            
+            {/* Simple Pagination Controls */}
+            {data && data.total > limit && (
+              <div className="card-footer">
+                <div className="d-flex justify-content-between align-items-center">
+                  <div className="text-muted">
+                    Showing {((page - 1) * limit) + 1} to {Math.min(page * limit, data.total)} of {data.total} journeys
+                  </div>
+                  <div className="btn-group">
+                    <button 
+                      type="button"
+                      className="btn btn-outline-primary"
+                      onClick={() => setPage(page - 1)}
+                      disabled={page === 1}
+                    >
+                      Previous
+                    </button>
+                    <button 
+                      type="button"
+                      className="btn btn-outline-primary"
+                      onClick={() => setPage(page + 1)}
+                      disabled={page >= Math.ceil(data.total / limit)}
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           ) : (
             <div className="text-center py-5">
               <div className="text-muted">
