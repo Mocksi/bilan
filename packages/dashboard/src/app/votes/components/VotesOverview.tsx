@@ -84,7 +84,7 @@ export function VotesOverview({ analytics, loading }: VotesOverviewProps) {
               <div className="h1 mb-0 me-2">{(overview.positiveRate * 100).toFixed(1)}%</div>
               <div className="ms-auto">
                 <span className={`badge ${overview.positiveRate > 0.7 ? 'bg-success' : overview.positiveRate < 0.3 ? 'bg-danger' : 'bg-secondary'}`}>
-                  {overview.positiveRate > 0 ? 'Positive' : overview.positiveRate < 0 ? 'Negative' : 'Neutral'}
+                  {overview.positiveRate > 0.7 ? 'Positive' : overview.positiveRate < 0.3 ? 'Negative' : 'Neutral'}
                 </span>
               </div>
             </div>
