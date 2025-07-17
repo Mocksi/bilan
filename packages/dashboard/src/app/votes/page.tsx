@@ -118,7 +118,12 @@ const VotesContent: React.FC = () => {
             <h3 className="card-title">All Votes</h3>
             {data && (
               <p className="card-subtitle">
-                Showing {data.votes.length} of {data.total} total votes
+                Showing {data.votes.length} of {data.total} total votes 
+                {data.total > limit && (
+                  <span className="text-muted ms-2">
+                    (Page {page} of {Math.ceil(data.total / limit)})
+                  </span>
+                )}
               </p>
             )}
           </div>
