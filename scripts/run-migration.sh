@@ -23,6 +23,7 @@ MIGRATION_DIR="$SCRIPT_DIR/migrations"
 DIRECTION="up"
 MIGRATION_NAME=""
 DB_TYPE="sqlite"
+USER_SET_DB_TYPE=false
 FORCE=false
 
 # Parse command line arguments
@@ -50,6 +51,7 @@ while [[ $# -gt 0 ]]; do
                 exit 1
             fi
             DB_TYPE="$2"
+            USER_SET_DB_TYPE=true
             shift 2
             ;;
         --force)
@@ -107,8 +109,8 @@ validate_env_vars() {
 # Set database paths
 DB_PATH=${BILAN_DB_PATH:-${DB_PATH:-"./bilan.db"}}
 
-# Check database type
-if [ -n "${DATABASE_URL:-}" ] || [ -n "${POSTGRES_HOST:-}" ]; then
+# Check database type (only if user hasn't explicitly set it)
+if [ "$USER_SET_DB_TYPE" = false ] && { [ -n "${DATABASE_URL:-}" ] || [ -n "${POSTGRES_HOST:-}" ]; }; then
     DB_TYPE="postgresql"
 fi
 
