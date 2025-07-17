@@ -1,62 +1,34 @@
 import { Event, EventType, InitConfig, generateEventId, UserId } from '../types'
 import { EventQueueManager } from './event-queue'
-import { ContentProcessor, PrivacyConfig } from './privacy-controls'
+import { ContentProcessor, PrivacyController, PrivacyConfig } from './privacy-controls'
 
 /**
  * Privacy controls for content capture - enhanced with new privacy system
  */
 export class ContentSanitizer {
-  private sanitizeContent: boolean
-  private capturePrompts: boolean
-  private captureResponses: boolean
-  private captureResponsesFor: string[]
   private contentProcessor: ContentProcessor
 
   constructor(config: InitConfig) {
-    this.sanitizeContent = config.sanitizeContent ?? true
-    this.capturePrompts = config.capturePrompts ?? true
-    this.captureResponses = config.captureResponses ?? false
-    this.captureResponsesFor = config.captureResponsesFor || []
-    
     // Initialize content processor with privacy config
-    this.contentProcessor = new ContentProcessor(config.privacyConfig)
-  }
-
-  /**
-   * Determine if prompts should be captured
-   */
-  shouldCapturePrompt(): boolean {
-    return this.capturePrompts
-  }
-
-  /**
-   * Determine if responses should be captured based on context
-   */
-  shouldCaptureResponse(context?: string): boolean {
-    if (!this.captureResponses) return false
-    
-    if (this.captureResponsesFor.length > 0) {
-      return context ? this.captureResponsesFor.includes(context) : false
+    const privacyConfig = config.privacyConfig || {
+      defaultCaptureLevel: 'sanitized',
+      captureLevels: {
+        prompts: 'sanitized',
+        responses: 'sanitized',
+        errors: 'sanitized',
+        metadata: 'full'
+      },
+      customPiiPatterns: [],
+      detectBuiltinPii: true,
+      hashSensitiveContent: false
     }
-    
-    return true
-  }
-
-  /**
-   * Sanitize content to remove PII using enhanced privacy controls
-   */
-  sanitizeText(text: string): string {
-    if (!this.sanitizeContent) return text
-    
-    // Use new privacy system for sanitization
-    return this.contentProcessor.processResponse(text) || '[CONTENT_BLOCKED]'
+    this.contentProcessor = new ContentProcessor(new PrivacyController(privacyConfig))
   }
 
   /**
    * Process prompt text with privacy controls
    */
   processPrompt(prompt: string): string | null {
-    if (!this.capturePrompts) return null
     return this.contentProcessor.processPrompt(prompt)
   }
 
@@ -78,7 +50,8 @@ export class ContentSanitizer {
    * Update privacy configuration
    */
   updatePrivacyConfig(config: Partial<PrivacyConfig>): void {
-    this.contentProcessor.updatePrivacyConfig(config)
+    // Create new content processor with updated privacy config
+    this.contentProcessor = new ContentProcessor(new PrivacyController(config))
   }
 }
 
@@ -131,12 +104,18 @@ export class EventTracker {
       }
 
       // Add content based on privacy settings
-      if (content?.promptText && this.contentSanitizer.shouldCapturePrompt()) {
-        event.promptText = this.contentSanitizer.sanitizeText(content.promptText)
+      if (content?.promptText) {
+        const processedPrompt = this.contentSanitizer.processPrompt(content.promptText)
+        if (processedPrompt) {
+          event.promptText = processedPrompt
+        }
       }
 
-      if (content?.aiResponse && this.contentSanitizer.shouldCaptureResponse(content.context)) {
-        event.aiResponse = this.contentSanitizer.sanitizeText(content.aiResponse)
+      if (content?.aiResponse) {
+        const processedResponse = this.contentSanitizer.processResponse(content.aiResponse)
+        if (processedResponse) {
+          event.aiResponse = processedResponse
+        }
       }
 
       // Add to queue for batching
