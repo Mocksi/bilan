@@ -517,6 +517,64 @@ class DataAnonymizer {
 }
 ```
 
+## Environment Variables
+
+### Required Environment Variables
+
+| Variable | Purpose | Required | Default | Security Notes |
+|----------|---------|----------|---------|----------------|
+| `USER_ID_SALT` | Salt for user ID pseudonymization | Yes | None | Store securely, rotate regularly |
+| `CONVERSATION_ID_SALT` | Salt for conversation ID pseudonymization | Yes | None | Store securely, rotate regularly |
+| `JWT_SECRET` | JWT token signing secret | Yes | None | High entropy, never log |
+| `GOOGLE_CLIENT_ID` | Google OAuth client ID | Optional | None | Public value, safe to log |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret | Optional | None | Secret value, never log |
+| `GOOGLE_REDIRECT_URI` | Google OAuth redirect URI | Optional | None | Public value, safe to log |
+| `GITHUB_CLIENT_ID` | GitHub OAuth client ID | Optional | None | Public value, safe to log |
+| `GITHUB_CLIENT_SECRET` | GitHub OAuth client secret | Optional | None | Secret value, never log |
+| `GITHUB_REDIRECT_URI` | GitHub OAuth redirect URI | Optional | None | Public value, safe to log |
+
+### Secure Storage Recommendations
+
+```typescript
+// Example secure configuration
+const secureConfig = {
+  // Use environment-specific secrets management
+  secrets: {
+    userIdSalt: process.env.USER_ID_SALT || (() => {
+      throw new Error('USER_ID_SALT environment variable is required')
+    })(),
+    conversationIdSalt: process.env.CONVERSATION_ID_SALT || (() => {
+      throw new Error('CONVERSATION_ID_SALT environment variable is required')
+    })(),
+    jwtSecret: process.env.JWT_SECRET || (() => {
+      throw new Error('JWT_SECRET environment variable is required')
+    })()
+  },
+  
+  // OAuth configuration (optional)
+  oauth: {
+    google: {
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      redirectUri: process.env.GOOGLE_REDIRECT_URI
+    },
+    github: {
+      clientId: process.env.GITHUB_CLIENT_ID,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET,
+      redirectUri: process.env.GITHUB_REDIRECT_URI
+    }
+  }
+}
+```
+
+### Environment-Specific Considerations
+
+- **Development**: Use `.env.local` files, never commit to version control
+- **Staging**: Use secure environment variable injection
+- **Production**: Use dedicated secrets management (AWS Secrets Manager, HashiCorp Vault, etc.)
+- **Salt Generation**: Use cryptographically secure random values (minimum 32 bytes)
+- **Secret Rotation**: Implement regular rotation for all sensitive values
+
 ## Compliance Framework
 
 ### GDPR Compliance
