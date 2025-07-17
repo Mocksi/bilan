@@ -269,8 +269,29 @@ create_backup() {
         print_success "Database backed up to $backup_dir/bilan.db.backup"
     elif [ "$DB_TYPE" = "postgresql" ]; then
         if command -v pg_dump > /dev/null 2>&1; then
-            pg_dump "${DATABASE_URL:-}" > "$backup_dir/bilan.sql.backup"
-            if [ $? -eq 0 ]; then
+            # Build pg_dump command arguments array
+            local pg_dump_args=("pg_dump")
+            
+            # Use DATABASE_URL if available, otherwise build from discrete variables
+            if [ -n "${DATABASE_URL:-}" ]; then
+                pg_dump_args+=("${DATABASE_URL}")
+            else
+                if [ -n "${POSTGRES_HOST:-}" ]; then
+                    pg_dump_args+=("-h" "${POSTGRES_HOST}")
+                fi
+                if [ -n "${POSTGRES_PORT:-}" ]; then
+                    pg_dump_args+=("-p" "${POSTGRES_PORT}")
+                fi
+                if [ -n "${POSTGRES_USER:-}" ]; then
+                    pg_dump_args+=("-U" "${POSTGRES_USER}")
+                fi
+                if [ -n "${POSTGRES_DB:-}" ]; then
+                    pg_dump_args+=("-d" "${POSTGRES_DB}")
+                fi
+            fi
+            
+            # Execute backup
+            if "${pg_dump_args[@]}" > "$backup_dir/bilan.sql.backup"; then
                 print_success "Database backed up to $backup_dir/bilan.sql.backup"
             else
                 print_error "Failed to create PostgreSQL backup"
