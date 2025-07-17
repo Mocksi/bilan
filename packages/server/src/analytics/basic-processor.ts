@@ -63,12 +63,13 @@ export class BasicAnalyticsProcessor {
   }
 
   /**
-   * Process events and store them in the database
+   * Process events and store them in the database using batch inserts
    */
   async processEvents(events: Event[]): Promise<void> {
-    for (const event of events) {
-      this.db.insertEvent(event)
-    }
+    if (events.length === 0) return
+    
+    // Use batch insert for better performance
+    this.db.insertEvents(events)
   }
 
   /**
@@ -240,18 +241,53 @@ export class BasicAnalyticsProcessor {
     const positiveEvents = voteCastEvents.filter(e => e.properties.value > 0)
     const positiveRate = positiveEvents.length / voteCastEvents.length
 
-         // Calculate average response time if available
-     const eventsWithResponseTime = voteCastEvents.filter(e => e.properties.responseTime)
-     const avgResponseTime = eventsWithResponseTime.length > 0 
-       ? eventsWithResponseTime.reduce((sum, e) => sum + (e.properties.responseTime || 0), 0) / eventsWithResponseTime.length
-       : null
+    // Calculate average response time if available
+    const eventsWithResponseTime = voteCastEvents.filter(e => e.properties.responseTime)
+    const avgResponseTime = eventsWithResponseTime.length > 0 
+      ? eventsWithResponseTime.reduce((sum, e) => sum + (e.properties.responseTime || 0), 0) / eventsWithResponseTime.length
+      : null
+
+    // Calculate weighted trust score with decay functions for historical data
+    const trustScore = this.calculateWeightedTrustScore(voteCastEvents)
 
     return {
       responseQuality: positiveRate * 100,
       userSatisfaction: positiveRate * 100,
-      trustScore: positiveRate * 100,
+      trustScore: trustScore * 100,
       responseTime: avgResponseTime
     }
+  }
+
+  /**
+   * Calculate weighted trust score with decay functions for historical data
+   */
+  private calculateWeightedTrustScore(voteCastEvents: VoteCastEvent[]): number {
+    if (voteCastEvents.length === 0) return 0
+
+    const now = Date.now()
+    const DECAY_HALF_LIFE = 7 * 24 * 60 * 60 * 1000 // 7 days in milliseconds
+    
+    let totalWeight = 0
+    let weightedScore = 0
+    
+    voteCastEvents.forEach(event => {
+      const age = now - event.timestamp
+      
+      // Calculate decay factor using exponential decay
+      // weight = 0.5^(age / half_life)
+      const decayFactor = Math.pow(0.5, age / DECAY_HALF_LIFE)
+      
+      // Recent events have higher weight
+      const weight = Math.max(0.01, decayFactor) // Minimum weight to avoid complete decay
+      
+      // Convert vote value to score (1 = positive, -1 = negative)
+      const score = event.properties.value > 0 ? 1 : 0
+      
+      weightedScore += score * weight
+      totalWeight += weight
+    })
+    
+    return totalWeight > 0 ? weightedScore / totalWeight : 0
   }
 
   /**
@@ -278,23 +314,31 @@ export class BasicAnalyticsProcessor {
       .map(([date, data]) => ({ date, ...data }))
       .sort((a, b) => a.date.localeCompare(b.date))
 
-    // Calculate weekly trends
-    const weeklyTrends = dailyVotes.reduce((weeks: { week: string; score: number }[], day) => {
+    // Calculate weekly trends with proper weighting
+    const weeklyData = new Map<string, { totalScore: number; dayCount: number }>()
+    
+    dailyVotes.forEach(day => {
       const weekStart = new Date(day.date)
       weekStart.setDate(weekStart.getDate() - weekStart.getDay())
       const weekString = weekStart.toISOString().split('T')[0]
       
-      const existingWeek = weeks.find(w => w.week === weekString)
       const dayScore = day.positive + day.negative > 0 ? (day.positive / (day.positive + day.negative)) * 100 : 0
       
-      if (existingWeek) {
-        existingWeek.score = (existingWeek.score + dayScore) / 2
-      } else {
-        weeks.push({ week: weekString, score: dayScore })
+      if (!weeklyData.has(weekString)) {
+        weeklyData.set(weekString, { totalScore: 0, dayCount: 0 })
       }
       
-      return weeks
-    }, [])
+      const weekData = weeklyData.get(weekString)!
+      weekData.totalScore += dayScore
+      weekData.dayCount += 1
+    })
+    
+    const weeklyTrends = Array.from(weeklyData.entries())
+      .map(([week, data]) => ({
+        week,
+        score: data.dayCount > 0 ? data.totalScore / data.dayCount : 0
+      }))
+      .sort((a, b) => a.week.localeCompare(b.week))
 
     return {
       dailyVotes,
