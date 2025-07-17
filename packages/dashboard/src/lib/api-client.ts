@@ -155,57 +155,34 @@ export class ApiClient {
    * @returns Promise resolving to comprehensive vote analytics data
    */
   async fetchVoteAnalytics(timeRange: TimeRange = '30d'): Promise<VoteAnalytics> {
-    // Mock implementation - API endpoint doesn't exist yet
-    return {
-      overview: {
-        totalVotes: 0,
-        positiveVotes: 0,
-        negativeVotes: 0,
-        positiveRate: 0,
-        averageRating: 0,
-        commentsCount: 0,
-        uniqueUsers: 0,
-        uniquePrompts: 0
-      },
-      trends: {
-        daily: [],
-        hourly: Array.from({ length: 24 }, (_, i) => ({
-          hour: i,
-          totalVotes: 0,
-          positiveVotes: 0,
-          negativeVotes: 0,
-          positiveRate: 0
-        }))
-      },
-      userBehavior: {
-        topUsers: [],
-        votingPatterns: {
-          averageVotesPerUser: 0,
-          medianVotesPerUser: 0,
-          powerUsers: 0,
-          oneTimeVoters: 0
-        }
-      },
-      promptPerformance: {
-        topPrompts: [],
-        performanceMetrics: {
-          averagePositiveRate: 0,
-          bestPerformingPrompt: '',
-          worstPerformingPrompt: '',
-          promptsWithoutVotes: 0
-        }
-      },
-      commentAnalysis: {
-        totalComments: 0,
-        averageCommentLength: 0,
-        topComments: [],
-        sentimentAnalysis: {
-          positive: 0,
-          negative: 0,
-          neutral: 0
+    const abortController = new AbortController()
+
+    try {
+      const params = new URLSearchParams({
+        timeRange: timeRange
+      })
+
+      const response = await fetch(`${this.baseUrl}/api/analytics/votes?${params}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
         },
-        commonThemes: []
+        signal: abortController.signal,
+      })
+
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.status} ${response.statusText}`)
       }
+
+      return response.json()
+    } catch (error) {
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          throw new Error('Request was cancelled')
+        }
+        throw new Error(`Failed to fetch vote analytics: ${error.message}`)
+      }
+      throw new Error('Failed to fetch vote analytics: Unknown error')
     }
   }
 
