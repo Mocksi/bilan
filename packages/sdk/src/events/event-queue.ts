@@ -59,7 +59,12 @@ export class EventQueueManager {
    * @param force - Force flush even if batch not full
    */
   async flush(force: boolean = false): Promise<void> {
-    if (this.isProcessing || (this.queue.length === 0 && !force)) {
+    if (this.isProcessing) {
+      return
+    }
+
+    // Return early if queue is empty and not forcing
+    if (this.queue.length === 0 && !force) {
       return
     }
 
@@ -68,7 +73,8 @@ export class EventQueueManager {
     const eventsToFlush = this.queue.splice(0, this.batchSize)
     
     try {
-      if (eventsToFlush.length > 0) {
+      // Always call onFlush if force is true, even with empty array
+      if (eventsToFlush.length > 0 || force) {
         await this.onFlush(eventsToFlush)
         
         // Update persisted queue

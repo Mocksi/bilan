@@ -125,22 +125,45 @@ describe('EventQueueManager', () => {
     })
 
     it('should drop oldest events when maxBatches limit is reached', async () => {
+      // Create config to test maxBatches behavior
+      const testConfig = createMockConfig({
+        eventBatching: {
+          batchSize: 3,
+          flushInterval: 1000,
+          maxBatches: 2
+        }
+      })
+      
+      // Mock onFlush to fail so events stay in queue
+      const mockFailingOnFlush = vi.fn().mockRejectedValue(new Error('Flush failed'))
+      eventQueueManager = new EventQueueManager(testConfig, mockStorage, mockFailingOnFlush)
+      
+      // Stop the timer to prevent auto-flush during test
+      eventQueueManager.stopFlushTimer()
+      
       // maxBatches = 2, batchSize = 3, so max queue size = 6
       const events = []
       for (let i = 0; i < 7; i++) {
         events.push(createMockEvent(`event-${i}`))
       }
       
-      // Add 6 events (should not trigger flush due to batch size)
+      // Add 6 events - should reach max capacity
       for (let i = 0; i < 6; i++) {
-        await eventQueueManager.addEvent(events[i])
+        try {
+          await eventQueueManager.addEvent(events[i])
+        } catch (error) {
+          // Ignore flush errors - events should be put back in queue
+        }
       }
       
       expect(eventQueueManager.getQueueSize()).toBe(6)
-      expect(mockOnFlush).not.toHaveBeenCalled()
       
       // Add 7th event - should drop oldest
-      await eventQueueManager.addEvent(events[6])
+      try {
+        await eventQueueManager.addEvent(events[6])
+      } catch (error) {
+        // Ignore flush errors
+      }
       
       expect(eventQueueManager.getQueueSize()).toBe(6) // Still 6, oldest dropped
     })
@@ -193,10 +216,17 @@ describe('EventQueueManager', () => {
       await eventQueueManager.addEvent(event)
       
       // Start a flush that will be slow
-      mockOnFlush.mockImplementation(() => new Promise(resolve => setTimeout(resolve, 100)))
+      let resolveSlowFlush: () => void
+      const slowFlushPromise = new Promise<void>(resolve => {
+        resolveSlowFlush = resolve
+      })
+      mockOnFlush.mockImplementation(() => slowFlushPromise)
       
       const flush1Promise = eventQueueManager.flush()
       const flush2Promise = eventQueueManager.flush()
+      
+      // Resolve the slow flush
+      resolveSlowFlush!()
       
       await flush1Promise
       await flush2Promise
@@ -323,10 +353,13 @@ describe('EventQueueManager', () => {
       await eventQueueManager.addEvent(createMockEvent('1'))
       await eventQueueManager.addEvent(createMockEvent('2'))
       
-      // Advance timer to trigger flush
+      // Advance timer to trigger flush once
       vi.advanceTimersByTime(1000)
       
-      // Wait for async flush to complete
+      // Clean up timer immediately to prevent infinite loop
+      eventQueueManager.stopFlushTimer()
+      
+      // Wait for the flush to complete
       await vi.runAllTimersAsync()
       
       expect(mockOnFlush).toHaveBeenCalledWith([
@@ -342,8 +375,12 @@ describe('EventQueueManager', () => {
       eventQueueManager = new EventQueueManager(config, mockStorage, mockOnFlush)
       await eventQueueManager.addEvent(createMockEvent())
       
-      // Advance timer to trigger flush
+      // Advance timer to trigger flush once
       vi.advanceTimersByTime(1000)
+      
+      // Clean up timer immediately to prevent infinite loop
+      eventQueueManager.stopFlushTimer()
+      
       await vi.runAllTimersAsync()
       
       expect(consoleWarnSpy).toHaveBeenCalledWith('Bilan: Background flush failed:', expect.any(Error))
