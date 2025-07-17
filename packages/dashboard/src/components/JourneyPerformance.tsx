@@ -30,19 +30,19 @@ export function JourneyPerformance({ data, className = '' }: JourneyPerformanceP
   }
 
   return (
-    <div className={`card ${className}`}>
-      <div className="card-header">
+    <div className={`bg-white rounded-lg shadow p-6 ${className}`}>
+      <div className="mb-4">
         <div>
-          <h3 className="card-title">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="me-2">
+          <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2">
               <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"></path>
             </svg>
             Journey Performance
           </h3>
-          <p className="card-subtitle">User workflow completion rates and efficiency</p>
+          <p className="text-sm text-gray-600">User workflow completion rates and efficiency</p>
         </div>
       </div>
-      <div className="card-body">
+      <div>
         {journeyStats.popularJourneys.length > 0 ? (
           <div className="space-y-4">
             {journeyStats.popularJourneys.map((journey, index) => (
@@ -64,6 +64,10 @@ export function JourneyPerformance({ data, className = '' }: JourneyPerformanceP
                   <div 
                     className="progress-bar bg-primary" 
                     style={{ width: `${journey.completionRate * 100}%` }}
+                    role="progressbar"
+                    aria-valuenow={Math.round(journey.completionRate * 100)}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
                   ></div>
                 </div>
                 
