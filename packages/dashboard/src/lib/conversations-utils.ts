@@ -91,27 +91,33 @@ export function sortConversations(
     let comparison = 0
 
     switch (sortBy) {
-      case 'startTime':
+      case 'startTime': {
         comparison = a.startTime - b.startTime
         break
-      case 'endTime':
+      }
+      case 'endTime': {
         const aEndTime = a.endTime || Date.now()
         const bEndTime = b.endTime || Date.now()
         comparison = aEndTime - bEndTime
         break
-      case 'totalMessages':
+      }
+      case 'totalMessages': {
         comparison = a.totalMessages - b.totalMessages
         break
-      case 'averageResponseTime':
+      }
+      case 'averageResponseTime': {
         comparison = a.averageResponseTime - b.averageResponseTime
         break
-      case 'satisfactionScore':
+      }
+      case 'satisfactionScore': {
         const aScore = a.satisfactionScore || 0
         const bScore = b.satisfactionScore || 0
         comparison = aScore - bScore
         break
-      default:
+      }
+      default: {
         comparison = a.startTime - b.startTime
+      }
     }
 
     return sortOrder === 'desc' ? -comparison : comparison
