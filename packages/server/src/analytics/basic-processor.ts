@@ -56,7 +56,7 @@ export class BasicAnalyticsProcessor {
    * Calculate comprehensive dashboard analytics
    */
   async calculateDashboardData(startDate?: Date, endDate?: Date): Promise<DashboardData> {
-    const events = this.getFilteredEvents(startDate, endDate)
+    const events = await this.getFilteredEvents(startDate, endDate)
     
     return {
       conversationStats: this.calculateConversationStats(events),
@@ -71,10 +71,10 @@ export class BasicAnalyticsProcessor {
   /**
    * Get filtered events based on date range
    */
-  private getFilteredEvents(startDate?: Date, endDate?: Date): VoteEvent[] {
+  private async getFilteredEvents(startDate?: Date, endDate?: Date): Promise<VoteEvent[]> {
     if (!startDate || !endDate) {
       // If no date range specified, return all events
-      return this.db.getEvents({ limit: 10000 })
+      return await this.db.getEvents({ limit: 10000 })
     }
 
     // Convert dates to timestamps
@@ -82,7 +82,7 @@ export class BasicAnalyticsProcessor {
     const endTimestamp = endDate.getTime()
 
     // Use database-level filtering for better performance
-    return this.db.getEvents({ 
+    return await this.db.getEvents({ 
       limit: 10000, 
       startTimestamp, 
       endTimestamp 
