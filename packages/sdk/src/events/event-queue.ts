@@ -34,6 +34,13 @@ export class EventQueueManager {
    * @param event - Event to add to queue
    */
   async addEvent(event: Event): Promise<void> {
+    // Check if queue has reached maximum capacity
+    const maxQueueSize = this.maxBatches * this.batchSize
+    if (this.queue.length >= maxQueueSize) {
+      // Drop oldest events to make room for new ones
+      this.queue.shift()
+    }
+    
     this.queue.push(event)
     
     // Flush if batch size reached
