@@ -6,7 +6,15 @@ set -euo pipefail
 
 # Source shared color functions
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/lib/colors.sh"
+if [ -f "$SCRIPT_DIR/lib/colors.sh" ]; then
+    source "$SCRIPT_DIR/lib/colors.sh"
+else
+    # Fallback logging functions if colors.sh is missing
+    print_error() { echo "ERROR: $1" >&2; }
+    print_success() { echo "SUCCESS: $1"; }
+    print_status() { echo "INFO: $1"; }
+    print_warning() { echo "WARNING: $1" >&2; }
+fi
 
 echo "🔄 Running Bilan database migrations..."
 
