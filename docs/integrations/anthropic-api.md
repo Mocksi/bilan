@@ -14,10 +14,9 @@ npm install @mocksi/bilan-sdk @anthropic-ai/sdk
 
 **Required Environment Variables:**
 - `ANTHROPIC_API_KEY` - Your Anthropic API key for Claude models
-- `BILAN_MODE` - Set to 'server' for production, 'local' for development
-- `BILAN_API_KEY` - Your Bilan API key (required for server mode)
+- `BILAN_API_KEY` - Your Bilan API key
+- `BILAN_PROJECT_ID` - Your Bilan project identifier
 - `BILAN_USER_ID` - Unique identifier for the current user
-- `BILAN_TELEMETRY` - Set to 'false' to disable telemetry (optional)
 
 ## Integration
 
@@ -26,7 +25,7 @@ npm install @mocksi/bilan-sdk @anthropic-ai/sdk
 ```typescript
 // lib/anthropic.ts
 import Anthropic from '@anthropic-ai/sdk'
-import { init } from '@mocksi/bilan-sdk'
+import { Bilan } from '@mocksi/bilan-sdk'
 
 // Cross-platform UUID generation
 function generateId(): string {
@@ -41,10 +40,10 @@ export const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY
 })
 
-export const bilan = await init({
-  mode: 'local',
-  userId: 'user-123',
-  telemetry: { enabled: true }
+export const bilan = new Bilan({
+  apiKey: process.env.BILAN_API_KEY,
+  projectId: process.env.BILAN_PROJECT_ID,
+  userId: process.env.BILAN_USER_ID || 'anonymous'
 })
 ```
 
@@ -52,7 +51,7 @@ export const bilan = await init({
 
 ```typescript
 // lib/claude-chat.ts
-import { anthropic } from './anthropic'
+import { anthropic, bilan } from './anthropic'
 
 // Cross-platform UUID generation
 function generateId(): string {
@@ -65,7 +64,8 @@ function generateId(): string {
 
 export interface TrackedClaudeResponse {
   content: string
-  promptId: string
+  turnId: string
+  conversationId: string
   model: string
   usage: {
     inputTokens: number
@@ -81,12 +81,26 @@ export async function createClaudeMessage(
     maxTokens?: number
     temperature?: number
     system?: string
+    conversationId?: string
   } = {}
 ): Promise<TrackedClaudeResponse> {
-  const promptId = generateId()
+  const turnId = generateId()
+  const conversationId = options.conversationId || generateId()
   const model = options.model || 'claude-3-haiku-20240307'
   
   try {
+    // Track turn start
+    await bilan.track('turn_started', {
+      turn_id: turnId,
+      conversation_id: conversationId,
+      model,
+      provider: 'anthropic',
+      input_tokens: messages.reduce((sum, msg) => sum + msg.content.length, 0),
+      temperature: options.temperature || 0.7,
+      system_prompt: options.system
+    })
+
+    const startTime = Date.now()
     const response = await anthropic.messages.create({
       model,
       max_tokens: options.maxTokens || 1000,
@@ -103,9 +117,23 @@ export async function createClaudeMessage(
       throw new Error('Unexpected response type')
     }
 
+    // Track turn completion
+    await bilan.track('turn_completed', {
+      turn_id: turnId,
+      conversation_id: conversationId,
+      model,
+      provider: 'anthropic',
+      input_tokens: response.usage.input_tokens,
+      output_tokens: response.usage.output_tokens,
+      total_tokens: response.usage.input_tokens + response.usage.output_tokens,
+      stop_reason: response.stop_reason,
+      latency: Date.now() - startTime
+    })
+
     return {
       content: content.text,
-      promptId,
+      turnId,
+      conversationId,
       model,
       usage: {
         inputTokens: response.usage.input_tokens,
@@ -118,6 +146,16 @@ export async function createClaudeMessage(
       }
     }
   } catch (error) {
+    // Track turn failure
+    await bilan.track('turn_failed', {
+      turn_id: turnId,
+      conversation_id: conversationId,
+      model,
+      provider: 'anthropic',
+      error: error.message,
+      error_type: error.name
+    })
+    
     console.error('Claude API error:', error)
     throw error
   }
@@ -189,13 +227,14 @@ export async function createStreamingClaudeMessage(
 
 import { useState } from 'react'
 import { createClaudeMessage, TrackedClaudeResponse } from '@/lib/claude-chat'
-import { vote } from '@mocksi/bilan-sdk'
+import { bilan } from '@/lib/anthropic'
 
 interface Message {
   id: string
   role: 'user' | 'assistant'
   content: string
-  promptId?: string
+  turnId?: string
+  conversationId?: string
   model?: string
   usage?: TrackedClaudeResponse['usage']
 }
@@ -213,6 +252,7 @@ export default function ClaudeChat() {
   const [feedbackStates, setFeedbackStates] = useState<Record<string, 1 | -1>>({})
   const [selectedModel, setSelectedModel] = useState<string>('claude-3-haiku-20240307')
   const [systemPrompt, setSystemPrompt] = useState('')
+  const [currentConversationId, setCurrentConversationId] = useState<string>('')
 
   const modelOptions = [
     { value: 'claude-3-haiku-20240307', label: 'Claude 3 Haiku' },
@@ -252,14 +292,21 @@ export default function ClaudeChat() {
       const response = await createClaudeMessage(conversationHistory, {
         model: selectedModel,
         system: systemPrompt || undefined,
-        temperature: 0.7
+        temperature: 0.7,
+        conversationId: currentConversationId
       })
+
+      // Set conversation ID for future messages
+      if (!currentConversationId) {
+        setCurrentConversationId(response.conversationId)
+      }
 
       const assistantMessage: Message = {
         id: `assistant-${Date.now()}`,
         role: 'assistant',
         content: response.content,
-        promptId: response.promptId,
+        turnId: response.turnId,
+        conversationId: response.conversationId,
         model: response.model,
         usage: response.usage
       }
@@ -280,16 +327,22 @@ export default function ClaudeChat() {
     }
   }
 
-  const handleFeedback = async (promptId: string, value: 1 | -1, comment?: string) => {
+  const handleFeedback = async (turnId: string, conversationId: string, value: 1 | -1, comment?: string) => {
     try {
-      await vote(promptId, value, comment)
-      setFeedbackStates(prev => ({ ...prev, [promptId]: value }))
+      await bilan.track('vote', {
+        turn_id: turnId,
+        conversation_id: conversationId,
+        vote_type: value === 1 ? 'up' : 'down',
+        value,
+        comment
+      })
+      setFeedbackStates(prev => ({ ...prev, [turnId]: value }))
     } catch (error) {
       console.error('Failed to submit feedback:', error)
     }
   }
 
-  const handleDetailedFeedback = (promptId: string, value: 1 | -1) => {
+  const handleDetailedFeedback = (turnId: string, conversationId: string, value: 1 | -1) => {
     const comment = window.prompt(
       value === 1 
         ? 'What made this response helpful?' 
@@ -297,7 +350,7 @@ export default function ClaudeChat() {
     )
     
     if (comment) {
-      handleFeedback(promptId, value, comment)
+      handleFeedback(turnId, conversationId, value, comment)
     }
   }
 
@@ -358,13 +411,13 @@ export default function ClaudeChat() {
               )}
               
               {/* Feedback buttons */}
-              {message.role === 'assistant' && message.promptId && (
+              {message.role === 'assistant' && message.turnId && message.conversationId && (
                 <div className="mt-2 flex gap-2">
                   <button
-                    onClick={() => handleFeedback(message.promptId!, 1)}
-                    onDoubleClick={() => handleDetailedFeedback(message.promptId!, 1)}
+                    onClick={() => handleFeedback(message.turnId!, message.conversationId!, 1)}
+                    onDoubleClick={() => handleDetailedFeedback(message.turnId!, message.conversationId!, 1)}
                     className={`text-sm px-2 py-1 rounded ${
-                      feedbackStates[message.promptId] === 1
+                      feedbackStates[message.turnId] === 1
                         ? 'bg-green-500 text-white'
                         : 'bg-gray-100 hover:bg-gray-200'
                     }`}
@@ -373,10 +426,10 @@ export default function ClaudeChat() {
                     👍 Helpful
                   </button>
                   <button
-                    onClick={() => handleFeedback(message.promptId!, -1)}
-                    onDoubleClick={() => handleDetailedFeedback(message.promptId!, -1)}
+                    onClick={() => handleFeedback(message.turnId!, message.conversationId!, -1)}
+                    onDoubleClick={() => handleDetailedFeedback(message.turnId!, message.conversationId!, -1)}
                     className={`text-sm px-2 py-1 rounded ${
-                      feedbackStates[message.promptId] === -1
+                      feedbackStates[message.turnId] === -1
                         ? 'bg-red-500 text-white'
                         : 'bg-gray-100 hover:bg-gray-200'
                     }`}
@@ -631,12 +684,89 @@ console.log('Context:', conversation.getContext())
 ### 4. Test feedback
 
 ```typescript
-import { vote, getStats } from '@mocksi/bilan-sdk'
+import { bilan } from '@/lib/anthropic'
 
-await vote('prompt-id-123', 1, 'Claude gave a very helpful response!')
-const stats = await getStats()
-console.log('Trust score:', stats.trustScore)
+await bilan.track('vote', {
+  turn_id: 'turn-123',
+  conversation_id: 'conv-456',
+  vote_type: 'up',
+  value: 1,
+  comment: 'Claude gave a very helpful response!'
+})
+
+const analytics = await bilan.getAnalytics()
+console.log('Analytics:', analytics)
 ```
+
+## Migration from v0.3.1 to v0.4.0
+
+### Before (v0.3.1) - Conversation-Centric
+
+```typescript
+// Old initialization
+import { init, vote } from '@mocksi/bilan-sdk'
+
+const bilan = await init({
+  mode: 'local',
+  userId: 'user-123',
+  telemetry: { enabled: true }
+})
+
+// Old voting
+await vote('prompt-id-123', 1, 'Great Claude response!')
+```
+
+### After (v0.4.0) - Event-Driven
+
+```typescript
+// New initialization
+import { Bilan } from '@mocksi/bilan-sdk'
+
+const bilan = new Bilan({
+  apiKey: 'your-api-key',
+  projectId: 'your-project',
+  userId: 'user-123'
+})
+
+// New event tracking
+await bilan.track('vote', {
+  turn_id: 'turn-123',
+  conversation_id: 'conv-456',
+  vote_type: 'up',
+  value: 1,
+  comment: 'Great Claude response!'
+})
+
+// Track full conversation lifecycle
+await bilan.track('conversation_started', {
+  conversation_id: 'conv-456',
+  title: 'Claude Chat Session'
+})
+
+await bilan.track('turn_started', {
+  turn_id: 'turn-123',
+  conversation_id: 'conv-456',
+  model: 'claude-3-haiku-20240307',
+  provider: 'anthropic'
+})
+
+await bilan.track('turn_completed', {
+  turn_id: 'turn-123',
+  conversation_id: 'conv-456',
+  model: 'claude-3-haiku-20240307',
+  provider: 'anthropic',
+  input_tokens: 50,
+  output_tokens: 100
+})
+```
+
+### Key Changes
+
+1. **Initialization**: `init()` → `new Bilan()`
+2. **Feedback**: `vote()` → `track('vote', properties)`
+3. **Provider Tracking**: Automatic provider='anthropic' tracking
+4. **Turn Management**: Full turn lifecycle tracking
+5. **Analytics**: `getStats()` → `getAnalytics()`
 
 ## Advanced Features
 

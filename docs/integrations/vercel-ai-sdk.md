@@ -16,23 +16,19 @@ npm install @mocksi/bilan-sdk ai
 
 ```typescript
 // lib/bilan.ts
-import { init } from '@mocksi/bilan-sdk'
+import { Bilan } from '@mocksi/bilan-sdk'
 
-export const bilan = await init({
-  mode: process.env.BILAN_MODE || 'local', // 'local' or 'server'
-  apiKey: process.env.BILAN_API_KEY, // Required for server mode
-  userId: process.env.BILAN_USER_ID || 'anonymous', // Your user identifier
-  telemetry: {
-    enabled: process.env.BILAN_TELEMETRY !== 'false' // opt-in to usage analytics
-  }
+export const bilan = new Bilan({
+  apiKey: process.env.BILAN_API_KEY,
+  projectId: process.env.BILAN_PROJECT_ID,
+  userId: process.env.BILAN_USER_ID || 'anonymous'
 })
 ```
 
 **Required Environment Variables:**
-- `BILAN_MODE` - Set to 'server' for production, 'local' for development
-- `BILAN_API_KEY` - Your Bilan API key (required for server mode)
+- `BILAN_API_KEY` - Your Bilan API key
+- `BILAN_PROJECT_ID` - Your Bilan project identifier
 - `BILAN_USER_ID` - Unique identifier for the current user
-- `BILAN_TELEMETRY` - Set to 'false' to disable telemetry (optional)
 
 ### 2. Create your AI chat route with feedback tracking
 
@@ -40,7 +36,7 @@ export const bilan = await init({
 // app/api/chat/route.ts
 import { openai } from '@ai-sdk/openai'
 import { streamText } from 'ai'
-import { bilan } from '@mocksi/bilan-sdk'
+import { bilan } from '@/lib/bilan'
 
 // Cross-platform UUID generation
 function generateId(): string {
@@ -52,26 +48,64 @@ function generateId(): string {
 }
 
 export async function POST(req: Request) {
-  const { messages } = await req.json()
+  const { messages, conversationId } = await req.json()
   
-  // Generate unique ID for this AI response
-  const promptId = generateId()
+  // Generate unique IDs for this turn and conversation
+  const turnId = generateId()
+  const actualConversationId = conversationId || generateId()
+  const model = 'gpt-4'
   
-  const result = await streamText({
-    model: openai('gpt-4'),
-    messages,
-    onFinish: async (completion) => {
-      // Optional: Log completion for analytics
-      console.log(`AI response completed for prompt ${promptId}`)
-    }
-  })
-  
-  // Add promptId to the response headers so frontend can track it
-  return result.toDataStreamResponse({
-    headers: {
-      'X-Prompt-ID': promptId
-    }
-  })
+  try {
+    // Track turn start
+    await bilan.track('turn_started', {
+      turn_id: turnId,
+      conversation_id: actualConversationId,
+      model,
+      provider: 'openai',
+      input_tokens: messages.reduce((sum, msg) => sum + msg.content.length, 0),
+      temperature: 0.7
+    })
+
+    const startTime = Date.now()
+    const result = await streamText({
+      model: openai(model),
+      messages,
+      onFinish: async (completion) => {
+        // Track turn completion
+        await bilan.track('turn_completed', {
+          turn_id: turnId,
+          conversation_id: actualConversationId,
+          model,
+          provider: 'openai',
+          input_tokens: completion.usage?.promptTokens || 0,
+          output_tokens: completion.usage?.completionTokens || 0,
+          total_tokens: completion.usage?.totalTokens || 0,
+          finish_reason: completion.finishReason,
+          latency: Date.now() - startTime
+        })
+      }
+    })
+    
+    // Add turn and conversation IDs to response headers
+    return result.toDataStreamResponse({
+      headers: {
+        'X-Turn-ID': turnId,
+        'X-Conversation-ID': actualConversationId
+      }
+    })
+  } catch (error) {
+    // Track turn failure
+    await bilan.track('turn_failed', {
+      turn_id: turnId,
+      conversation_id: actualConversationId,
+      model,
+      provider: 'openai',
+      error: error.message,
+      error_type: error.name
+    })
+    
+    throw error
+  }
 }
 ```
 
@@ -87,43 +121,63 @@ export async function POST(req: Request) {
 'use client'
 
 import { useChat } from 'ai/react'
-import { vote } from '@mocksi/bilan-sdk'
+import { bilan } from '@/lib/bilan'
 import { useState } from 'react'
 
 interface MessageWithFeedback {
   id: string
   role: 'user' | 'assistant'
   content: string
-  promptId?: string
+  turnId?: string
+  conversationId?: string
   feedback?: 1 | -1
 }
 
 export default function Chat() {
+  const [conversationId, setConversationId] = useState<string>('')
+  const [messageTurnIds, setMessageTurnIds] = useState<Record<string, string>>({})
+  const [feedbackStates, setFeedbackStates] = useState<Record<string, 1 | -1>>({})
+
   const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
+    body: {
+      conversationId
+    },
     onResponse: (response) => {
-      // Extract promptId from response headers
-      const promptId = response.headers.get('X-Prompt-ID')
-      if (promptId && messages.length > 0) {
-        // Store promptId with the current message's ID for feedback
+      // Extract turn and conversation IDs from response headers
+      const turnId = response.headers.get('X-Turn-ID')
+      const responseConversationId = response.headers.get('X-Conversation-ID')
+      
+      if (turnId && responseConversationId) {
+        // Set conversation ID for future requests
+        if (!conversationId) {
+          setConversationId(responseConversationId)
+        }
+        
+        // Store turnId with the current message's ID for feedback
         const currentMessage = messages[messages.length - 1]
-        setMessagePromptIds(prev => ({
-          ...prev,
-          [currentMessage.id]: promptId
-        }))
+        if (currentMessage) {
+          setMessageTurnIds(prev => ({
+            ...prev,
+            [currentMessage.id]: turnId
+          }))
+        }
       }
     }
   })
-  
-  const [messagePromptIds, setMessagePromptIds] = useState<Record<string, string>>({})
-  const [feedbackStates, setFeedbackStates] = useState<Record<string, 1 | -1>>({})
 
   const handleFeedback = async (messageId: string, value: 1 | -1, comment?: string) => {
-    const promptId = messagePromptIds[messageId]
-    if (!promptId) return
+    const turnId = messageTurnIds[messageId]
+    if (!turnId || !conversationId) return
 
     try {
-      await vote(promptId, value, comment)
-      setFeedbackStates(prev => ({ ...prev, [promptId]: value }))
+      await bilan.track('vote', {
+        turn_id: turnId,
+        conversation_id: conversationId,
+        vote_type: value === 1 ? 'up' : 'down',
+        value,
+        comment
+      })
+      setFeedbackStates(prev => ({ ...prev, [turnId]: value }))
     } catch (error) {
       console.error('Failed to submit feedback:', error)
     }
@@ -142,12 +196,12 @@ export default function Chat() {
               <p>{message.content}</p>
               
               {/* Feedback buttons for AI responses */}
-              {message.role === 'assistant' && messagePromptIds[message.id] && (
+              {message.role === 'assistant' && messageTurnIds[message.id] && (
                 <div className="mt-2 flex gap-2">
                   <button
                     onClick={() => handleFeedback(message.id, 1)}
                     className={`text-sm px-2 py-1 rounded ${
-                      feedbackStates[messagePromptIds[message.id]] === 1
+                      feedbackStates[messageTurnIds[message.id]] === 1
                         ? 'bg-green-500 text-white'
                         : 'bg-gray-100 hover:bg-gray-200'
                     }`}
@@ -157,7 +211,7 @@ export default function Chat() {
                   <button
                     onClick={() => handleFeedback(message.id, -1)}
                     className={`text-sm px-2 py-1 rounded ${
-                      feedbackStates[messagePromptIds[message.id]] === -1
+                      feedbackStates[messageTurnIds[message.id]] === -1
                         ? 'bg-red-500 text-white'
                         : 'bg-gray-100 hover:bg-gray-200'
                     }`}
@@ -192,50 +246,58 @@ export default function Chat() {
 }
 ```
 
-### 4. Add trust score display
+### 4. Add analytics display
 
 ```typescript
-// components/TrustScore.tsx
+// components/AnalyticsDisplay.tsx
 'use client'
 
-import { getStats } from '@mocksi/bilan-sdk'
+import { bilan } from '@/lib/bilan'
 import { useEffect, useState } from 'react'
 
-export default function TrustScore() {
-  const [trustScore, setTrustScore] = useState<number | null>(null)
+export default function AnalyticsDisplay() {
+  const [satisfactionRate, setSatisfactionRate] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const fetchStats = async () => {
+    const fetchAnalytics = async () => {
       try {
-        const stats = await getStats()
-        setTrustScore(stats.trustScore)
+        const analytics = await bilan.getAnalytics({
+          eventType: 'vote',
+          timeRange: '7d'
+        })
+        
+        const votes = analytics.events.filter(e => e.event_type === 'vote')
+        const positiveVotes = votes.filter(e => e.properties.value === 1).length
+        const rate = votes.length > 0 ? positiveVotes / votes.length : 0
+        
+        setSatisfactionRate(rate)
       } catch (error) {
-        console.error('Failed to fetch trust score:', error)
+        console.error('Failed to fetch analytics:', error)
       } finally {
         setLoading(false)
       }
     }
 
-    fetchStats()
+    fetchAnalytics()
     
     // Update every 30 seconds
-    const interval = setInterval(fetchStats, 30000)
+    const interval = setInterval(fetchAnalytics, 30000)
     return () => clearInterval(interval)
   }, [])
 
   if (loading) return <div className="text-sm text-gray-500">Loading...</div>
 
-  if (trustScore === null) return null
+  if (satisfactionRate === null) return null
 
-  const scoreColor = trustScore >= 0.8 ? 'text-green-600' : 
-                    trustScore >= 0.6 ? 'text-yellow-600' : 'text-red-600'
+  const scoreColor = satisfactionRate >= 0.8 ? 'text-green-600' : 
+                    satisfactionRate >= 0.6 ? 'text-yellow-600' : 'text-red-600'
 
   return (
     <div className="flex items-center gap-2 text-sm">
-      <span className="text-gray-600">Trust Score:</span>
+      <span className="text-gray-600">Satisfaction Rate:</span>
       <span className={`font-medium ${scoreColor}`}>
-        {Math.round(trustScore * 100)}%
+        {Math.round(satisfactionRate * 100)}%
       </span>
     </div>
   )
@@ -247,15 +309,15 @@ export default function TrustScore() {
 ```typescript
 // app/page.tsx
 import Chat from '@/components/Chat'
-import TrustScore from '@/components/TrustScore'
+import AnalyticsDisplay from '@/components/AnalyticsDisplay'
 
 export default function HomePage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-2xl mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-xl font-semibold">AI Chat with Trust Analytics</h1>
-          <TrustScore />
+          <h1 className="text-xl font-semibold">AI Chat with Event Analytics</h1>
+          <AnalyticsDisplay />
         </div>
       </header>
       
@@ -287,9 +349,9 @@ npm run dev
 
 ```typescript
 // In your browser console
-import { getStats } from '@mocksi/bilan-sdk'
-const stats = await getStats()
-console.log('Current stats:', stats)
+import { bilan } from '@/lib/bilan'
+const analytics = await bilan.getAnalytics()
+console.log('Current analytics:', analytics)
 ```
 
 ## Advanced Features
@@ -306,20 +368,27 @@ const handleDetailedFeedback = async (promptId: string, value: 1 | -1) => {
 }
 ```
 
-### Conditional model routing based on trust score
+### Conditional model routing based on satisfaction rate
 
 ```typescript
 // app/api/chat/route.ts
-import { getStats } from '@mocksi/bilan-sdk'
+import { bilan } from '@/lib/bilan'
 
 export async function POST(req: Request) {
-  const { messages } = await req.json()
+  const { messages, conversationId } = await req.json()
   
-  // Get current trust score
-  const stats = await getStats()
+  // Get current satisfaction rate
+  const analytics = await bilan.getAnalytics({
+    eventType: 'vote',
+    timeRange: '7d'
+  })
   
-  // Use better model if trust score is low
-  const model = stats.trustScore < 0.7 ? 'gpt-4' : 'gpt-3.5-turbo'
+  const votes = analytics.events.filter(e => e.event_type === 'vote')
+  const positiveVotes = votes.filter(e => e.properties.value === 1).length
+  const satisfactionRate = votes.length > 0 ? positiveVotes / votes.length : 0.5
+  
+  // Use better model if satisfaction rate is low
+  const model = satisfactionRate < 0.7 ? 'gpt-4' : 'gpt-3.5-turbo'
   
   const result = await streamText({
     model: openai(model),
@@ -330,7 +399,65 @@ export async function POST(req: Request) {
 }
 ```
 
-### Real-time trust score updates
+## Migration from v0.3.1 to v0.4.0
+
+### Before (v0.3.1) - Conversation-Centric
+
+```typescript
+// Old initialization
+import { init, vote } from '@mocksi/bilan-sdk'
+
+const bilan = await init({
+  mode: 'local',
+  userId: 'user-123',
+  telemetry: { enabled: true }
+})
+
+// Old voting
+await vote('prompt-id-123', 1, 'Great response!')
+
+// Old trust score
+const stats = await getStats()
+console.log('Trust score:', stats.trustScore)
+```
+
+### After (v0.4.0) - Event-Driven
+
+```typescript
+// New initialization
+import { Bilan } from '@mocksi/bilan-sdk'
+
+const bilan = new Bilan({
+  apiKey: 'your-api-key',
+  projectId: 'your-project',
+  userId: 'user-123'
+})
+
+// New event tracking
+await bilan.track('vote', {
+  turn_id: 'turn-123',
+  conversation_id: 'conv-456',
+  vote_type: 'up',
+  value: 1,
+  comment: 'Great response!'
+})
+
+// New analytics
+const analytics = await bilan.getAnalytics({
+  eventType: 'vote',
+  timeRange: '7d'
+})
+```
+
+### Key Changes in Vercel AI SDK Integration
+
+1. **Headers**: `X-Prompt-ID` → `X-Turn-ID` + `X-Conversation-ID`
+2. **Feedback**: `vote()` → `track('vote', properties)`
+3. **Analytics**: `getStats()` → `getAnalytics()`
+4. **Turn Tracking**: Automatic start/complete/failed tracking
+5. **Conversation Context**: Persistent conversation ID across turns
+
+### Real-time analytics updates
 
 ```typescript
 // components/TrustScore.tsx - Add real-time updates
