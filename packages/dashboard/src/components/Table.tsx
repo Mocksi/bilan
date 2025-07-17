@@ -34,7 +34,7 @@ export default function Table({
 
   if (loading) {
     return (
-      <div className={`bg-white rounded-lg shadow-sm border ${className}`}>
+      <div className={`bg-white border border-gray-200/60 rounded-lg shadow-sm ${className}`}>
         <div className="p-6">
           <div className="animate-pulse">
             <div className="h-4 bg-gray-200 rounded w-1/4 mb-4"></div>
@@ -50,7 +50,7 @@ export default function Table({
   }
 
   return (
-    <div className={`bg-white rounded-lg shadow-sm border overflow-hidden ${className}`}>
+    <div className={`bg-white border border-gray-200/60 rounded-lg shadow-sm overflow-hidden ${className}`}>
       {title && (
         <div className="px-6 py-4 border-b border-gray-200">
           <h2 className="text-lg font-semibold text-gray-900">{title}</h2>

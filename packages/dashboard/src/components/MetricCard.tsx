@@ -47,7 +47,7 @@ export const MetricCard: React.FC<MetricCardProps> = ({
   }
 
   return (
-    <div className={`bg-white p-6 rounded-lg shadow-sm border ${className}`}>
+    <div className={`bg-white border border-gray-200/60 rounded-lg shadow-sm p-5 ${className}`}>
       <div className="flex items-center">
         <div className="flex-shrink-0">
           <div className="text-3xl">{icon}</div>

@@ -30,7 +30,7 @@ export function JourneyPerformance({ data, className = '' }: JourneyPerformanceP
   }
 
   return (
-    <div className={`bg-white rounded-lg shadow p-6 ${className}`}>
+    <div className={`bg-white border border-gray-200/60 rounded-lg shadow-sm p-5 ${className}`}>
       <div className="mb-4">
         <div>
           <h3 className="text-lg font-semibold text-gray-900 flex items-center">
