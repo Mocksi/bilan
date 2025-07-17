@@ -13,6 +13,8 @@
 [![CI](https://img.shields.io/github/actions/workflow/status/Mocksi/bilan/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/Mocksi/bilan/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/Mocksi/bilan/graph/badge.svg?token=YV3PW1YYM3)](https://codecov.io/gh/Mocksi/bilan)
 [![Bundle Size](https://img.shields.io/badge/Bundle%20Size-4.8KB%20gzipped-brightgreen?style=flat-square)](https://github.com/Mocksi/bilan/tree/main/packages/sdk)
+[![Docker](https://img.shields.io/badge/Docker-Ready-blue?style=flat-square)](https://github.com/Mocksi/bilan/tree/main/docker)
+[![Production](https://img.shields.io/badge/Production-Ready-green?style=flat-square)](https://github.com/Mocksi/bilan/tree/main/docs/deployment.md)
 
 </div>
 
@@ -20,19 +22,52 @@
 
 ## What is Bilan?
 
-Bilan is an open source analytics tool that helps you understand how users react to your AI-powered features. Track thumbs up/down votes, detect frustration patterns, and get basic trust metrics - all running on your own infrastructure.
+Bilan is an open source analytics tool that helps you understand how users interact with your AI-powered features. Track complete conversation flows, user journey completion, and quality signals - all running on your own infrastructure.
 
 **Perfect for:** Individual developers, startups, and teams who want to understand AI user experience without external dependencies.
 
-### SDK Features
+### Core Capabilities
 
-- **🚀 Lightweight**: <2KB gzipped bundle size
+#### 💬 Conversation Tracking
+Track complete AI conversation sessions from start to finish:
+- **Session Management**: Start, track messages, and end conversations
+- **Success Metrics**: Measure completion vs. abandonment rates
+- **Quality Signals**: Record frustration, regeneration, and feedback events
+- **Multi-turn Analysis**: Understand conversation patterns and user behavior
+
+#### 🗺️ Journey Analytics  
+Monitor user progress through AI-powered workflows:
+- **Step Tracking**: Record progress through predefined journey steps
+- **Completion Rates**: Measure journey success and drop-off points
+- **Funnel Analysis**: Identify where users struggle or abandon tasks
+- **Workflow Optimization**: Data-driven insights for improving user flows
+
+#### 👍 Feedback Collection
+Capture user sentiment and quality indicators:
+- **Explicit Feedback**: Traditional thumbs up/down with comments
+- **Implicit Signals**: Frustration and regeneration event detection
+- **Trust Metrics**: Aggregate feedback into actionable trust scores
+- **Trend Analysis**: Track improvement or decline over time
+
+### Platform Features
+
+#### SDK
+- **🚀 Lightweight**: <5KB gzipped bundle size
 - **🔒 Type Safe**: Full TypeScript support with branded types
 - **🏃‍♂️ Zero Dependencies**: Uses only native web APIs
 - **📱 Universal**: Works in browsers, Node.js, and edge environments
 - **🔧 Configurable**: Advanced trend analysis with customizable parameters
 - **🛡️ Robust**: Comprehensive error handling and graceful degradation
 - **📊 Smart Analytics**: Time-weighted trend detection with statistical significance
+
+#### Production Infrastructure
+- **🐳 Docker Ready**: Complete containerization with multi-stage builds
+- **📈 Real-time Dashboard**: Live analytics with conversation tracking
+- **🔍 Health Monitoring**: Comprehensive health checks and metrics
+- **💾 Database Support**: PostgreSQL and SQLite with migration scripts
+- **⚡ Performance Tested**: <500ms API response times, <3s dashboard loads
+- **🔐 Security Hardened**: Input validation, secure headers, rate limiting
+- **📊 Observability**: Prometheus metrics, structured logging, alerting
 
 ### Quick Start
 
@@ -41,7 +76,7 @@ npm install @mocksi/bilan-sdk
 ```
 
 ```typescript
-import { init, vote, getStats, createUserId, createPromptId } from '@mocksi/bilan-sdk'
+import { init, conversation, journey, vote, getStats, createUserId } from '@mocksi/bilan-sdk'
 
 // Initialize the SDK
 await init({
@@ -49,13 +84,22 @@ await init({
   userId: createUserId('user-123')
 })
 
-// Track user feedback
-await vote(createPromptId('prompt-abc'), 1, 'Helpful suggestion!')
+// Track a complete conversation
+const conversationId = await conversation.start(createUserId('user-123'))
+await conversation.addMessage(conversationId)
+await conversation.recordFeedback(conversationId, 1, 'Great response!')
+await conversation.end(conversationId, 'completed')
 
-// Get analytics
+// Track user journey progress
+await journey.trackStep('email-workflow', 'draft-composed', createUserId('user-123'))
+await journey.trackStep('email-workflow', 'ai-suggestions-applied', createUserId('user-123'))
+await journey.complete('email-workflow', createUserId('user-123'))
+
+// Get comprehensive analytics
 const stats = await getStats()
-console.log(`Trust score: ${(stats.positiveRate * 100).toFixed(1)}%`)
-console.log(`Trend: ${stats.recentTrend}`) // 'improving' | 'declining' | 'stable'
+console.log(`Conversation success rate: ${(stats.conversationSuccessRate * 100).toFixed(1)}%`)
+console.log(`Journey completion rate: ${(stats.journeyCompletionRate * 100).toFixed(1)}%`)
+console.log(`Trust score: ${(stats.trustScore * 100).toFixed(1)}%`)
 ```
 
 ### Advanced Configuration
@@ -87,32 +131,57 @@ await init({
 ```typescript
 // Branded types for type safety
 type UserId = string & { __brand: 'UserId' }
-type PromptId = string & { __brand: 'PromptId' }
+type ConversationId = string & { __brand: 'ConversationId' }
 
 // Create branded types
 const userId = createUserId('user-123')
-const promptId = createPromptId('prompt-abc')
 
-// Vote event structure
-interface VoteEvent {
-  promptId: PromptId
-  value: 1 | -1           // 👍 or 👎
-  comment?: string        // Optional user comment
-  timestamp: number       // Auto-generated
-  userId: UserId         // From init config
-  // Extended context (optional)
-  promptText?: string     // Original user question
-  aiOutput?: string       // AI's complete response
-  modelUsed?: string      // AI model identifier
-  responseTime?: number   // Response time in seconds
+// Conversation tracking
+interface ConversationData {
+  id: ConversationId
+  userId: UserId
+  startedAt: number
+  endedAt?: number
+  messageCount: number
+  outcome?: 'completed' | 'abandoned'
 }
 
-// Analytics results
-interface BasicStats {
-  totalVotes: number      // Total feedback count
-  positiveRate: number    // Ratio 0.0-1.0 (75% = 0.75)
-  recentTrend: 'improving' | 'declining' | 'stable'
-  topFeedback: string[]   // Recent comments
+// Quality signals and feedback
+interface FeedbackEvent {
+  conversationId: ConversationId
+  type: 'frustration' | 'regeneration' | 'explicit_feedback'
+  value?: 1 | -1          // for explicit feedback only
+  comment?: string        // Optional user comment
+  timestamp: number
+}
+
+// Journey tracking
+interface JourneyStep {
+  journeyName: string
+  stepName: string
+  userId: UserId
+  completedAt: number
+}
+
+// Comprehensive analytics
+interface AnalyticsStats {
+  // Conversation metrics
+  totalConversations: number
+  conversationSuccessRate: number    // 0.0-1.0
+  averageMessagesPerConversation: number
+  
+  // Journey metrics
+  journeyCompletionRate: number      // 0.0-1.0
+  averageJourneyDuration: number     // milliseconds
+  
+  // Quality signals
+  frustrationEvents: number
+  regenerationEvents: number
+  explicitFeedbackScore: number      // -1.0 to 1.0
+  
+  // Overall trust score
+  trustScore: number                 // 0.0-1.0
+  trendDirection: 'improving' | 'declining' | 'stable'
 }
 ```
 
@@ -121,30 +190,59 @@ interface BasicStats {
 **`init(config: InitConfig): Promise<void>`**
 Initialize the SDK with configuration.
 
-**`vote(promptId, value, comment?, options?): Promise<void>`**
-Record user feedback with optional context.
+**Conversation Tracking Methods**
+
+**`conversation.start(userId: UserId): Promise<ConversationId>`**
+Start a new conversation session.
+
+**`conversation.addMessage(conversationId: ConversationId): Promise<void>`**
+Record a message in the conversation.
+
+**`conversation.recordFrustration(conversationId: ConversationId): Promise<void>`**
+Record a user frustration event.
+
+**`conversation.recordRegeneration(conversationId: ConversationId): Promise<void>`**
+Record when user regenerates AI response.
+
+**`conversation.recordFeedback(conversationId: ConversationId, value: 1 | -1, comment?: string): Promise<void>`**
+Record explicit user feedback.
+
+**`conversation.end(conversationId: ConversationId, outcome: 'completed' | 'abandoned'): Promise<void>`**
+End conversation with success/failure outcome.
 
 ```typescript
-// Simple feedback
-await vote('prompt-123', 1)
-
-// With comment
-await vote('prompt-123', -1, 'Not quite right')
-
-// With full context
-await vote('prompt-123', 1, 'Perfect!', {
-  promptText: 'How do I center a div?',
-  aiOutput: 'Use flexbox with justify-content: center...',
-  modelUsed: 'gpt-4',
-  responseTime: 1.2
-})
+// Complete conversation flow
+const conversationId = await conversation.start(createUserId('user-123'))
+await conversation.addMessage(conversationId)
+await conversation.recordFeedback(conversationId, 1, 'Helpful!')
+await conversation.end(conversationId, 'completed')
 ```
 
-**`getStats(): Promise<BasicStats>`**
-Get aggregate analytics for all feedback.
+**Journey Tracking Methods**
 
-**`getPromptStats(promptId): Promise<PromptStats>`**
-Get analytics for a specific prompt.
+**`journey.trackStep(journeyName: string, stepName: string, userId: UserId): Promise<void>`**
+Record progress through a journey step.
+
+**`journey.complete(journeyName: string, userId: UserId): Promise<void>`**
+Mark a journey as completed.
+
+```typescript
+// Track email workflow journey
+await journey.trackStep('email-workflow', 'draft-created', userId)
+await journey.trackStep('email-workflow', 'ai-suggestions-applied', userId)
+await journey.complete('email-workflow', userId)
+```
+
+**Analytics Methods**
+
+**`getStats(): Promise<AnalyticsStats>`**
+Get comprehensive analytics including conversations, journeys, and quality signals.
+
+**`getConversationStats(conversationId?: ConversationId): Promise<ConversationStats>`**
+Get analytics for conversations (specific or all).
+
+**`getJourneyStats(journeyName?: string): Promise<JourneyStats>`**
+Get analytics for journeys (specific or all).
 
 #### Error Handling
 
