@@ -2,19 +2,31 @@ import React, { ReactNode } from 'react'
 import { Navigation } from '../app/components/Navigation'
 import { TimeRangeSelector, TimeRange } from './TimeRangeSelector'
 
+/**
+ * Props for the DashboardLayout component
+ */
 interface DashboardLayoutProps {
+  /** The content to render inside the layout */
   children: ReactNode
+  /** Optional title to display in the header */
   title?: string
+  /** Optional subtitle to display below the title */
   subtitle?: string
+  /** Optional action buttons to display in the header */
   actions?: ReactNode
+  /** Whether to show the time range selector */
   showTimeRange?: boolean
+  /** Current time range value */
   timeRange?: TimeRange
+  /** Callback when time range changes */
   onTimeRangeChange?: (range: TimeRange) => void
+  /** Callback when refresh button is clicked */
   onRefresh?: () => void
+  /** Timestamp of last data update */
   lastUpdated?: Date | null
 }
 
-export function DashboardLayout({ 
+export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ 
   children, 
   title, 
   subtitle, 
@@ -24,7 +36,7 @@ export function DashboardLayout({
   onTimeRangeChange,
   onRefresh,
   lastUpdated
-}: DashboardLayoutProps) {
+}) => {
   return (
     <div className="page">
       {/* Header with title, time range selector, and refresh button */}
