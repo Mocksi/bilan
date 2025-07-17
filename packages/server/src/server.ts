@@ -1,7 +1,7 @@
 import Fastify, { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 import cors from '@fastify/cors'
-import { BilanDatabase, Event, EVENT_TYPES } from './database/schema.js'
-import { VoteCastEvent } from '@mocksi/bilan-sdk'
+import { BilanDatabase, Event, EVENT_TYPES, EventType } from './database/schema.js'
+import { VoteCastEvent, TurnEvent, UserActionEvent } from '@mocksi/bilan-sdk'
 import { BasicAnalyticsProcessor, DashboardData } from './analytics/basic-processor.js'
 
 export interface ServerConfig {
@@ -10,8 +10,13 @@ export interface ServerConfig {
   cors?: boolean
 }
 
+/**
+ * Union type for all possible SDK event types
+ */
+type SdkEvent = VoteCastEvent | TurnEvent | UserActionEvent
+
 interface EventsBody {
-  events: any[]
+  events: SdkEvent[]
 }
 
 interface DashboardQuery {
@@ -36,19 +41,42 @@ function voteCastEventToEvent(voteCastEvent: VoteCastEvent): Event {
 }
 
 /**
- * Convert any SDK event to unified Event format
+ * Convert SDK event to unified Event format with required eventId
  */
-function sdkEventToEvent(sdkEvent: any): Event {
+function sdkEventToEvent(sdkEvent: SdkEvent): Event {
+  // Require eventId to be present to avoid duplicates on reprocessing
+  if (!sdkEvent.eventId) {
+    throw new Error('eventId is required for all SDK events')
+  }
+  
   // Handle VoteCastEvent
   if (sdkEvent.eventType === 'vote_cast') {
     return voteCastEventToEvent(sdkEvent as VoteCastEvent)
   }
   
-  // Handle other event types from SDK
+  // Handle other event types from SDK - map to server event types
+  let serverEventType: EventType
+  switch (sdkEvent.eventType) {
+    case 'turn_started':
+      serverEventType = EVENT_TYPES.TURN_CREATED
+      break
+    case 'turn_completed':
+      serverEventType = EVENT_TYPES.TURN_COMPLETED
+      break
+    case 'turn_failed':
+      serverEventType = EVENT_TYPES.TURN_FAILED
+      break
+    case 'user_action':
+      serverEventType = EVENT_TYPES.USER_ACTION
+      break
+    default:
+      serverEventType = EVENT_TYPES.USER_ACTION // fallback
+  }
+  
   return {
-    event_id: sdkEvent.eventId || crypto.randomUUID(),
+    event_id: sdkEvent.eventId,
     user_id: sdkEvent.userId,
-    event_type: sdkEvent.eventType,
+    event_type: serverEventType,
     timestamp: sdkEvent.timestamp,
     properties: sdkEvent.properties || {},
     prompt_text: sdkEvent.promptText || null,
@@ -71,7 +99,14 @@ export class BilanServer {
     this.setupRoutes()
     
     if (config.cors) {
-      this.fastify.register(cors)
+      // Configure CORS with specific security settings
+      const corsOptions = {
+        origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000', 'http://localhost:3001'],
+        methods: ['GET', 'POST', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+        credentials: true
+      }
+      this.fastify.register(cors, corsOptions)
     }
   }
 
@@ -90,11 +125,22 @@ export class BilanServer {
           return reply.status(400).send({ error: 'Events must be an array' })
         }
 
-        // Convert SDK events to unified Event format and insert
+        // Convert SDK events to unified Event format and insert with deduplication
         for (const sdkEvent of events) {
           try {
             const unifiedEvent = sdkEventToEvent(sdkEvent)
-            this.db.insertEvent(unifiedEvent)
+            
+            // Check for duplicate event_id before insertion
+            const existingEvent = this.db.queryOne(
+              'SELECT event_id FROM events WHERE event_id = ?',
+              [unifiedEvent.event_id]
+            )
+            
+            if (!existingEvent) {
+              this.db.insertEvent(unifiedEvent)
+            } else {
+              this.fastify.log.debug(`Skipping duplicate event: ${unifiedEvent.event_id}`)
+            }
           } catch (error) {
             this.fastify.log.error('Failed to insert event:', error)
             // Continue processing other events rather than failing completely
