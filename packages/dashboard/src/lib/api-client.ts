@@ -9,7 +9,10 @@ import {
   ConversationFilterState,
   JourneyData,
   JourneyAnalytics,
-  JourneyFilterState
+  JourneyFilterState,
+  OverviewAnalytics,
+  RecentEventsResponse,
+  Event
 } from './types'
 import { TimeRange } from '@/components/TimeRangeSelector'
 import { formatDateForAPI, getDateRange, getPreviousDateRange } from './time-utils'
@@ -226,9 +229,9 @@ export class ApiClient {
   }
 
   /**
-   * Fetch data for the previous period for comparison
+   * Fetch previous period data for comparison
    */
-  private async fetchPreviousPeriodData(timeRange: TimeRange): Promise<DashboardData> {
+  async fetchPreviousPeriodData(timeRange: TimeRange): Promise<DashboardData> {
     const { start, end } = getPreviousDateRange(timeRange)
     const params = new URLSearchParams({
       start: formatDateForAPI(start),
@@ -236,23 +239,89 @@ export class ApiClient {
       range: timeRange
     })
 
-    // Create independent AbortController for comparison request
-    const comparisonController = new AbortController()
-
     const response = await fetch(`${this.baseUrl}/api/dashboard?${params}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
       },
-      signal: comparisonController.signal,
     })
 
     if (!response.ok) {
-      throw new Error(`API request failed: ${response.status} ${response.statusText}`)
+      throw new Error(`Failed to fetch previous period data: ${response.status} ${response.statusText}`)
     }
 
-    const data = await response.json()
-    return data as DashboardData
+    return response.json()
+  }
+
+  /**
+   * Fetch overview analytics data from the new event-based API
+   */
+  async fetchOverviewAnalytics(timeRange: TimeRange = '30d'): Promise<OverviewAnalytics> {
+    const abortController = new AbortController()
+
+    try {
+      const params = new URLSearchParams({
+        timeRange: timeRange
+      })
+
+      const response = await fetch(`${this.baseUrl}/api/analytics/overview?${params}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        signal: abortController.signal,
+      })
+
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.status} ${response.statusText}`)
+      }
+
+      return response.json()
+    } catch (error) {
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          throw new Error('Request was cancelled')
+        }
+        throw new Error(`Failed to fetch overview analytics: ${error.message}`)
+      }
+      throw new Error('Failed to fetch overview analytics: Unknown error')
+    }
+  }
+
+  /**
+   * Fetch recent events for activity feed
+   */
+  async fetchRecentEvents(limit: number = 20): Promise<RecentEventsResponse> {
+    const abortController = new AbortController()
+
+    try {
+      const params = new URLSearchParams({
+        limit: limit.toString(),
+        offset: '0'
+      })
+
+      const response = await fetch(`${this.baseUrl}/api/events?${params}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        signal: abortController.signal,
+      })
+
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.status} ${response.statusText}`)
+      }
+
+      return response.json()
+    } catch (error) {
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          throw new Error('Request was cancelled')
+        }
+        throw new Error(`Failed to fetch recent events: ${error.message}`)
+      }
+      throw new Error('Failed to fetch recent events: Unknown error')
+    }
   }
 
   /**
@@ -345,6 +414,132 @@ export function useDashboardData(timeRange: TimeRange = '30d', includeComparison
       isMounted = false
     }
   }, [timeRange, includeComparison])
+
+  return { data, loading, error, refresh, fetchData }
+}
+
+// New hook for event-based overview analytics
+export function useOverviewAnalytics(timeRange: TimeRange = '30d') {
+  const [data, setData] = useState<OverviewAnalytics | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const fetchData = async (range: TimeRange = timeRange) => {
+    try {
+      setLoading(true)
+      setError(null)
+      const overviewData = await apiClient.fetchOverviewAnalytics(range)
+      setData(overviewData)
+    } catch (err) {
+      // Only set error if it's not a cancellation error
+      if (err instanceof Error && err.message !== 'Request was cancelled') {
+        setError(err.message)
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const refresh = () => {
+    fetchData(timeRange)
+  }
+
+  // Automatically fetch data when the hook is first used or when timeRange changes
+  useEffect(() => {
+    let isMounted = true
+    
+    const loadData = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        const overviewData = await apiClient.fetchOverviewAnalytics(timeRange)
+        
+        // Only update state if component is still mounted
+        if (isMounted) {
+          setData(overviewData)
+        }
+      } catch (err) {
+        // Only set error if component is still mounted and it's not a cancellation error
+        if (isMounted && err instanceof Error && err.message !== 'Request was cancelled') {
+          setError(err.message)
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false)
+        }
+      }
+    }
+    
+    loadData()
+    
+    // Cleanup function to prevent state updates on unmounted component
+    return () => {
+      isMounted = false
+    }
+  }, [timeRange])
+
+  return { data, loading, error, refresh, fetchData }
+}
+
+// New hook for recent events
+export function useRecentEvents(limit: number = 20) {
+  const [data, setData] = useState<RecentEventsResponse | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const fetchData = async (eventLimit: number = limit) => {
+    try {
+      setLoading(true)
+      setError(null)
+      const eventsData = await apiClient.fetchRecentEvents(eventLimit)
+      setData(eventsData)
+    } catch (err) {
+      // Only set error if it's not a cancellation error
+      if (err instanceof Error && err.message !== 'Request was cancelled') {
+        setError(err.message)
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const refresh = () => {
+    fetchData(limit)
+  }
+
+  // Automatically fetch data when the hook is first used or when limit changes
+  useEffect(() => {
+    let isMounted = true
+    
+    const loadData = async () => {
+      try {
+        setLoading(true)
+        setError(null)
+        const eventsData = await apiClient.fetchRecentEvents(limit)
+        
+        // Only update state if component is still mounted
+        if (isMounted) {
+          setData(eventsData)
+        }
+      } catch (err) {
+        // Only set error if component is still mounted and it's not a cancellation error
+        if (isMounted && err instanceof Error && err.message !== 'Request was cancelled') {
+          setError(err.message)
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false)
+        }
+      }
+    }
+    
+    loadData()
+    
+    // Cleanup function to prevent state updates on unmounted component
+    return () => {
+      isMounted = false
+    }
+  }, [limit])
 
   return { data, loading, error, refresh, fetchData }
 }

@@ -49,6 +49,47 @@ export interface DashboardData {
 }
 
 /**
+ * Overview analytics data structure from the new event-based API
+ */
+export interface OverviewAnalytics {
+  totalEvents: number
+  totalUsers: number
+  eventTypes: Array<{
+    type: string
+    count: number
+  }>
+  timeRange: string
+  dateRange: {
+    start: string
+    end: string
+  }
+}
+
+/**
+ * Recent events response structure from the new event-based API
+ */
+export interface RecentEventsResponse {
+  events: Event[]
+  total: number
+  limit: number
+  offset: number
+  hasMore: boolean
+}
+
+/**
+ * Event structure from the new event-based API
+ */
+export interface Event {
+  event_id: string
+  user_id: string
+  event_type: string
+  timestamp: number
+  properties: Record<string, any>
+  prompt_text?: string | null
+  ai_response?: string | null
+}
+
+/**
  * Comprehensive vote data structure for votes analytics page
  */
 export interface VoteData {
