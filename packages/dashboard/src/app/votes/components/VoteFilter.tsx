@@ -1,14 +1,19 @@
 'use client'
 
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { VoteFilterState } from '@/lib/types'
 
-interface VoteFilterProps {
+/**
+ * Props for the VoteFilter component
+ */
+export interface VoteFilterProps {
+  /** Callback function triggered when filters change */
   onFilterChange: (filters: VoteFilterState) => void
+  /** Optional CSS class name for styling */
   className?: string
 }
 
-export function VoteFilter({ onFilterChange, className = '' }: VoteFilterProps) {
+export const VoteFilter: React.FC<VoteFilterProps> = ({ onFilterChange, className = '' }) => {
   const [filters, setFilters] = useState<VoteFilterState>({
     search: '',
     rating: 'all',
@@ -20,7 +25,7 @@ export function VoteFilter({ onFilterChange, className = '' }: VoteFilterProps) 
     sortOrder: 'desc'
   })
 
-  const handleFilterChange = (key: keyof VoteFilterState, value: any) => {
+  const handleFilterChange = (key: keyof VoteFilterState, value: VoteFilterState[keyof VoteFilterState]) => {
     const newFilters = { ...filters, [key]: value }
     setFilters(newFilters)
     onFilterChange(newFilters)
