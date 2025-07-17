@@ -1,34 +1,14 @@
 #!/bin/bash
-set -euo pipefail
+set -uo pipefail
 
 # Bilan Environment Validation Script
 # Validates environment configuration for deployment
 
+# Source shared color functions
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/lib/colors.sh"
+
 echo "✅ Validating Bilan environment configuration..."
-
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
-
-# Function to print colored output
-print_status() {
-    echo -e "${BLUE}[INFO]${NC} $1"
-}
-
-print_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
-}
-
-print_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
-}
-
-print_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
 
 # Validation counters
 ERRORS=0
@@ -70,11 +50,11 @@ validate_optional() {
     
     if [ -z "$var_value" ]; then
         add_warning "Optional variable $var_name is not set ($description). Using default: $default_value"
-        return 1
+        print_status "Effective value for $var_name: $default_value"
     else
-        print_success "$var_name is set"
-        return 0
+        print_success "$var_name is set to: $var_value"
     fi
+    return 0
 }
 
 # Function to validate port number
@@ -143,11 +123,10 @@ check_command() {
     
     if command -v "$cmd" > /dev/null 2>&1; then
         print_success "$description is available: $(which "$cmd")"
-        return 0
     else
         add_warning "$description is not available: $cmd"
-        return 1
     fi
+    return 0
 }
 
 # Load environment variables
