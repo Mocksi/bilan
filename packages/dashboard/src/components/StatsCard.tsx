@@ -69,35 +69,33 @@ const StatsCard: React.FC<StatsCardProps> = ({
   }
 
   return (
-    <div className={`card ${className}`}>
-      <div className="card-body">
-        <div className="d-flex align-items-center">
-          <div className="subheader">{title}</div>
-          {icon && (
-            <div className="ms-auto text-muted">
-              {icon}
-            </div>
-          )}
-        </div>
-        <div className="d-flex align-items-baseline">
-          <div className="h1 mb-0 me-2">{value}</div>
-          {change && (
-            <div className="ms-auto">
-              <div className={`d-flex align-items-center ${getTrendColor()}`}>
-                {getTrendIcon()}
-                <span className="ms-1 text-nowrap">
-                  {change.value > 0 ? '+' : ''}{change.value}% {change.label}
-                </span>
-              </div>
-            </div>
-          )}
-        </div>
-        {description && (
-          <div className="text-muted mt-1">
-            <small>{description}</small>
+    <div className={`bg-white rounded-lg shadow p-6 ${className}`}>
+      <div className="flex items-center">
+        <div className="text-sm font-medium text-gray-600 uppercase tracking-wide">{title}</div>
+        {icon && (
+          <div className="ml-auto text-gray-600">
+            {icon}
           </div>
         )}
       </div>
+      <div className="flex items-baseline">
+        <div className="text-3xl font-bold mb-0 mr-2">{value}</div>
+        {change && (
+          <div className="ml-auto">
+            <div className={`flex items-center ${getTrendColor()}`}>
+              {getTrendIcon()}
+              <span className="ml-1 whitespace-nowrap">
+                {change.value > 0 ? '+' : ''}{change.value}% {change.label}
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+      {description && (
+        <div className="text-gray-600 mt-1">
+          <small>{description}</small>
+        </div>
+      )}
     </div>
   )
 }
