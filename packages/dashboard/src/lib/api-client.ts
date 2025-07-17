@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { 
   DashboardData, 
   VoteData, 
@@ -721,17 +721,26 @@ export function useJourneyAnalytics(timeRange: string = '30d') {
   const [data, setData] = useState<JourneyAnalytics | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const isMountedRef = useRef(true)
 
   const fetchData = async () => {
     try {
-      setLoading(true)
-      setError(null)
+      if (isMountedRef.current) {
+        setLoading(true)
+        setError(null)
+      }
       const analytics = await fetchJourneyAnalytics(timeRange)
-      setData(analytics)
+      if (isMountedRef.current) {
+        setData(analytics)
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch journey analytics')
+      if (isMountedRef.current) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch journey analytics')
+      }
     } finally {
-      setLoading(false)
+      if (isMountedRef.current) {
+        setLoading(false)
+      }
     }
   }
 
@@ -741,6 +750,10 @@ export function useJourneyAnalytics(timeRange: string = '30d') {
 
   useEffect(() => {
     fetchData()
+    
+    return () => {
+      isMountedRef.current = false
+    }
   }, [timeRange])
 
   return { data, loading, error, refresh, fetchData }
