@@ -215,6 +215,7 @@ async function streamingConversation(
   onChunk: (chunk: string) => void
 ) {
   const turnId = `turn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+  const startTime = Date.now()
   
   // Track turn start
   bilan.track('turn_started', {
