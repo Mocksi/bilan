@@ -172,32 +172,32 @@ run_postgresql_migration() {
     
     print_status "Running PostgreSQL migration: $migration_name"
     
-    # Build psql command with proper connection parameters
-    local psql_cmd="psql"
+    # Build psql command arguments array
+    local psql_args=("psql")
     
     # Use DATABASE_URL if available, otherwise build from discrete variables
     if [ -n "${DATABASE_URL:-}" ]; then
-        psql_cmd="$psql_cmd \"${DATABASE_URL}\""
+        psql_args+=("${DATABASE_URL}")
     else
         if [ -n "${POSTGRES_HOST:-}" ]; then
-            psql_cmd="$psql_cmd -h \"${POSTGRES_HOST}\""
+            psql_args+=("-h" "${POSTGRES_HOST}")
         fi
         if [ -n "${POSTGRES_PORT:-}" ]; then
-            psql_cmd="$psql_cmd -p \"${POSTGRES_PORT}\""
+            psql_args+=("-p" "${POSTGRES_PORT}")
         fi
         if [ -n "${POSTGRES_USER:-}" ]; then
-            psql_cmd="$psql_cmd -U \"${POSTGRES_USER}\""
+            psql_args+=("-U" "${POSTGRES_USER}")
         fi
         if [ -n "${POSTGRES_DB:-}" ]; then
-            psql_cmd="$psql_cmd -d \"${POSTGRES_DB}\""
+            psql_args+=("-d" "${POSTGRES_DB}")
         fi
     fi
     
-    # Add ON_ERROR_STOP and execute migration
-    psql_cmd="$psql_cmd -v ON_ERROR_STOP=1"
+    # Add ON_ERROR_STOP
+    psql_args+=("-v" "ON_ERROR_STOP=1")
     
     # Execute migration
-    if eval "$psql_cmd" < "$migration_file"; then
+    if "${psql_args[@]}" < "$migration_file"; then
         print_success "Migration completed: $migration_name"
         return 0
     else
