@@ -565,7 +565,7 @@ const queryPatterns = {
     LIMIT $5 OFFSET $6
   `,
   
-  metric_calculation: `
+  metric_calculation: (groupBy: string) => `
     SELECT 
       COUNT(*) as count,
       properties->>'${groupBy}' as group_key
@@ -596,6 +596,12 @@ const queryPatterns = {
     GROUP BY event_type
     ORDER BY COUNT(*) DESC
   `
+}
+
+// Usage example:
+const getMetricsByProvider = async (eventTypes: string[], startTime: Date, endTime: Date) => {
+  const query = queryPatterns.metric_calculation('provider')
+  return await db.query(query, [eventTypes, startTime, endTime])
 }
 ```
 
