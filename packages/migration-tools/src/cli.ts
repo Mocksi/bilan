@@ -3,6 +3,8 @@
 import { Command } from 'commander'
 import { V3DataExtractor } from './extractor.js'
 import { BilanMigrator } from './migrator.js'
+import { RollbackManager } from './rollback.js'
+import { MigrationValidator } from './validation.js'
 import { MigrationConfig } from './types.js'
 
 const program = new Command()
@@ -313,6 +315,216 @@ program
       
     } catch (error) {
       console.error('❌ Migration validation failed:', error instanceof Error ? error.message : 'Unknown error')
+      process.exit(1)
+    }
+  })
+
+program
+  .command('rollback')
+  .description('Rollback migration and restore v0.3.x database from checkpoint')
+  .option('--source <path>', 'Path to v0.3.x database file', './bilan.db')
+  .option('--target <path>', 'Path to v0.4.0 database file', './bilan-v4.db')
+  .option('--verify', 'Verify rollback integrity after completion', false)
+  .option('--verbose', 'Enable verbose output', false)
+  .action(async (options) => {
+    console.log('🔄 Initiating rollback process...')
+    
+    const config: MigrationConfig = {
+      sourceDbPath: options.source,
+      targetDbPath: options.target,
+      verbose: options.verbose
+    }
+    
+    try {
+      const rollbackManager = new RollbackManager(config)
+      
+      // Check if checkpoint exists
+      const checkpointInfo = await rollbackManager.getCheckpointInfo()
+      if (!checkpointInfo.exists) {
+        console.error('❌ No checkpoint found. Cannot perform rollback.')
+        process.exit(1)
+      }
+      
+      console.log(`📅 Checkpoint found: ${checkpointInfo.created_at}`)
+      console.log(`💾 Checkpoint size: ${Math.round((checkpointInfo.size || 0) / 1024 / 1024)}MB`)
+      
+      // Perform rollback
+      await rollbackManager.performFullRollback()
+      
+      // Verify rollback if requested
+      if (options.verify) {
+        console.log('🔍 Verifying rollback integrity...')
+        const verification = await rollbackManager.verifyRollback()
+        
+        if (verification.isValid) {
+          console.log('✅ Rollback verification passed')
+          if (verification.comparison) {
+            console.log(`📊 Comparison: ${verification.comparison.checkpointEvents} events restored`)
+          }
+        } else {
+          console.log('❌ Rollback verification failed')
+          verification.errors.forEach(error => console.log(`   - ${error}`))
+          process.exit(1)
+        }
+      }
+      
+    } catch (error) {
+      console.error('❌ Rollback failed:', error instanceof Error ? error.message : 'Unknown error')
+      process.exit(1)
+    }
+  })
+
+program
+  .command('validate-pre')
+  .description('Validate readiness for migration')
+  .option('--source <path>', 'Path to v0.3.x database file', './bilan.db')
+  .option('--target <path>', 'Path for v0.4.0 database file', './bilan-v4.db')
+  .option('--verbose', 'Enable verbose output', false)
+  .action(async (options) => {
+    console.log('🔍 Validating migration readiness...')
+    
+    const config: MigrationConfig = {
+      sourceDbPath: options.source,
+      targetDbPath: options.target,
+      verbose: options.verbose
+    }
+    
+    try {
+      const validator = new MigrationValidator(config)
+      const validation = await validator.validatePreMigration()
+      
+      if (validation.isValid) {
+        console.log('✅ Migration readiness validation passed')
+        
+        console.log('\n🎯 Readiness Status:')
+        console.log(`   v0.3.x Database: ${validation.readiness.v3Database ? '✅' : '❌'}`)
+        console.log(`   Disk Space: ${validation.readiness.diskSpace ? '✅' : '❌'}`)
+        console.log(`   Permissions: ${validation.readiness.permissions ? '✅' : '❌'}`)
+        console.log(`   Checkpoint Ready: ${validation.readiness.checkpointReady ? '✅' : '❌'}`)
+        
+        if (validation.recommendations.length > 0) {
+          console.log('\n💡 Recommendations:')
+          validation.recommendations.forEach(rec => console.log(`   - ${rec}`))
+        }
+      } else {
+        console.log('❌ Migration readiness validation failed')
+        console.log('\n🚨 Errors:')
+        validation.errors.forEach(error => console.log(`   - ${error}`))
+        
+        if (validation.warnings.length > 0) {
+          console.log('\n⚠️  Warnings:')
+          validation.warnings.forEach(warning => console.log(`   - ${warning}`))
+        }
+        
+        process.exit(1)
+      }
+      
+      validator.close()
+      
+    } catch (error) {
+      console.error('❌ Pre-migration validation failed:', error instanceof Error ? error.message : 'Unknown error')
+      process.exit(1)
+    }
+  })
+
+program
+  .command('validate-post')
+  .description('Validate migration integrity after completion')
+  .option('--source <path>', 'Path to v0.3.x database file', './bilan.db')
+  .option('--target <path>', 'Path to v0.4.0 database file', './bilan-v4.db')
+  .option('--verbose', 'Enable verbose output', false)
+  .action(async (options) => {
+    console.log('🔍 Validating migration integrity...')
+    
+    const config: MigrationConfig = {
+      sourceDbPath: options.source,
+      targetDbPath: options.target,
+      verbose: options.verbose
+    }
+    
+    try {
+      const validator = new MigrationValidator(config)
+      const validation = await validator.validatePostMigration()
+      
+      if (validation.isValid) {
+        console.log('✅ Migration integrity validation passed')
+        
+        console.log('\n🎯 Integrity Status:')
+        console.log(`   Data Integrity: ${validation.integrity.dataIntegrity ? '✅' : '❌'}`)
+        console.log(`   Schema Integrity: ${validation.integrity.schemaIntegrity ? '✅' : '❌'}`)
+        console.log(`   Performance: ${validation.integrity.performanceAcceptable ? '✅' : '❌'}`)
+        console.log(`   Rollback Ready: ${validation.integrity.rollbackPossible ? '✅' : '❌'}`)
+        
+        console.log('\n📊 Migration Metrics:')
+        console.log(`   Migration Accuracy: ${(validation.metrics.migrationAccuracy * 100).toFixed(1)}%`)
+        console.log(`   Data Preservation: ${(validation.metrics.dataPreservation * 100).toFixed(1)}%`)
+        console.log(`   Performance Score: ${(validation.metrics.performanceScore * 100).toFixed(1)}%`)
+        
+        if (validation.warnings.length > 0) {
+          console.log('\n⚠️  Warnings:')
+          validation.warnings.forEach(warning => console.log(`   - ${warning}`))
+        }
+      } else {
+        console.log('❌ Migration integrity validation failed')
+        console.log('\n🚨 Errors:')
+        validation.errors.forEach(error => console.log(`   - ${error}`))
+        
+        if (validation.warnings.length > 0) {
+          console.log('\n⚠️  Warnings:')
+          validation.warnings.forEach(warning => console.log(`   - ${warning}`))
+        }
+        
+        process.exit(1)
+      }
+      
+      validator.close()
+      
+    } catch (error) {
+      console.error('❌ Post-migration validation failed:', error instanceof Error ? error.message : 'Unknown error')
+      process.exit(1)
+    }
+  })
+
+program
+  .command('report')
+  .description('Generate comprehensive migration report')
+  .option('--source <path>', 'Path to v0.3.x database file', './bilan.db')
+  .option('--target <path>', 'Path to v0.4.0 database file', './bilan-v4.db')
+  .option('--output <path>', 'Output file for report (JSON format)', './migration-report.json')
+  .option('--verbose', 'Enable verbose output', false)
+  .action(async (options) => {
+    console.log('📊 Generating migration report...')
+    
+    const config: MigrationConfig = {
+      sourceDbPath: options.source,
+      targetDbPath: options.target,
+      verbose: options.verbose
+    }
+    
+    try {
+      const validator = new MigrationValidator(config)
+      const report = await validator.generateMigrationReport()
+      
+      // Save report to file
+      const fs = await import('fs')
+      fs.writeFileSync(options.output, JSON.stringify(report, null, 2))
+      
+      console.log('📄 Migration Report Summary:')
+      console.log(`   Status: ${report.summary.status.toUpperCase()}`)
+      console.log(`   Data Accuracy: ${(report.summary.dataAccuracy * 100).toFixed(1)}%`)
+      console.log(`   Performance Score: ${(report.summary.performanceScore * 100).toFixed(1)}%`)
+      
+      if (report.recommendations.length > 0) {
+        console.log('\n💡 Recommendations:')
+        report.recommendations.forEach(rec => console.log(`   - ${rec}`))
+      }
+      
+      console.log(`\n📁 Full report saved to: ${options.output}`)
+      
+      validator.close()
+      
+    } catch (error) {
+      console.error('❌ Report generation failed:', error instanceof Error ? error.message : 'Unknown error')
       process.exit(1)
     }
   })

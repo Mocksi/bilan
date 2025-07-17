@@ -38,11 +38,69 @@ Preview the data extraction process:
 bilan-migrate extract --db-path ./bilan.db --batch-size 1000 --verbose
 ```
 
+### Convert Data (Dry Run)
+
+Preview the conversion process:
+
+```bash
+bilan-migrate convert --source ./bilan.db --target ./bilan-v4.db --verbose
+```
+
+### Perform Migration
+
+Run the full migration:
+
+```bash
+bilan-migrate migrate --source ./bilan.db --target ./bilan-v4.db --verbose
+```
+
+### Validation Commands
+
+Validate migration readiness:
+
+```bash
+bilan-migrate validate-pre --source ./bilan.db --target ./bilan-v4.db
+```
+
+Validate migration integrity after completion:
+
+```bash
+bilan-migrate validate-post --source ./bilan.db --target ./bilan-v4.db
+```
+
+Validate migration by comparing databases:
+
+```bash
+bilan-migrate validate-migration --source ./bilan.db --target ./bilan-v4.db
+```
+
+### Rollback Commands
+
+Rollback migration and restore v0.3.x database:
+
+```bash
+bilan-migrate rollback --source ./bilan.db --target ./bilan-v4.db --verify
+```
+
+### Reports
+
+Generate comprehensive migration report:
+
+```bash
+bilan-migrate report --source ./bilan.db --target ./bilan-v4.db --output ./report.json
+```
+
 ## Programmatic Usage
 
 ```typescript
-import { V3DataExtractor } from '@bilan/migration-tools'
+import { 
+  V3DataExtractor,
+  BilanMigrator,
+  RollbackManager,
+  MigrationValidator 
+} from '@bilan/migration-tools'
 
+// Extract data
 const extractor = new V3DataExtractor({
   sourceDbPath: './bilan.db',
   targetDbPath: './bilan-v4.db',
@@ -61,6 +119,35 @@ if (!validation.isValid) {
 for await (const batch of extractor.extractVoteEvents()) {
   console.log(`Processing batch of ${batch.length} events`)
   // Process each batch of V3VoteEvent objects
+}
+
+// Full migration
+const migrator = new BilanMigrator({
+  sourceDbPath: './bilan.db',
+  targetDbPath: './bilan-v4.db',
+  verbose: true
+})
+
+const stats = await migrator.migrate()
+console.log(`Migrated ${stats.conversionSummary.votesToVoteCast} events`)
+
+// Rollback if needed
+const rollbackManager = new RollbackManager({
+  sourceDbPath: './bilan.db',
+  targetDbPath: './bilan-v4.db'
+})
+
+await rollbackManager.performFullRollback()
+
+// Validation
+const validator = new MigrationValidator({
+  sourceDbPath: './bilan.db',
+  targetDbPath: './bilan-v4.db'
+})
+
+const preValidation = await validator.validatePreMigration()
+if (preValidation.isValid) {
+  console.log('Ready for migration')
 }
 
 extractor.close()
@@ -117,6 +204,29 @@ The migration tools include comprehensive validation:
 - **JSON validation**: Validates metadata JSON format
 - **Statistics**: Provides detailed analytics about the migration
 
+## Migration Safety Features
+
+### Pre-Migration Validation
+
+- **Database readiness**: Validates v0.3.x database integrity
+- **Disk space**: Checks sufficient disk space for migration
+- **Permissions**: Validates file read/write permissions
+- **Checkpoint creation**: Creates safety checkpoint before migration
+
+### Post-Migration Validation
+
+- **Data integrity**: Compares v0.3.x and v0.4.0 data counts
+- **Schema compliance**: Validates v0.4.0 schema integrity
+- **Performance validation**: Tests query performance
+- **Migration accuracy**: Calculates data preservation scores
+
+### Rollback Protection
+
+- **Automatic checkpoints**: Creates backup before migration
+- **Safe rollback procedures**: Restores original database
+- **Rollback verification**: Validates rollback integrity
+- **Multiple recovery options**: Supports various rollback scenarios
+
 ## Progress Tracking
 
 The migration process includes:
@@ -124,7 +234,8 @@ The migration process includes:
 - **Batch processing**: Configurable batch sizes for memory efficiency
 - **Progress tracking**: Real-time progress updates with ETA
 - **Error handling**: Comprehensive error logging and recovery
-- **Rollback capability**: Safe rollback procedures
+- **Checkpoint management**: Automatic checkpoint creation and validation
+- **Validation reports**: Detailed pre/post migration reports
 
 ## Development
 
