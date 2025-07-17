@@ -191,6 +191,42 @@ export class BilanDatabase {
   }
 
   /**
+   * Insert multiple events in a single transaction for better performance
+   */
+  insertEvents(events: Event[]): void {
+    if (events.length === 0) return
+
+    // Validate all events before insertion
+    for (const event of events) {
+      const validation = validateEvent(event)
+      if (!validation.valid) {
+        throw new Error(`Invalid event data: ${validation.errors.join(', ')}`)
+      }
+    }
+
+    const stmt = this.db.prepare(`
+      INSERT INTO events (event_id, user_id, event_type, timestamp, properties, prompt_text, ai_response)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `)
+    
+    const transaction = this.db.transaction((events: Event[]) => {
+      for (const event of events) {
+        stmt.run(
+          event.event_id,
+          event.user_id,
+          event.event_type,
+          event.timestamp,
+          JSON.stringify(event.properties || {}),
+          event.prompt_text || null,
+          event.ai_response || null
+        )
+      }
+    })
+    
+    transaction(events)
+  }
+
+  /**
    * Legacy method for backward compatibility with VoteEvent
    * Maps old vote structure to new event structure
    */

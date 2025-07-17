@@ -1,6 +1,7 @@
 import Fastify, { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
 import cors from '@fastify/cors'
-import { BilanDatabase } from './database/schema.js'
+import { BilanDatabase, Event, EVENT_TYPES, EventType } from './database/schema.js'
+import { VoteCastEvent, TurnEvent, UserActionEvent } from '@mocksi/bilan-sdk'
 import { BasicAnalyticsProcessor, DashboardData } from './analytics/basic-processor.js'
 
 export interface ServerConfig {
@@ -9,8 +10,13 @@ export interface ServerConfig {
   cors?: boolean
 }
 
+/**
+ * Union type for all possible SDK event types
+ */
+type SdkEvent = VoteCastEvent | TurnEvent | UserActionEvent
+
 interface EventsBody {
-  events: any[]
+  events: SdkEvent[]
 }
 
 interface DashboardQuery {
@@ -19,80 +25,178 @@ interface DashboardQuery {
   range?: string
 }
 
-interface StatsQuery {
-  userId?: string
+/**
+ * Convert VoteCastEvent from SDK to unified Event format
+ */
+function voteCastEventToEvent(voteCastEvent: VoteCastEvent): Event {
+  return {
+    event_id: voteCastEvent.eventId,
+    user_id: voteCastEvent.userId,
+    event_type: EVENT_TYPES.VOTE_CAST,
+    timestamp: voteCastEvent.timestamp,
+    properties: voteCastEvent.properties,
+    prompt_text: voteCastEvent.promptText || null,
+    ai_response: voteCastEvent.aiResponse || null
+  }
 }
 
-interface EventsQuery {
-  limit?: string
-  offset?: string
-}
-
-interface PromptParams {
-  promptId: string
+/**
+ * Convert SDK event to unified Event format with required eventId
+ */
+function sdkEventToEvent(sdkEvent: SdkEvent): Event {
+  // Require eventId to be present to avoid duplicates on reprocessing
+  if (!sdkEvent.eventId) {
+    throw new Error('eventId is required for all SDK events')
+  }
+  
+  // Handle VoteCastEvent
+  if (sdkEvent.eventType === 'vote_cast') {
+    return voteCastEventToEvent(sdkEvent as VoteCastEvent)
+  }
+  
+  // Handle other event types from SDK - map to server event types
+  let serverEventType: EventType
+  switch (sdkEvent.eventType) {
+    case 'turn_started':
+      serverEventType = EVENT_TYPES.TURN_CREATED
+      break
+    case 'turn_completed':
+      serverEventType = EVENT_TYPES.TURN_COMPLETED
+      break
+    case 'turn_failed':
+      serverEventType = EVENT_TYPES.TURN_FAILED
+      break
+    case 'user_action':
+      serverEventType = EVENT_TYPES.USER_ACTION
+      break
+    default:
+      serverEventType = EVENT_TYPES.USER_ACTION // fallback
+  }
+  
+  return {
+    event_id: sdkEvent.eventId,
+    user_id: sdkEvent.userId,
+    event_type: serverEventType,
+    timestamp: sdkEvent.timestamp,
+    properties: sdkEvent.properties || {},
+    prompt_text: sdkEvent.promptText || null,
+    ai_response: sdkEvent.aiResponse || null
+  }
 }
 
 export class BilanServer {
   private fastify: FastifyInstance
   private db: BilanDatabase
-  private config: ServerConfig
   private analyticsProcessor: BasicAnalyticsProcessor
-  private dashboardCache: Map<string, { data: DashboardData; timestamp: number }> = new Map()
-  private readonly CACHE_DURATION = 60 * 1000 // 60 seconds
+  private dashboardCache = new Map<string, { data: DashboardData; timestamp: number }>()
+  private readonly CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 
   constructor(config: ServerConfig = {}) {
-    this.config = config
     this.fastify = Fastify({ logger: true })
     this.db = new BilanDatabase(config.dbPath)
     this.analyticsProcessor = new BasicAnalyticsProcessor(this.db)
     
-    this.setupCors(config.cors !== false)
     this.setupRoutes()
-  }
-
-  private setupCors(enabled: boolean): void {
-    if (enabled) {
-      this.fastify.register(cors, {
-        origin: ['http://localhost:3004', 'http://localhost:3003', 'http://localhost:3002', 'http://localhost:3001', 'http://localhost:3000', 'http://127.0.0.1:3004', 'http://127.0.0.1:3003', 'http://127.0.0.1:3002', 'http://127.0.0.1:3001', 'http://127.0.0.1:3000'],
-        methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    
+    if (config.cors) {
+      // Configure CORS with specific security settings
+      const corsOptions = {
+        origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000', 'http://localhost:3001'],
+        methods: ['GET', 'POST', 'OPTIONS'],
         allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
         credentials: true
-      })
+      }
+      this.fastify.register(cors, corsOptions)
     }
   }
 
   private setupRoutes(): void {
-    // Health check
-    this.fastify.get('/health', async () => {
-      return { status: 'ok', timestamp: new Date().toISOString() }
+    // Health check endpoint
+    this.fastify.get('/health', async (request, reply) => {
+      return { status: 'healthy', timestamp: Date.now() }
     })
 
-    // Dashboard data endpoint - returns all dashboard data in one call
-    this.fastify.get<{ Querystring: DashboardQuery }>('/api/dashboard', async (request: FastifyRequest<{ Querystring: DashboardQuery }>, reply: FastifyReply) => {
+    // Events ingestion endpoint - updated for v0.4.0 SDK compatibility
+    this.fastify.post<{ Body: EventsBody }>('/api/events', async (request, reply) => {
       try {
-        const { start, end, range = '30d' } = request.query
+        const { events } = request.body
         
-        // Create cache key based on date range
-        const cacheKey = `${start || 'all'}-${end || 'all'}-${range}`
-        
-        // Check cache first
-        const cached = this.dashboardCache.get(cacheKey)
-        if (cached && (Date.now() - cached.timestamp) < this.CACHE_DURATION) {
-          return cached.data
+        if (!Array.isArray(events)) {
+          return reply.status(400).send({ error: 'Events must be an array' })
         }
 
-        // Parse date range if provided
+        // Convert SDK events to unified Event format and insert with deduplication
+        for (const sdkEvent of events) {
+          try {
+            const unifiedEvent = sdkEventToEvent(sdkEvent)
+            
+            // Check for duplicate event_id before insertion
+            const existingEvent = this.db.queryOne(
+              'SELECT event_id FROM events WHERE event_id = ?',
+              [unifiedEvent.event_id]
+            )
+            
+            if (!existingEvent) {
+              this.db.insertEvent(unifiedEvent)
+            } else {
+              this.fastify.log.debug(`Skipping duplicate event: ${unifiedEvent.event_id}`)
+            }
+          } catch (error) {
+            this.fastify.log.error('Failed to insert event:', error)
+            // Continue processing other events rather than failing completely
+          }
+        }
+
+        // Clear dashboard cache when new events arrive
+        this.dashboardCache.clear()
+
+        return { success: true, processed: events.length }
+      } catch (error) {
+        this.fastify.log.error('Error in POST /api/events:', error)
+        return reply.status(500).send({ error: 'Internal server error' })
+      }
+    })
+
+    // Dashboard data endpoint with caching
+    this.fastify.get<{ Querystring: DashboardQuery }>('/api/dashboard', async (request, reply) => {
+      try {
+        const { start, end, range } = request.query
+        
+        // Parse date range
         let startDate: Date | undefined
         let endDate: Date | undefined
         
-        if (start && end) {
+        if (range) {
+          const now = new Date()
+          switch (range) {
+            case '7d':
+              startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+              endDate = now
+              break
+            case '30d':
+              startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+              endDate = now
+              break
+            case '90d':
+              startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
+              endDate = now
+              break
+          }
+        } else if (start && end) {
           startDate = new Date(start)
           endDate = new Date(end)
           
-          // Validate dates
           if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
             return reply.status(400).send({ error: 'Invalid date format' })
           }
+        }
+
+        // Check cache
+        const cacheKey = `${startDate?.getTime() || 'all'}-${endDate?.getTime() || 'all'}`
+        const cached = this.dashboardCache.get(cacheKey)
+        
+        if (cached && (Date.now() - cached.timestamp) < this.CACHE_TTL) {
+          return cached.data
         }
 
         // Calculate fresh dashboard data with date filtering
@@ -111,45 +215,23 @@ export class BilanServer {
       }
     })
 
-    // Submit events
-    this.fastify.post<{ Body: EventsBody }>('/api/events', async (request: FastifyRequest<{ Body: EventsBody }>, reply: FastifyReply) => {
+    // Legacy endpoints for backward compatibility
+    this.fastify.get('/api/stats', async (request, reply) => {
       try {
-        const { events } = request.body
-        
-        if (!events || !Array.isArray(events)) {
-          return reply.status(400).send({ error: 'Events must be an array' })
-        }
-
-        for (const event of events) {
-          if (!event.userId || !event.promptId || event.value === undefined) {
-            return reply.status(400).send({ error: 'Missing required fields' })
-          }
-          
-          this.db.insertEvent(event)
-        }
-
-        return { success: true, count: events.length }
-      } catch (error) {
-        this.fastify.log.error(error)
-        return reply.status(500).send({ error: 'Internal server error' })
-      }
-    })
-
-    // Get user stats
-    this.fastify.get<{ Querystring: StatsQuery }>('/api/stats', async (request: FastifyRequest<{ Querystring: StatsQuery }>, reply: FastifyReply) => {
-      try {
-        const { userId } = request.query
+        const { userId } = request.query as { userId?: string }
         
         if (!userId) {
           return reply.status(400).send({ error: 'Missing userId parameter' })
         }
 
         const events = this.db.getVoteEvents({ userId })
+        const totalVotes = events.length
+        const positiveVotes = events.filter(e => e.value > 0).length
         const stats = {
-          totalEvents: events.length,
-          positiveVotes: events.filter(e => e.value > 0).length,
-          negativeVotes: events.filter(e => e.value < 0).length,
-          positiveRate: events.length > 0 ? events.filter(e => e.value > 0).length / events.length : 0
+          totalVotes,
+          positiveVotes,
+          negativeVotes: totalVotes - positiveVotes,
+          positiveRate: totalVotes > 0 ? (positiveVotes / totalVotes) * 100 : 0
         }
         
         return stats
@@ -159,11 +241,10 @@ export class BilanServer {
       }
     })
 
-    // Get prompt stats
-    this.fastify.get<{ Params: PromptParams; Querystring: StatsQuery }>('/api/stats/prompt/:promptId', async (request: FastifyRequest<{ Params: PromptParams; Querystring: StatsQuery }>, reply: FastifyReply) => {
+    this.fastify.get('/api/prompts/:promptId/stats', async (request, reply) => {
       try {
-        const { promptId } = request.params
-        const { userId } = request.query
+        const { promptId } = request.params as { promptId: string }
+        const { userId } = request.query as { userId?: string }
         
         if (!promptId) {
           return reply.status(400).send({ error: 'Missing promptId parameter' })
@@ -171,12 +252,15 @@ export class BilanServer {
 
         // Use simplified filtering
         const events = this.db.getVoteEvents({ promptId, userId })
+        const totalVotes = events.length
+        const positiveVotes = events.filter(e => e.value > 0).length
         const stats = {
           promptId,
-          totalEvents: events.length,
-          positiveVotes: events.filter(e => e.value > 0).length,
-          negativeVotes: events.filter(e => e.value < 0).length,
-          positiveRate: events.length > 0 ? events.filter(e => e.value > 0).length / events.length : 0
+          totalVotes,
+          positiveVotes,
+          negativeVotes: totalVotes - positiveVotes,
+          positiveRate: totalVotes > 0 ? (positiveVotes / totalVotes) * 100 : 0,
+          recentComments: events.filter(e => e.comment).slice(0, 5).map(e => e.comment)
         }
         
         return stats
@@ -185,43 +269,14 @@ export class BilanServer {
         return reply.status(500).send({ error: 'Internal server error' })
       }
     })
-
-    // Get all events
-    this.fastify.get<{ Querystring: EventsQuery }>('/api/events', async (request: FastifyRequest<{ Querystring: EventsQuery }>, reply: FastifyReply) => {
-      try {
-        const { limit = '100', offset = '0' } = request.query
-        const limitNum = parseInt(limit, 10)
-        const offsetNum = parseInt(offset, 10)
-        
-        // Validate limits
-        if (isNaN(limitNum) || limitNum < 1 || limitNum > 1000) {
-          return reply.status(400).send({ error: 'Invalid limit parameter' })
-        }
-        
-        if (isNaN(offsetNum) || offsetNum < 0) {
-          return reply.status(400).send({ error: 'Invalid offset parameter' })
-        }
-        
-        const events = this.db.getEvents({ limit: limitNum, offset: offsetNum })
-        const total = this.db.getEventsCount()
-        
-        return { events, total }
-      } catch (error) {
-        this.fastify.log.error('Error in GET /api/events:', error)
-        return reply.status(500).send({ error: 'Internal server error' })
-      }
-    })
   }
 
-  async start(): Promise<void> {
+  async start(port: number = 3000): Promise<void> {
     try {
-      const port = this.config.port || 3001
-      const host = '0.0.0.0' // Always listen on all interfaces
-      
-      await this.fastify.listen({ port, host })
-      console.log(`Bilan server listening on http://${host}:${port}`)
-    } catch (err) {
-      this.fastify.log.error(err)
+      await this.fastify.listen({ port, host: '0.0.0.0' })
+      console.log(`🚀 Bilan server running on port ${port}`)
+    } catch (error) {
+      this.fastify.log.error(error)
       process.exit(1)
     }
   }
@@ -230,4 +285,7 @@ export class BilanServer {
     await this.fastify.close()
     this.db.close()
   }
-} 
+}
+
+// Export for testing
+export { voteCastEventToEvent, sdkEventToEvent } 
