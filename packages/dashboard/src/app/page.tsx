@@ -48,12 +48,12 @@ const DashboardContent: React.FC = () => {
         title="Bilan"
         subtitle="Loading dashboard..."
       >
-        <div className="d-flex justify-content-center align-items-center min-h-[50vh]">
+        <div className="flex justify-center items-center min-h-[50vh]">
           <div className="text-center">
-            <div className="spinner-border text-primary mb-3" role="status">
-              <span className="visually-hidden">Loading...</span>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-3 mx-auto" role="status">
+              <span className="sr-only">Loading...</span>
             </div>
-            <p className="text-muted">Loading dashboard...</p>
+            <p className="text-gray-600">Loading dashboard...</p>
           </div>
         </div>
       </DashboardLayout>
@@ -66,10 +66,10 @@ const DashboardContent: React.FC = () => {
         title="Bilan"
         subtitle="Error loading dashboard"
       >
-        <div className="alert alert-danger" role="alert">
-          <h4 className="alert-heading">Error loading dashboard</h4>
-          <p>{error}</p>
-          <button onClick={refresh} className="btn btn-outline-danger">
+        <div className="bg-red-50 border border-red-200 text-red-800 rounded-lg p-4" role="alert">
+          <h4 className="text-lg font-semibold mb-2">Error loading dashboard</h4>
+          <p className="mb-4">{error}</p>
+          <button onClick={refresh} className="bg-red-600 hover:bg-red-700 text-white font-medium px-4 py-2 rounded-md transition-colors">
             Try Again
           </button>
         </div>
@@ -84,7 +84,7 @@ const DashboardContent: React.FC = () => {
         subtitle="No data available"
       >
         <div className="text-center py-5">
-          <p className="text-muted">No data available</p>
+          <p className="text-gray-600">No data available</p>
         </div>
       </DashboardLayout>
     )
