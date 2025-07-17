@@ -88,7 +88,7 @@ export class PrivacyController {
   constructor(config: Partial<PrivacyConfig> = {}) {
     // If defaultCaptureLevel is explicitly set, use it for all content types unless overridden
     const baseCaptureLevel = config.defaultCaptureLevel || DEFAULT_PRIVACY_CONFIG.defaultCaptureLevel;
-    const baseCapturelevels = config.defaultCaptureLevel ? {
+    const baseCaptureLevels = config.defaultCaptureLevel ? {
       prompts: baseCaptureLevel,
       responses: baseCaptureLevel,
       errors: baseCaptureLevel,
@@ -99,7 +99,7 @@ export class PrivacyController {
       ...DEFAULT_PRIVACY_CONFIG, 
       ...config,
       captureLevels: {
-        ...baseCapturelevels,
+        ...baseCaptureLevels,
         ...(config.captureLevels || {})
       }
     };
@@ -111,7 +111,7 @@ export class PrivacyController {
   updateConfig(config: Partial<PrivacyConfig>): void {
     // If defaultCaptureLevel is being updated, apply it to all content types unless overridden
     const newBaseCaptureLevel = config.defaultCaptureLevel || this.config.defaultCaptureLevel;
-    const newBaseCapturelevels = config.defaultCaptureLevel ? {
+    const newBaseCaptureLevels = config.defaultCaptureLevel ? {
       prompts: newBaseCaptureLevel,
       responses: newBaseCaptureLevel,
       errors: newBaseCaptureLevel,
@@ -122,7 +122,7 @@ export class PrivacyController {
       ...this.config, 
       ...config,
       captureLevels: {
-        ...newBaseCapturelevels,
+        ...newBaseCaptureLevels,
         ...(config.captureLevels || {})
       }
     };
