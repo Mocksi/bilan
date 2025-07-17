@@ -117,7 +117,8 @@ function JourneysContent() {
         </div>
         <div className="card-body">
           {data && data.journeys.length > 0 ? (
-            <div className="table-responsive">
+            <>
+              <div className="table-responsive">
               <table className="table table-vcenter">
                 <thead>
                   <tr>
@@ -189,6 +190,7 @@ function JourneysContent() {
                 </div>
               </div>
             )}
+            </>
           ) : (
             <div className="text-center py-5">
               <div className="text-muted">
