@@ -48,11 +48,25 @@ interface BilanEvent {
 ### Database Schema
 
 ```sql
+-- Event type validation enum
+CREATE TYPE event_type_enum AS ENUM (
+  'turn_started',
+  'turn_completed',
+  'turn_failed',
+  'user_action',
+  'conversation_started',
+  'conversation_ended',
+  'journey_step',
+  'journey_completed',
+  'vote_cast',
+  'custom_event'
+);
+
 -- Single unified events table
 CREATE TABLE events (
   event_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id TEXT NOT NULL,
-  event_type TEXT NOT NULL,
+  event_type event_type_enum NOT NULL,
   timestamp BIGINT NOT NULL,
   properties JSONB DEFAULT '{}',
   
@@ -67,20 +81,6 @@ CREATE TABLE events (
   
   -- Partitioning for performance (optional)
   PARTITION BY RANGE (timestamp)
-);
-
--- Event type validation (enforced at application level)
-CREATE TYPE event_type_enum AS ENUM (
-  'turn_started',
-  'turn_completed',
-  'turn_failed',
-  'user_action',
-  'conversation_started',
-  'conversation_ended',
-  'journey_step',
-  'journey_completed',
-  'vote_cast',
-  'custom_event'
 );
 ```
 
@@ -649,7 +649,7 @@ class EventIngestionPipeline {
     // Database insertion logic
     await db.query(`
       INSERT INTO events (event_id, user_id, event_type, timestamp, properties, prompt_text, ai_response)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      VALUES ($1, $2, $3::event_type_enum, $4, $5, $6, $7)
     `, [
       event.event_id,
       event.user_id,
