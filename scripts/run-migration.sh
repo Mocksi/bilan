@@ -250,7 +250,7 @@ validate_migration() {
     
     # Basic SQL syntax validation
     if [[ "$migration_file" == *.sql ]]; then
-        if ! grep -q "CREATE TABLE\|DROP TABLE\|ALTER TABLE\|CREATE INDEX\|DROP INDEX\|INSERT\|CREATE FUNCTION\|CREATE TRIGGER\|DROP TRIGGER\|DROP FUNCTION" "$migration_file"; then
+        if ! grep -Eq "CREATE TABLE\|DROP TABLE\|ALTER TABLE\|CREATE INDEX\|DROP INDEX\|INSERT\|CREATE FUNCTION\|CREATE TRIGGER\|DROP TRIGGER\|DROP FUNCTION" "$migration_file"; then
             print_warning "Migration file may not contain expected SQL operations"
         fi
     fi
