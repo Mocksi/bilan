@@ -32,13 +32,16 @@ RUN npm run build
 WORKDIR /app/packages/server
 RUN npm run build
 
+# Clean install production dependencies only (after building is complete)
+WORKDIR /app
+RUN npm ci --only=production
+
 # Production stage
 FROM node:20-alpine AS production
 
-# Install security updates and required packages (including build tools for native modules)
+# Install security updates and required packages
 RUN apk update && apk upgrade && \
-    apk add --no-cache dumb-init python3 make g++ && \
-    ln -sf python3 /usr/bin/python && \
+    apk add --no-cache dumb-init && \
     rm -rf /var/cache/apk/*
 
 # Create non-root user for security
@@ -48,13 +51,11 @@ RUN addgroup -g 1001 -S nodejs && \
 # Set working directory
 WORKDIR /app
 
-# Copy package files
+# Copy package files and pre-built node_modules
 COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/packages/server/package*.json packages/server/
 COPY --from=builder /app/packages/sdk/package*.json packages/sdk/
-
-# Install only production dependencies (allow scripts to run for native modules)
-RUN npm ci --only=production
+COPY --from=builder /app/node_modules ./node_modules
 
 # Copy built applications
 COPY --from=builder /app/packages/server/dist/ packages/server/dist/
