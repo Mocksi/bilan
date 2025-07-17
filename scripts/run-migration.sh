@@ -35,6 +35,11 @@ while [[ $# -gt 0 ]]; do
                 exit 1
             fi
             DIRECTION="$2"
+            # Validate direction value
+            if [ "$DIRECTION" != "up" ] && [ "$DIRECTION" != "down" ]; then
+                print_error "Invalid direction '$DIRECTION'. Must be 'up' or 'down'"
+                exit 1
+            fi
             shift 2
             ;;
         -m|--migration)
