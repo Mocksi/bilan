@@ -66,6 +66,7 @@ export async function POST(req: Request) {
       temperature: 0.7
     })
 
+    const startTime = Date.now()
     const result = await streamText({
       model: openai(model),
       messages,
@@ -80,7 +81,7 @@ export async function POST(req: Request) {
           output_tokens: completion.usage?.completionTokens || 0,
           total_tokens: completion.usage?.totalTokens || 0,
           finish_reason: completion.finishReason,
-          latency: Date.now() - new Date().getTime()
+          latency: Date.now() - startTime
         })
       }
     })
