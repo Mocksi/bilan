@@ -481,6 +481,7 @@ class JourneyTracker {
   private journeyId: string
   private currentStep: number = 0
   private startTime: number = Date.now()
+  private lastStepTime: number = Date.now()
   
   constructor(
     private journeyName: string,
