@@ -167,28 +167,28 @@ echo ""
 # 1. Core Server Configuration
 echo "🔧 Core Server Configuration:"
 echo "=============================="
-validate_optional "BILAN_NODE_ENV" "$BILAN_NODE_ENV" "Node.js environment" "production"
-validate_required "BILAN_PORT" "$BILAN_PORT" "Server port"
-if [ -n "$BILAN_PORT" ]; then
-    validate_port "$BILAN_PORT" "BILAN_PORT"
+validate_optional "BILAN_NODE_ENV" "${BILAN_NODE_ENV-}" "Node.js environment" "production"
+validate_required "BILAN_PORT" "${BILAN_PORT-}" "Server port"
+if [ -n "${BILAN_PORT-}" ]; then
+    validate_port "${BILAN_PORT-}" "BILAN_PORT"
 fi
 
 # 2. Database Configuration
 echo ""
 echo "🗄️  Database Configuration:"
 echo "============================"
-if [ -n "$DATABASE_URL" ] || [ -n "$POSTGRES_HOST" ]; then
+if [ -n "${DATABASE_URL-}" ] || [ -n "${POSTGRES_HOST-}" ]; then
     print_status "PostgreSQL database configuration detected"
-    validate_required "DATABASE_URL" "$DATABASE_URL" "PostgreSQL connection string"
+    validate_required "DATABASE_URL" "${DATABASE_URL-}" "PostgreSQL connection string"
     
     # Check PostgreSQL tools
     check_command "psql" "PostgreSQL client"
     check_command "pg_dump" "PostgreSQL backup tool"
 else
     print_status "SQLite database configuration detected"
-    validate_required "BILAN_DB_PATH" "$BILAN_DB_PATH" "SQLite database path"
-    if [ -n "$BILAN_DB_PATH" ]; then
-        validate_db_path "$BILAN_DB_PATH"
+    validate_required "BILAN_DB_PATH" "${BILAN_DB_PATH-}" "SQLite database path"
+    if [ -n "${BILAN_DB_PATH-}" ]; then
+        validate_db_path "${BILAN_DB_PATH-}"
     fi
     
     # Check SQLite tools
@@ -199,15 +199,15 @@ fi
 echo ""
 echo "🔒 Security Configuration:"
 echo "=========================="
-validate_optional "BILAN_SESSION_SECRET" "$BILAN_SESSION_SECRET" "Session secret key" "random-generated-key"
-validate_optional "BILAN_JWT_SECRET" "$BILAN_JWT_SECRET" "JWT secret key" "random-generated-key"
+validate_optional "BILAN_SESSION_SECRET" "${BILAN_SESSION_SECRET-}" "Session secret key" "random-generated-key"
+validate_optional "BILAN_JWT_SECRET" "${BILAN_JWT_SECRET-}" "JWT secret key" "random-generated-key"
 
 # Check for default/weak secrets
-if [ "$BILAN_SESSION_SECRET" = "<CHANGE_ME>" ]; then
+if [ "${BILAN_SESSION_SECRET-}" = "<CHANGE_ME>" ]; then
     add_error "BILAN_SESSION_SECRET is set to placeholder value. Please change it for production."
 fi
 
-if [ "$BILAN_JWT_SECRET" = "<CHANGE_ME>" ]; then
+if [ "${BILAN_JWT_SECRET-}" = "<CHANGE_ME>" ]; then
     add_error "BILAN_JWT_SECRET is set to placeholder value. Please change it for production."
 fi
 
@@ -215,26 +215,26 @@ fi
 echo ""
 echo "🌐 CORS Configuration:"
 echo "======================"
-validate_optional "BILAN_CORS_ORIGIN" "$BILAN_CORS_ORIGIN" "CORS allowed origins" "http://localhost:3004"
-validate_optional "BILAN_CORS_CREDENTIALS" "$BILAN_CORS_CREDENTIALS" "CORS credentials support" "true"
+validate_optional "BILAN_CORS_ORIGIN" "${BILAN_CORS_ORIGIN-}" "CORS allowed origins" "http://localhost:3004"
+validate_optional "BILAN_CORS_CREDENTIALS" "${BILAN_CORS_CREDENTIALS-}" "CORS credentials support" "true"
 
 # 5. Performance Configuration
 echo ""
 echo "⚡ Performance Configuration:"
 echo "============================="
-validate_optional "BILAN_RATE_LIMIT_MAX" "$BILAN_RATE_LIMIT_MAX" "Rate limit maximum requests" "100"
-validate_optional "BILAN_RATE_LIMIT_WINDOW" "$BILAN_RATE_LIMIT_WINDOW" "Rate limit time window" "60000"
+validate_optional "BILAN_RATE_LIMIT_MAX" "${BILAN_RATE_LIMIT_MAX-}" "Rate limit maximum requests" "100"
+validate_optional "BILAN_RATE_LIMIT_WINDOW" "${BILAN_RATE_LIMIT_WINDOW-}" "Rate limit time window" "60000"
 
 # 6. Logging Configuration
 echo ""
 echo "📝 Logging Configuration:"
 echo "========================="
-validate_optional "BILAN_LOG_LEVEL" "$BILAN_LOG_LEVEL" "Log level" "info"
-validate_optional "BILAN_LOG_FILE" "$BILAN_LOG_FILE" "Log file path" "./logs/bilan.log"
+validate_optional "BILAN_LOG_LEVEL" "${BILAN_LOG_LEVEL-}" "Log level" "info"
+validate_optional "BILAN_LOG_FILE" "${BILAN_LOG_FILE-}" "Log file path" "./logs/bilan.log"
 
 # Check if log directory exists
-if [ -n "$BILAN_LOG_FILE" ]; then
-    log_dir=$(dirname "$BILAN_LOG_FILE")
+if [ -n "${BILAN_LOG_FILE-}" ]; then
+    log_dir=$(dirname "${BILAN_LOG_FILE-}")
     if [ ! -d "$log_dir" ]; then
         if mkdir -p "$log_dir" 2>/dev/null; then
             print_success "Log directory created: $log_dir"
@@ -248,16 +248,16 @@ fi
 echo ""
 echo "📊 Dashboard Configuration:"
 echo "==========================="
-validate_optional "NEXT_PUBLIC_API_BASE_URL" "$NEXT_PUBLIC_API_BASE_URL" "Dashboard API base URL" "http://localhost:3002"
-if [ -n "$NEXT_PUBLIC_API_BASE_URL" ]; then
-    validate_url "$NEXT_PUBLIC_API_BASE_URL" "NEXT_PUBLIC_API_BASE_URL"
+validate_optional "NEXT_PUBLIC_API_BASE_URL" "${NEXT_PUBLIC_API_BASE_URL-}" "Dashboard API base URL" "http://localhost:3002"
+if [ -n "${NEXT_PUBLIC_API_BASE_URL-}" ]; then
+    validate_url "${NEXT_PUBLIC_API_BASE_URL-}" "NEXT_PUBLIC_API_BASE_URL"
 fi
 
 # 8. Docker Configuration
 echo ""
 echo "🐳 Docker Configuration:"
 echo "========================"
-validate_optional "BILAN_DOCKER_DATA_PATH" "$BILAN_DOCKER_DATA_PATH" "Docker data volume path" "/app/data"
+validate_optional "BILAN_DOCKER_DATA_PATH" "${BILAN_DOCKER_DATA_PATH-}" "Docker data volume path" "/app/data"
 
 # 9. System Dependencies
 echo ""

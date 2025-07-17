@@ -78,7 +78,7 @@ fi
 DB_PATH=${BILAN_DB_PATH:-${DB_PATH:-"./bilan.db"}}
 
 # Check database type
-if [ -n "$DATABASE_URL" ] || [ -n "$POSTGRES_HOST" ]; then
+if [ -n "${DATABASE_URL:-}" ] || [ -n "${POSTGRES_HOST:-}" ]; then
     DB_TYPE="postgresql"
     print_status "Using PostgreSQL database"
 else
@@ -93,7 +93,7 @@ check_database_exists() {
     else
         # For PostgreSQL, check if we can connect
         if command -v psql > /dev/null 2>&1; then
-            psql "$DATABASE_URL" -c "SELECT 1;" > /dev/null 2>&1
+            psql "${DATABASE_URL:-}" -c "SELECT 1;" > /dev/null 2>&1
         else
             print_error "psql not found. Please install PostgreSQL client tools."
             exit 1
@@ -116,7 +116,7 @@ backup_database() {
         print_success "SQLite database backed up to $BACKUP_DIR/bilan.db.backup"
     elif [ "$DB_TYPE" = "postgresql" ]; then
         if command -v pg_dump > /dev/null 2>&1; then
-            pg_dump "$DATABASE_URL" > "$BACKUP_DIR/bilan.sql"
+            pg_dump "${DATABASE_URL:-}" > "$BACKUP_DIR/bilan.sql"
             print_success "PostgreSQL database backed up to $BACKUP_DIR/bilan.sql"
         else
             print_warning "pg_dump not found, skipping PostgreSQL backup"
@@ -216,7 +216,7 @@ init_postgresql_database() {
     fi
     
     # Create tables using SQL
-    psql "$DATABASE_URL" << 'EOF'
+    psql "${DATABASE_URL:-}" << 'EOF'
 -- Create conversations table
 CREATE TABLE IF NOT EXISTS conversations (
     id VARCHAR(255) PRIMARY KEY,
@@ -356,7 +356,7 @@ main() {
         echo "Path: $DB_PATH"
         echo "Size: $(du -h "$DB_PATH" | cut -f1)"
     else
-        echo "URL: $DATABASE_URL"
+        echo "URL: ${DATABASE_URL:-}"
     fi
 }
 

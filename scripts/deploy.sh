@@ -170,7 +170,7 @@ ELAPSED=0
 INTERVAL=5
 
 while [ $ELAPSED -lt $TIMEOUT ]; do
-    if $DOCKER_COMPOSE ps | grep -q "healthy"; then
+    if $DOCKER_COMPOSE ps | grep -q "\bhealthy\b"; then
         print_success "Containers are healthy!"
         break
     fi
