@@ -1,6 +1,6 @@
 'use client'
 
-import { ReactNode } from 'react'
+import React, { ReactNode } from 'react'
 import { Sidebar } from './Sidebar'
 import { Breadcrumbs, BreadcrumbItem } from './Breadcrumbs'
 
@@ -10,7 +10,7 @@ interface NavigationProps {
   className?: string
 }
 
-export function Navigation({ children, breadcrumbs, className = '' }: NavigationProps) {
+export const Navigation: React.FC<NavigationProps> = ({ children, breadcrumbs, className = '' }) => {
   return (
     <div className={`page ${className}`}>
       <Sidebar className="navbar-vertical" />
