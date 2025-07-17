@@ -304,12 +304,7 @@ describe('E2E: Dashboard Integration', () => {
     it('should handle network failures', async () => {
       mockFetch.mockRejectedValue(new Error('Network error'))
       
-      try {
-        await apiClient.fetchDashboardData()
-        expect.fail('Should have thrown an error')
-      } catch (error: any) {
-        expect(error.message).toBe('Network error')
-      }
+      await expect(apiClient.fetchDashboardData()).rejects.toThrow('Network error')
     })
 
     it('should handle server errors', async () => {
@@ -319,12 +314,7 @@ describe('E2E: Dashboard Integration', () => {
         statusText: 'Internal Server Error'
       })
       
-      try {
-        await apiClient.fetchDashboardData()
-        expect.fail('Should have thrown an error')
-      } catch (error: any) {
-        expect(error.message).toContain('500')
-      }
+      await expect(apiClient.fetchDashboardData()).rejects.toThrow('500')
     })
   })
 }) 
