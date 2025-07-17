@@ -5,7 +5,11 @@ import { useJourneys } from '@/lib/api-client'
 import { DashboardLayout } from '@/components/DashboardLayout'
 import StatsCard from '@/components/StatsCard'
 
-// Wrapper component for useSearchParams
+/**
+ * JourneysContent component renders the main journey analytics interface
+ * including statistics, filtering, and journey data table with pagination state management.
+ * This component wraps the useSearchParams hook to enable client-side search functionality.
+ */
 function JourneysContent() {
   const [page, setPage] = useState(1)
   const [limit] = useState(50)
@@ -44,7 +48,7 @@ function JourneysContent() {
     )
   }
 
-  const totalJourneys = data?.journeys.length || 0
+  const totalJourneys = data?.total || 0
   const completedJourneys = data?.journeys.filter(journey => journey.status === 'completed').length || 0
   const activeJourneys = data?.journeys.filter(journey => journey.status === 'active').length || 0
   const completionRate = totalJourneys > 0 ? (completedJourneys / totalJourneys) * 100 : 0
@@ -212,6 +216,11 @@ function JourneysContent() {
   )
 }
 
+/**
+ * Journeys component is the main page component that renders the journey analytics
+ * section with a Suspense fallback for loading states. This component provides
+ * workflow tracking and user journey optimization analytics.
+ */
 export default function Journeys() {
   return (
     <Suspense fallback={<div>Loading journeys...</div>}>

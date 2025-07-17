@@ -639,32 +639,46 @@ export function useConversations(
   const [data, setData] = useState<{ conversations: ConversationData[]; total: number; page: number; limit: number } | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const isMountedRef = useRef(true)
 
   const fetchData = async () => {
     try {
-      setLoading(true)
-      setError(null)
+      if (isMountedRef.current) {
+        setLoading(true)
+        setError(null)
+      }
       
       // Use the actual API function that returns empty data
       // Include timeRange in the filters for consistency with other hooks
       const filtersWithTimeRange = { ...filters, timeRange }
       const result = await fetchConversations(filtersWithTimeRange, page, limit)
       
-      setData({
-        conversations: result.conversations,
-        total: result.total,
-        page: result.page,
-        limit
-      })
+      if (isMountedRef.current) {
+        setData({
+          conversations: result.conversations,
+          total: result.total,
+          page: result.page,
+          limit
+        })
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch conversations')
+      if (isMountedRef.current) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch conversations')
+      }
     } finally {
-      setLoading(false)
+      if (isMountedRef.current) {
+        setLoading(false)
+      }
     }
   }
 
   useEffect(() => {
+    isMountedRef.current = true
     fetchData()
+    
+    return () => {
+      isMountedRef.current = false
+    }
   }, [filters, page, limit, timeRange])
 
   return { data, loading, error, refresh: fetchData }
@@ -762,7 +776,7 @@ export async function fetchJourney(id: string): Promise<JourneyData> {
   }
   
   const sanitizedId = id.trim()
-  const response = await fetch(`${API_BASE_URL}/journeys/${sanitizedId}`)
+  const response = await fetch(`${API_BASE_URL}/journeys/${encodeURIComponent(sanitizedId)}`)
   
   if (!response.ok) {
     throw new Error(`Failed to fetch journey: ${response.statusText}`)
