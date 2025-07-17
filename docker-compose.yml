@@ -1,34 +1,84 @@
 version: '3.8'
 
 services:
+  # Bilan Server with SQLite (default for development)
   bilan-server:
     build: .
     ports:
-      - "3001:3001"
+      - "3002:3002"
     environment:
+      - NODE_ENV=development
+      - PORT=3002
       - DB_PATH=/app/data/bilan.db
-      - PORT=3001
+      - DEBUG=true
     volumes:
-      - ./data:/app/data
-    networks:
-      - bilan-network
+      - bilan-data:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - postgres
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3002/health').then(() => process.exit(0)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
 
+  # Bilan Dashboard (for local development)
   bilan-dashboard:
-    build: 
+    build:
       context: .
-      dockerfile: Dockerfile.dashboard
+      dockerfile: packages/dashboard/Dockerfile
     ports:
       - "3004:3004"
     environment:
-      - NEXT_PUBLIC_API_BASE_URL=http://bilan-server:3001
+      - NEXT_PUBLIC_API_BASE_URL=http://localhost:3002
+      - NODE_ENV=development
     depends_on:
       - bilan-server
-    networks:
-      - bilan-network
+    restart: unless-stopped
 
-networks:
-  bilan-network:
-    driver: bridge
+  # PostgreSQL Database (alternative to SQLite)
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=bilan
+      - POSTGRES_USER=bilan
+      - POSTGRES_PASSWORD=bilan_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./scripts/init-postgres.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bilan -d bilan"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # Redis (for future caching if needed)
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
 
 volumes:
-  bilan-data: 
+  bilan-data:
+    driver: local
+  postgres-data:
+    driver: local
+  redis-data:
+    driver: local
+
+networks:
+  default:
+    name: bilan-network 
