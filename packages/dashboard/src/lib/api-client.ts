@@ -148,10 +148,10 @@ export class ApiClient {
 
   /**
    * Fetch vote analytics data including overview, trends, user behavior, and prompt performance
-   * @param timeRange - Time range for analytics data (default: '7d')
+   * @param timeRange - Time range for analytics data (default: '30d')
    * @returns Promise resolving to comprehensive vote analytics data
    */
-  async fetchVoteAnalytics(timeRange: TimeRange = '7d'): Promise<VoteAnalytics> {
+  async fetchVoteAnalytics(timeRange: TimeRange = '30d'): Promise<VoteAnalytics> {
     // Mock implementation - API endpoint doesn't exist yet
     return {
       overview: {
@@ -209,13 +209,13 @@ export class ApiClient {
   /**
    * Export votes data to CSV or JSON format
    * @param filters - Partial filters for vote data (search, rating, user, prompt, etc.)
-   * @param timeRange - Time range for exported data (default: '7d')
+   * @param timeRange - Time range for exported data (default: '30d')
    * @param format - Export format, either 'csv' or 'json' (default: 'csv')
    * @returns Promise resolving to a Blob containing the exported data
    */
   async exportVotes(
     filters: Partial<VoteFilterState> = {},
-    timeRange: TimeRange = '7d',
+    timeRange: TimeRange = '30d',
     format: 'csv' | 'json' = 'csv'
   ): Promise<Blob> {
     // Mock implementation - API endpoint doesn't exist yet
