@@ -5,7 +5,7 @@
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `DB_PATH` | No | `./bilan.db` | SQLite database file path |
-| `PORT` | No | `3002` | Server port (3002 in development) |
+| `BILAN_PORT` | No | `3002` | Server port (3002 in development) |
 | `NEXT_PUBLIC_API_BASE_URL` | No | `http://localhost:3002` | API URL for dashboard |
 
 ## Local Development
