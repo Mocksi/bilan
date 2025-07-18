@@ -2,7 +2,7 @@
 import { BilanServer } from './server.js'
 
 const portEnv = process.env.BILAN_PORT || process.env.PORT
-const port = portEnv ? parseInt(portEnv, 10) : 3001
+const port = portEnv ? parseInt(portEnv, 10) : 3002
 
 // Validate port number
 if (portEnv && (isNaN(port) || port < 1 || port > 65535)) {

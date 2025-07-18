@@ -24,7 +24,7 @@
     "test:sdk": "cd packages/sdk && npm run test",
     "test:server": "cd packages/server && npm run test",
     "dev": "npm run dev:server & npm run dev:dashboard",
-    "dev:server": "cd packages/server && PORT=3002 npm run dev",
+    "dev:server": "cd packages/server && BILAN_PORT=3002 npm run dev",
     "dev:dashboard": "cd packages/dashboard && PORT=3004 npm run dev",
     "dev:example": "cd packages/examples/nextjs && npm run dev",
     "update-bundle-size": "node scripts/update-bundle-size.js"

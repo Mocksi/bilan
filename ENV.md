@@ -15,7 +15,7 @@ Create a `.env` file in your project root:
 ```bash
 # Only set these if you need different values
 DB_PATH=./bilan.db
-PORT=3002
+BILAN_PORT=3002
 NEXT_PUBLIC_API_BASE_URL=http://localhost:3002
 ```
 
@@ -24,5 +24,5 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:3002
 For Docker deployments, these are automatically configured:
 
 - `DB_PATH=/app/data/bilan.db` - Database path inside container
-- `PORT=3002` - Server port
+- `BILAN_PORT=3002` - Server port
 - `NEXT_PUBLIC_API_BASE_URL=http://bilan-server:3002` - API URL for dashboard 
