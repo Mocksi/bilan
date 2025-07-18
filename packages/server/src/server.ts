@@ -232,12 +232,19 @@ export class BilanServer {
    * API key authentication middleware
    */
   private async authenticateApiKey(request: FastifyRequest, reply: FastifyReply) {
-    // If no API key is configured, allow all requests (development mode)
-    if (!this.config.apiKey) {
-      return
+    const apiKey = request.headers.authorization?.replace('Bearer ', '')
+    
+    // Check if API key is required
+    const isDevelopmentMode = process.env.BILAN_DEV_MODE === 'true'
+    
+    if (!this.config.apiKey && !isDevelopmentMode) {
+      return reply.status(500).send({ error: 'Server misconfiguration: API key required but not configured' })
     }
     
-    const apiKey = request.headers.authorization?.replace('Bearer ', '')
+    // Allow requests without API key only in explicit development mode
+    if (!this.config.apiKey && isDevelopmentMode) {
+      return
+    }
     
     if (!apiKey) {
       return reply.status(401).send({ error: 'Missing API key' })
