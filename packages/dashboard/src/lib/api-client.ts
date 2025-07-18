@@ -42,26 +42,62 @@ export class ApiClient {
     const abortController = new AbortController()
 
     try {
-      const { start, end } = getDateRange(timeRange)
-      const params = new URLSearchParams({
-        start: formatDateForAPI(start),
-        end: formatDateForAPI(end),
-        range: timeRange
-      })
+      // Fetch data from the new event-based endpoints
+      const [overviewData, voteData, eventsData] = await Promise.all([
+        this.fetchOverviewAnalytics(timeRange),
+        this.fetchVoteAnalytics(timeRange),
+        this.fetchRecentEvents(100)
+      ])
 
-      const response = await fetch(`${this.baseUrl}/api/dashboard?${params}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        signal: abortController.signal,
-      })
-
-      if (!response.ok) {
-        throw new Error(`API request failed: ${response.status} ${response.statusText}`)
-      }
-
-      const data = await response.json() as DashboardData
+             // Transform the new data structure to match the old DashboardData interface
+       const data: DashboardData = {
+         feedbackStats: {
+           totalFeedback: voteData.overview.totalVotes,
+           positiveRate: voteData.overview.positiveRate,
+           recentTrend: voteData.overview.positiveRate >= 0.7 ? 'improving' : 
+                       voteData.overview.positiveRate >= 0.5 ? 'stable' : 'declining',
+           topComments: []
+         },
+         qualitySignals: {
+           positive: voteData.overview.positiveVotes,
+           negative: voteData.overview.negativeVotes,
+           regenerations: 0, // We don't have this data yet
+           frustration: 0 // We don't have this data yet
+         },
+         timeSeriesData: [],
+         recentActivity: {
+           conversations: [], // empty when we don't have real conversations
+           recentVotes: eventsData.events
+             .filter(e => e.event_type === 'vote_cast')
+             .slice(0, 10)
+             .map(e => ({
+               promptId: e.properties.prompt_id || '',
+               userId: e.user_id,
+               value: e.properties.value || 0,
+               timestamp: e.timestamp,
+               comment: e.properties.comment,
+               metadata: {
+                 promptText: e.prompt_text || undefined,
+                 ...e.properties
+               }
+             })),
+           totalEvents: overviewData.totalEvents
+         },
+         conversationStats: {
+           totalConversations: overviewData.eventTypes.find(et => et.type === 'conversation_started')?.count || 0,
+           successRate: overviewData.eventTypes.find(et => et.type === 'turn_completed')?.count ? 
+             (overviewData.eventTypes.find(et => et.type === 'turn_completed')?.count || 0) / 
+             ((overviewData.eventTypes.find(et => et.type === 'turn_completed')?.count || 0) + 
+              (overviewData.eventTypes.find(et => et.type === 'turn_failed')?.count || 0)) : null,
+           averageMessages: null, // We don't have this data yet
+           completionRate: null // We don't have this data yet
+         },
+         journeyStats: {
+           totalJourneys: overviewData.eventTypes.find(et => et.type === 'journey_step')?.count || 0,
+           completionRate: null, // We don't have this data yet
+           popularJourneys: []
+         }
+       }
 
       // Fetch comparison data if requested
       if (includeComparison) {

@@ -12,7 +12,8 @@ if (portEnv && (isNaN(port) || port < 1 || port > 65535)) {
 
 const config = {
   port,
-  dbPath: process.env.BILAN_DB_PATH || process.env.DB_PATH || './bilan.db'
+  dbPath: process.env.BILAN_DB_PATH || process.env.DB_PATH || './bilan.db',
+  cors: true // Enable CORS for development
 }
 
 const server = new BilanServer(config)

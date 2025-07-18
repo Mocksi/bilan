@@ -186,7 +186,7 @@ export class BilanServer {
     // Configure CORS if enabled
     if (this.config.cors) {
       const corsOptions = {
-        origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000', 'http://localhost:3001'],
+        origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3004'],
         methods: ['GET', 'POST', 'OPTIONS'],
         allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
         credentials: true
@@ -337,10 +337,10 @@ export class BilanServer {
 
         let startDate: Date | undefined
         let endDate: Date | undefined
-
+        
         if (start) startDate = new Date(start)
         if (end) endDate = new Date(end)
-
+          
         const dashboardData = await this.analyticsProcessor.calculateDashboardData(startDate, endDate)
         return reply.send(dashboardData)
 
@@ -442,7 +442,7 @@ export class BilanServer {
           error: 'Internal server error',
           message: 'Failed to fetch events'
         })
-      }
+          }
     })
 
     // Vote analytics endpoint
@@ -765,10 +765,11 @@ export class BilanServer {
     })
   }
 
-  async start(port: number = 3000): Promise<void> {
+  async start(port?: number): Promise<void> {
+    const actualPort = port || this.config.port || 3000
     try {
-      await this.fastify.listen({ port, host: '0.0.0.0' })
-      console.log(`🚀 Bilan server running on port ${port}`)
+      await this.fastify.listen({ port: actualPort, host: '0.0.0.0' })
+      console.log(`🚀 Bilan server running on port ${actualPort}`)
     } catch (error) {
       this.fastify.log.error(error)
       process.exit(1)
@@ -779,7 +780,7 @@ export class BilanServer {
     await this.fastify.close()
     this.db.close()
   }
-}
+} 
 
 // Export for testing
 export { voteCastEventToEvent, sdkEventToEvent } 
