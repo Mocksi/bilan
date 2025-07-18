@@ -4,6 +4,7 @@ import React, { useState, Suspense, useMemo } from 'react'
 import { useConversations } from '@/lib/api-client'
 import { DashboardLayout } from '@/components/DashboardLayout'
 import StatsCard from '@/components/StatsCard'
+import { Pagination } from '@/components/ui/pagination'
 
 /**
  * ConversationsContent component renders the main conversations analytics interface
@@ -47,7 +48,7 @@ const ConversationsContent: React.FC = () => {
     )
   }
 
-  const totalConversations = data?.conversations.length || 0
+  const totalConversations = data?.total || 0  // Use actual total count, not current page length
   const completedConversations = data?.conversations.filter(conv => conv.endTime).length || 0
   const activeConversations = data?.conversations.filter(conv => !conv.endTime).length || 0
   const successRate = totalConversations > 0 ? (completedConversations / totalConversations) * 100 : 0
@@ -121,8 +122,9 @@ const ConversationsContent: React.FC = () => {
         </div>
         <div className="card-body">
           {data && data.conversations.length > 0 ? (
-            <div className="table-responsive">
-              <table className="table table-vcenter">
+            <>
+              <div className="table-responsive">
+                <table className="table table-vcenter">
                 <thead>
                   <tr>
                     <th>Conversation ID</th>
@@ -158,7 +160,19 @@ const ConversationsContent: React.FC = () => {
                   ))}
                 </tbody>
               </table>
-            </div>
+              </div>
+              
+              {/* Pagination Controls */}
+              <div className="mt-3">
+                <Pagination
+                  currentPage={page}
+                  totalPages={Math.ceil(data.total / limit)}
+                  onPageChange={setPage}
+                  totalItems={data.total}
+                  itemsPerPage={limit}
+                />
+              </div>
+            </>
           ) : (
             <div className="text-center py-5">
               <div className="text-muted">

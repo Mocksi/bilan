@@ -107,48 +107,43 @@ export class BasicAnalyticsProcessor {
   }
 
   /**
-   * Calculate conversation stats - enhanced for v0.4.0
+   * Calculate conversation stats - fixed for proper conversation metrics
    */
   private calculateConversationStats(events: Event[]): DashboardData['conversationStats'] {
-    const conversationEvents = events.filter(e => 
-      e.event_type === EVENT_TYPES.CONVERSATION_STARTED || 
-      e.event_type === EVENT_TYPES.CONVERSATION_ENDED
+    const conversationStarted = events.filter(e => e.event_type === EVENT_TYPES.CONVERSATION_STARTED)
+    const conversationEnded = events.filter(e => e.event_type === EVENT_TYPES.CONVERSATION_ENDED)
+    const turnCompleted = events.filter(e => e.event_type === EVENT_TYPES.TURN_COMPLETED)
+    const turnFailed = events.filter(e => e.event_type === EVENT_TYPES.TURN_FAILED)
+
+    // Count unique conversations by conversationId, not all events
+    const uniqueConversationIds = new Set(
+      conversationStarted
+        .filter(e => e.properties.conversationId)
+        .map(e => e.properties.conversationId)
     )
+    const totalConversations = uniqueConversationIds.size
     
-    const turnEvents = events.filter(e => 
-      e.event_type === EVENT_TYPES.TURN_COMPLETED || 
-      e.event_type === EVENT_TYPES.TURN_FAILED
+    // Count unique completed conversations
+    const uniqueCompletedConversationIds = new Set(
+      conversationEnded
+        .filter(e => e.properties.conversationId)
+        .map(e => e.properties.conversationId)
     )
+    const completedConversations = uniqueCompletedConversationIds.size
+    
+    // Turn success rate within conversations (not conversation completion rate)
+    const totalTurns = turnCompleted.length + turnFailed.length
+    const turnSuccessRate = totalTurns > 0 ? (turnCompleted.length / totalTurns) * 100 : null
 
-    // If we have actual conversation tracking, use it
-    if (conversationEvents.length > 0) {
-      const conversationStarts = conversationEvents.filter(e => e.event_type === EVENT_TYPES.CONVERSATION_STARTED)
-      const conversationEnds = conversationEvents.filter(e => e.event_type === EVENT_TYPES.CONVERSATION_ENDED)
-      
-      return {
-        totalConversations: conversationStarts.length,
-        successRate: conversationStarts.length > 0 ? (conversationEnds.length / conversationStarts.length) * 100 : null,
-        averageMessages: null, // Would need message tracking
-        completionRate: conversationStarts.length > 0 ? (conversationEnds.length / conversationStarts.length) * 100 : null
-      }
-    }
-
-    // Fallback to turn-based estimation
-    if (turnEvents.length > 0) {
-      const successfulTurns = turnEvents.filter(e => e.event_type === EVENT_TYPES.TURN_COMPLETED)
-      return {
-        totalConversations: 0, // Can't estimate conversations from turns
-        successRate: (successfulTurns.length / turnEvents.length) * 100,
-        averageMessages: null,
-        completionRate: null
-      }
-    }
+    // Calculate average messages per conversation from conversation_ended events
+    const averageMessages = conversationEnded.length > 0 ? 
+      conversationEnded.reduce((sum, event) => sum + (event.properties.messageCount || 0), 0) / conversationEnded.length : null
 
     return {
-      totalConversations: 0,
-      successRate: null,
-      averageMessages: null,
-      completionRate: null
+      totalConversations,
+      successRate: turnSuccessRate, // This is turn success rate, not conversation completion rate
+      averageMessages,
+      completionRate: totalConversations > 0 ? (completedConversations / totalConversations) * 100 : null
     }
   }
 
