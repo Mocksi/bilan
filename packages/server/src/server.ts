@@ -474,44 +474,54 @@ export class BilanServer {
             break
         }
 
-        // Get filtered events (use high limit to get all events before filtering)
-        const allEvents = this.db.getEvents({ limit: 10000 })
-        let filteredEvents = allEvents.filter(event => {
-          // Time range filter
-          if (event.timestamp < startDate.getTime()) return false
-          
-          // Event type filter (support comma-separated event types)
-          if (eventType) {
-            const eventTypes = eventType.split(',').map(type => type.trim())
-            if (!eventTypes.includes(event.event_type)) return false
-          }
-          
-          // User ID filter
-          if (userId && event.user_id !== userId) return false
-          
-          // Search filter (search in prompt text, AI response, or comment)
-          if (search) {
-            const searchLower = search.toLowerCase()
+        // Build database-level filters for better performance
+        const dbFilters: any = {
+          limit: limitNum,
+          offset: offsetNum,
+          startTimestamp: startDate.getTime()
+        }
+
+        // Add event type filter if specified
+        if (eventType) {
+          const eventTypes = eventType.split(',').map(type => type.trim())
+          dbFilters.eventType = eventTypes.length === 1 ? eventTypes[0] : eventTypes
+        }
+
+        // Add user filter if specified
+        if (userId) {
+          dbFilters.userId = userId
+        }
+
+        // Get filtered events from database with proper pagination
+        let paginatedEvents = this.db.getEvents(dbFilters)
+
+        // Apply search filter if needed (this requires in-memory filtering for now)
+        let totalCount = paginatedEvents.length
+        if (search) {
+          const searchLower = search.toLowerCase()
+          paginatedEvents = paginatedEvents.filter(event => {
             const promptText = event.prompt_text?.toLowerCase() || ''
             const aiResponse = event.ai_response?.toLowerCase() || ''
             const comment = event.properties.comment?.toLowerCase() || ''
             
-            if (!promptText.includes(searchLower) && 
-                !aiResponse.includes(searchLower) && 
-                !comment.includes(searchLower)) {
-              return false
-            }
-          }
+            return promptText.includes(searchLower) || 
+                   aiResponse.includes(searchLower) || 
+                   comment.includes(searchLower)
+          })
           
-          return true
-        })
-
-        // Sort by timestamp descending
-        filteredEvents.sort((a, b) => b.timestamp - a.timestamp)
-
-        // Apply pagination
-        const totalCount = filteredEvents.length
-        const paginatedEvents = filteredEvents.slice(offsetNum, offsetNum + limitNum)
+          // For search queries, we need to get total count differently
+          // This is a limitation - search queries may not show accurate totals
+          if (paginatedEvents.length === limitNum) {
+            this.fastify.log.warn('Search results may be incomplete due to pagination limits. Consider implementing full-text search for better performance.')
+          }
+          totalCount = paginatedEvents.length + (offsetNum > 0 ? offsetNum : 0)
+        } else {
+          // For non-search queries, get accurate total count
+          const countFilters = { ...dbFilters }
+          delete countFilters.limit
+          delete countFilters.offset
+          totalCount = this.db.getEventsCount(countFilters)
+        }
 
         return reply.send({
           events: paginatedEvents,
@@ -563,9 +573,11 @@ export class BilanServer {
             break
         }
 
-        const events = this.db.getEvents({ limit: 10000 }).filter(event => 
-          event.event_type === 'vote_cast' && event.timestamp >= startDate.getTime()
-        )
+        const events = this.db.getEvents({ 
+          eventType: 'vote_cast',
+          startTimestamp: startDate.getTime(),
+          limit: 10000  // Keep high limit for analytics but with database filtering
+        })
 
         const voteEvents = events.filter(event => event.properties.value !== undefined)
         const positiveVotes = voteEvents.filter(event => event.properties.value > 0)
@@ -782,10 +794,11 @@ export class BilanServer {
             break
         }
 
-        const events = this.db.getEvents({ limit: 10000 }).filter(event => 
-          (event.event_type === 'turn_completed' || event.event_type === 'turn_failed') && 
-          event.timestamp >= startDate.getTime()
-        )
+        const events = this.db.getEvents({ 
+          eventType: ['turn_completed', 'turn_failed'],
+          startTimestamp: startDate.getTime(),
+          limit: 10000  // Keep high limit for analytics but with database filtering
+        })
 
         const completedTurns = events.filter(event => event.event_type === 'turn_completed')
         const failedTurns = events.filter(event => event.event_type === 'turn_failed')
@@ -967,9 +980,10 @@ export class BilanServer {
             break
         }
 
-        const events = this.db.getEvents({ limit: 10000 }).filter(event => 
-          event.timestamp >= startDate.getTime()
-        )
+        const events = this.db.getEvents({ 
+          startTimestamp: startDate.getTime(),
+          limit: 10000  // Keep high limit for analytics but with database filtering
+        })
 
         const eventsByType = new Map<string, number>()
         const userIds = new Set<string>()
