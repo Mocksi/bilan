@@ -55,6 +55,54 @@ interface UserActionEvent {
   aiResponse?: string
 }
 
+interface ConversationEvent {
+  eventId: string
+  eventType: 'conversation_started' | 'conversation_ended'
+  timestamp: number
+  userId: string
+  properties: {
+    conversationId: string
+    duration?: number
+    messageCount?: number
+    context?: string
+    [key: string]: any
+  }
+  promptText?: string
+  aiResponse?: string
+}
+
+interface JourneyEvent {
+  eventId: string
+  eventType: 'journey_step'
+  timestamp: number
+  userId: string
+  properties: {
+    journeyId: string
+    journeyName?: string
+    stepName?: string
+    stepIndex?: number
+    totalSteps?: number
+    isCompleted?: boolean
+    [key: string]: any
+  }
+  promptText?: string
+  aiResponse?: string
+}
+
+interface QualitySignalEvent {
+  eventId: string
+  eventType: 'regeneration_requested' | 'frustration_detected'
+  timestamp: number
+  userId: string
+  properties: {
+    context?: string
+    reason?: string
+    [key: string]: any
+  }
+  promptText?: string
+  aiResponse?: string
+}
+
 /**
  * Server configuration options
  */
@@ -76,7 +124,7 @@ export interface ServerConfig {
 /**
  * Union type for all possible SDK event types
  */
-type SdkEvent = VoteCastEvent | TurnEvent | UserActionEvent
+type SdkEvent = VoteCastEvent | TurnEvent | UserActionEvent | ConversationEvent | JourneyEvent | QualitySignalEvent
 
 interface EventsBody {
   events: SdkEvent[]
@@ -132,6 +180,21 @@ function sdkEventToEvent(sdkEvent: SdkEvent): Event {
     case 'user_action':
       serverEventType = EVENT_TYPES.USER_ACTION
       break
+    case 'conversation_started':
+      serverEventType = EVENT_TYPES.CONVERSATION_STARTED
+      break
+    case 'conversation_ended':
+      serverEventType = EVENT_TYPES.CONVERSATION_ENDED
+      break
+    case 'journey_step':
+      serverEventType = EVENT_TYPES.JOURNEY_STEP
+      break
+    case 'regeneration_requested':
+      serverEventType = EVENT_TYPES.REGENERATION_REQUESTED
+      break
+    case 'frustration_detected':
+      serverEventType = EVENT_TYPES.FRUSTRATION_DETECTED
+      break
     default:
       serverEventType = EVENT_TYPES.USER_ACTION // fallback
   }
@@ -169,6 +232,11 @@ export class BilanServer {
    * API key authentication middleware
    */
   private async authenticateApiKey(request: FastifyRequest, reply: FastifyReply) {
+    // If no API key is configured, allow all requests (development mode)
+    if (!this.config.apiKey) {
+      return
+    }
+    
     const apiKey = request.headers.authorization?.replace('Bearer ', '')
     
     if (!apiKey) {
@@ -176,8 +244,7 @@ export class BilanServer {
     }
     
     // Validate API key against configured value
-    const validApiKey = this.config.apiKey
-    if (validApiKey && apiKey !== validApiKey) {
+    if (apiKey !== this.config.apiKey) {
       return reply.status(401).send({ error: 'Invalid API key' })
     }
   }
@@ -186,7 +253,7 @@ export class BilanServer {
     // Configure CORS if enabled
     if (this.config.cors) {
       const corsOptions = {
-        origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:3004'],
+        origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000', 'http://localhost:3002', 'http://localhost:3004'],
         methods: ['GET', 'POST', 'OPTIONS'],
         allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
         credentials: true
@@ -387,19 +454,30 @@ export class BilanServer {
             startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
             break
           case '30d':
+            startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+            break
+          case '365d':
+            startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000)
+            break
+          case 'ALL':
+            startDate = new Date(0) // Start of epoch to get all events
+            break
           default:
             startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
             break
         }
 
-        // Get filtered events
-        const allEvents = this.db.getEvents()
+        // Get filtered events (use high limit to get all events before filtering)
+        const allEvents = this.db.getEvents({ limit: 10000 })
         let filteredEvents = allEvents.filter(event => {
           // Time range filter
           if (event.timestamp < startDate.getTime()) return false
           
-          // Event type filter
-          if (eventType && event.event_type !== eventType) return false
+          // Event type filter (support comma-separated event types)
+          if (eventType) {
+            const eventTypes = eventType.split(',').map(type => type.trim())
+            if (!eventTypes.includes(event.event_type)) return false
+          }
           
           // User ID filter
           if (userId && event.user_id !== userId) return false
@@ -462,12 +540,23 @@ export class BilanServer {
             startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
             break
           case '30d':
+            startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+            break
+          case '90d':
+            startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
+            break
+          case '365d':
+            startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000)
+            break
+          case 'ALL':
+            startDate = new Date(0)
+            break
           default:
             startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
             break
         }
 
-        const events = this.db.getEvents().filter(event => 
+        const events = this.db.getEvents({ limit: 10000 }).filter(event => 
           event.event_type === 'vote_cast' && event.timestamp >= startDate.getTime()
         )
 
@@ -653,6 +742,191 @@ export class BilanServer {
       }
     })
 
+    // Turn analytics endpoint
+    this.fastify.get('/api/analytics/turns', async (request, reply) => {
+      try {
+        const { timeRange = '30d' } = request.query as { timeRange?: string }
+
+        // Calculate date range
+        const now = new Date()
+        let startDate: Date
+        
+        switch (timeRange) {
+          case '24h':
+            startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+            break
+          case '7d':
+            startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+            break
+          case '30d':
+            startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+            break
+          case '90d':
+            startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
+            break
+          case '365d':
+            startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000)
+            break
+          case 'ALL':
+            startDate = new Date(0)
+            break
+          default:
+            startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+            break
+        }
+
+        const events = this.db.getEvents({ limit: 10000 }).filter(event => 
+          (event.event_type === 'turn_completed' || event.event_type === 'turn_failed') && 
+          event.timestamp >= startDate.getTime()
+        )
+
+        const completedTurns = events.filter(event => event.event_type === 'turn_completed')
+        const failedTurns = events.filter(event => event.event_type === 'turn_failed')
+        const turnsWithFeedback = events.filter(event => event.properties.voteValue !== undefined)
+
+        // Calculate daily trends
+        const dailyMap = new Map<string, { completed: number; failed: number; total: number }>()
+        
+        events.forEach(event => {
+          const date = new Date(event.timestamp).toISOString().split('T')[0]
+          const current = dailyMap.get(date) || { completed: 0, failed: 0, total: 0 }
+          
+          current.total++
+          if (event.event_type === 'turn_completed') current.completed++
+          else current.failed++
+          
+          dailyMap.set(date, current)
+        })
+
+        const dailyTrends = Array.from(dailyMap.entries())
+          .map(([date, stats]) => ({
+            date,
+            totalTurns: stats.total,
+            completedTurns: stats.completed,
+            failedTurns: stats.failed,
+            successRate: stats.total > 0 ? (stats.completed / stats.total) * 100 : 0
+          }))
+          .sort((a, b) => a.date.localeCompare(b.date))
+
+        // Calculate hourly distribution
+        const hourlyMap = new Map<number, { completed: number; failed: number; total: number }>()
+        
+        events.forEach(event => {
+          const hour = new Date(event.timestamp).getHours()
+          const current = hourlyMap.get(hour) || { completed: 0, failed: 0, total: 0 }
+          
+          current.total++
+          if (event.event_type === 'turn_completed') current.completed++
+          else current.failed++
+          
+          hourlyMap.set(hour, current)
+        })
+
+        const hourlyTrends = Array.from({ length: 24 }, (_, hour) => {
+          const stats = hourlyMap.get(hour) || { completed: 0, failed: 0, total: 0 }
+          return {
+            hour,
+            totalTurns: stats.total,
+            completedTurns: stats.completed,
+            failedTurns: stats.failed,
+            successRate: stats.total > 0 ? (stats.completed / stats.total) * 100 : 0
+          }
+        })
+
+        // User behavior analysis
+        const userTurnsMap = new Map<string, { completed: number; failed: number; total: number; totalResponseTime: number }>()
+        
+        events.forEach(event => {
+          const current = userTurnsMap.get(event.user_id) || { completed: 0, failed: 0, total: 0, totalResponseTime: 0 }
+          
+          current.total++
+          if (event.event_type === 'turn_completed') current.completed++
+          else current.failed++
+          
+          const responseTime = event.properties.responseTime || event.properties.response_time || 0
+          current.totalResponseTime += responseTime
+          
+          userTurnsMap.set(event.user_id, current)
+        })
+
+        const topUsers = Array.from(userTurnsMap.entries())
+          .map(([userId, stats]) => ({
+            userId,
+            totalTurns: stats.total,
+            completedTurns: stats.completed,
+            averageResponseTime: stats.total > 0 ? stats.totalResponseTime / stats.total : 0,
+            successRate: stats.total > 0 ? (stats.completed / stats.total) * 100 : 0
+          }))
+          .sort((a, b) => b.totalTurns - a.totalTurns)
+          .slice(0, 10)
+
+        // Response time distribution
+        const responseTimeBuckets = new Map<string, number>([
+          ['<100ms', 0],
+          ['100-500ms', 0],
+          ['500ms-1s', 0],
+          ['1-2s', 0],
+          ['2-5s', 0],
+          ['>5s', 0]
+        ])
+
+        completedTurns.forEach(event => {
+          const time = (event.properties.responseTime || event.properties.response_time || 0) * 1000 // Convert to ms
+          if (time < 100) responseTimeBuckets.set('<100ms', responseTimeBuckets.get('<100ms')! + 1)
+          else if (time < 500) responseTimeBuckets.set('100-500ms', responseTimeBuckets.get('100-500ms')! + 1)
+          else if (time < 1000) responseTimeBuckets.set('500ms-1s', responseTimeBuckets.get('500ms-1s')! + 1)
+          else if (time < 2000) responseTimeBuckets.set('1-2s', responseTimeBuckets.get('1-2s')! + 1)
+          else if (time < 5000) responseTimeBuckets.set('2-5s', responseTimeBuckets.get('2-5s')! + 1)
+          else responseTimeBuckets.set('>5s', responseTimeBuckets.get('>5s')! + 1)
+        })
+
+        const totalResponseTimeEvents = completedTurns.length
+        const responseTimeDistribution = Array.from(responseTimeBuckets.entries()).map(([bucket, count]) => ({
+          bucket,
+          count,
+          percentage: totalResponseTimeEvents > 0 ? (count / totalResponseTimeEvents) * 100 : 0
+        }))
+
+        // Calculate average response time
+        const totalResponseTime = completedTurns.reduce((sum, event) => {
+          return sum + (event.properties.responseTime || event.properties.response_time || 0)
+        }, 0)
+        const averageResponseTime = completedTurns.length > 0 ? (totalResponseTime / completedTurns.length) * 1000 : 0 // Convert to ms
+
+        const analytics = {
+          overview: {
+            totalTurns: events.length,
+            completedTurns: completedTurns.length,
+            failedTurns: failedTurns.length,
+            turnsWithFeedback: turnsWithFeedback.length,
+            averageResponseTime,
+            uniqueUsers: userTurnsMap.size,
+            successRate: events.length > 0 ? (completedTurns.length / events.length) * 100 : 0
+          },
+          trends: {
+            daily: dailyTrends,
+            hourly: hourlyTrends
+          },
+          userBehavior: {
+            topUsers
+          },
+          performance: {
+            responseTimeDistribution,
+            errorTypes: [] // Could be enhanced to categorize error types from failed turns
+          }
+        }
+
+        return reply.send(analytics)
+
+      } catch (error) {
+        this.fastify.log.error('Error in GET /api/analytics/turns:', error)
+        return reply.status(500).send({
+          error: 'Internal server error',
+          message: 'Failed to fetch turn analytics'
+        })
+      }
+    })
+
     // Overview analytics endpoint
     this.fastify.get('/api/analytics/overview', async (request, reply) => {
       try {
@@ -670,12 +944,23 @@ export class BilanServer {
             startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
             break
           case '30d':
+            startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+            break
+          case '90d':
+            startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
+            break
+          case '365d':
+            startDate = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000)
+            break
+          case 'ALL':
+            startDate = new Date(0)
+            break
           default:
             startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
             break
         }
 
-        const events = this.db.getEvents().filter(event => 
+        const events = this.db.getEvents({ limit: 10000 }).filter(event => 
           event.timestamp >= startDate.getTime()
         )
 

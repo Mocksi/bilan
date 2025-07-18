@@ -115,6 +115,81 @@ export interface VoteData {
 }
 
 /**
+ * Turn data structure for AI interactions
+ */
+export interface TurnData {
+  id: string
+  userId: string
+  status: 'completed' | 'failed'
+  promptText?: string
+  responseText?: string
+  responseTime?: number
+  timestamp: number
+  conversationId?: string
+  voteValue?: number // -1 for negative, 1 for positive
+  model?: string
+  metadata?: {
+    promptId?: string
+    journey?: string
+    step?: string
+    sessionId?: string
+    [key: string]: any
+  }
+}
+
+/**
+ * Turn analytics data structure
+ */
+export interface TurnAnalytics {
+  overview: {
+    totalTurns: number
+    completedTurns: number
+    failedTurns: number
+    turnsWithFeedback: number
+    averageResponseTime: number
+    uniqueUsers: number
+    successRate: number
+  }
+  trends: {
+    daily: {
+      date: string
+      totalTurns: number
+      completedTurns: number
+      failedTurns: number
+      successRate: number
+    }[]
+    hourly: {
+      hour: number
+      totalTurns: number
+      completedTurns: number
+      failedTurns: number
+      successRate: number
+    }[]
+  }
+  userBehavior: {
+    topUsers: {
+      userId: string
+      totalTurns: number
+      completedTurns: number
+      averageResponseTime: number
+      successRate: number
+    }[]
+  }
+  performance: {
+    responseTimeDistribution: {
+      bucket: string
+      count: number
+      percentage: number
+    }[]
+    errorTypes: {
+      type: string
+      count: number
+      percentage: number
+    }[]
+  }
+}
+
+/**
  * Vote analytics data structure
  */
 export interface VoteAnalytics {

@@ -12,13 +12,15 @@ import {
   JourneyFilterState,
   OverviewAnalytics,
   RecentEventsResponse,
-  Event
+  Event,
+  TurnData,
+  TurnAnalytics
 } from './types'
 import { TimeRange } from '@/components/TimeRangeSelector'
 import { formatDateForAPI, getDateRange, getPreviousDateRange } from './time-utils'
 
 // API Configuration
-const API_BASE_URL = process.env.BILAN_PUBLIC_API_BASE_URL || 'http://localhost:3002'
+const API_BASE_URL = process.env.BILAN_PUBLIC_API_BASE_URL || 'http://localhost:3001'
 
 export interface DashboardDataWithComparison extends DashboardData {
   comparison?: {
@@ -42,15 +44,26 @@ export class ApiClient {
     const abortController = new AbortController()
 
     try {
-      // Fetch data from the new event-based endpoints
-      const [overviewData, voteData, eventsData] = await Promise.all([
-        this.fetchOverviewAnalytics(timeRange),
-        this.fetchVoteAnalytics(timeRange),
-        this.fetchRecentEvents(100)
-      ])
-
-             // Transform the new data structure to match the old DashboardData interface
-       const data: DashboardData = {
+      // Fetch data from the server's dashboard endpoint which already has journey data
+      const params = new URLSearchParams({
+        range: timeRange
+      })
+      
+      const response = await fetch(`${this.baseUrl}/api/dashboard?${params}`)
+      if (!response.ok) {
+        throw new Error(`Dashboard API error: ${response.status}`)
+      }
+      
+      const serverData = await response.json()
+      
+             // Also fetch vote analytics and overview for additional data
+       const [voteData, overviewData] = await Promise.all([
+         this.fetchVoteAnalytics(timeRange),
+         this.fetchOverviewAnalytics(timeRange)
+       ])
+      
+      // Transform the server data to match the dashboard's expected format
+      const data: DashboardData = {
          feedbackStats: {
            totalFeedback: voteData.overview.totalVotes,
            positiveRate: voteData.overview.positiveRate,
@@ -64,39 +77,24 @@ export class ApiClient {
            regenerations: 0, // We don't have this data yet
            frustration: 0 // We don't have this data yet
          },
-         timeSeriesData: [],
+         timeSeriesData: this.calculateTimeSeriesData(voteData),
          recentActivity: {
-           conversations: [], // empty when we don't have real conversations
-           recentVotes: eventsData.events
-             .filter(e => e.event_type === 'vote_cast')
+           conversations: [], // Server doesn't provide this yet
+           recentVotes: (serverData.recentActivity || [])
+             .filter((activity: any) => activity.type === 'vote')
              .slice(0, 10)
-             .map(e => ({
-               promptId: e.properties.prompt_id || '',
-               userId: e.user_id,
-               value: e.properties.value || 0,
-               timestamp: e.timestamp,
-               comment: e.properties.comment,
-               metadata: {
-                 promptText: e.prompt_text || undefined,
-                 ...e.properties
-               }
+             .map((activity: any, index: number) => ({
+               promptId: `prompt_${index}`,
+               userId: 'unknown',
+               value: activity.sentiment === 'positive' ? 1 : activity.sentiment === 'negative' ? -1 : 0,
+               timestamp: activity.timestamp,
+               comment: activity.summary.includes('commented') ? activity.summary : undefined,
+               metadata: { summary: activity.summary }
              })),
            totalEvents: overviewData.totalEvents
          },
-         conversationStats: {
-           totalConversations: overviewData.eventTypes.find(et => et.type === 'conversation_started')?.count || 0,
-           successRate: overviewData.eventTypes.find(et => et.type === 'turn_completed')?.count ? 
-             (overviewData.eventTypes.find(et => et.type === 'turn_completed')?.count || 0) / 
-             ((overviewData.eventTypes.find(et => et.type === 'turn_completed')?.count || 0) + 
-              (overviewData.eventTypes.find(et => et.type === 'turn_failed')?.count || 0)) : null,
-           averageMessages: null, // We don't have this data yet
-           completionRate: null // We don't have this data yet
-         },
-         journeyStats: {
-           totalJourneys: overviewData.eventTypes.find(et => et.type === 'journey_step')?.count || 0,
-           completionRate: null, // We don't have this data yet
-           popularJourneys: []
-         }
+         conversationStats: serverData.conversationStats,
+         journeyStats: serverData.journeyStats
        }
 
       // Fetch comparison data if requested
@@ -124,6 +122,19 @@ export class ApiClient {
   }
 
   /**
+   * Calculate time series data from vote analytics for trust score chart
+   */
+  private calculateTimeSeriesData(voteData: VoteAnalytics): DashboardData['timeSeriesData'] {
+    // Use daily trends data to create time series
+    return voteData.trends.daily.map(day => ({
+      date: day.date,
+      trustScore: day.positiveRate / 100, // Convert percentage to decimal (0-1 range) for chart
+      totalVotes: day.totalVotes,
+      positiveVotes: day.positiveVotes
+    }))
+  }
+
+  /**
    * Fetch votes data with filtering and pagination
    * @param filters - Partial filters for vote data (search, rating, user, prompt, etc.)
    * @param page - Page number for pagination (default: 1)
@@ -143,7 +154,8 @@ export class ApiClient {
     const params = new URLSearchParams({
       limit: limit.toString(),
       offset: ((page - 1) * limit).toString(),
-      timeRange: timeRange.toString()
+      timeRange: timeRange.toString(),
+      eventType: 'vote_cast'  // Only fetch vote events
     })
 
     const response = await fetch(`${this.baseUrl}/api/events?${params}`, {
@@ -160,26 +172,29 @@ export class ApiClient {
 
     const data = await response.json()
     
-    // Transform the events into VoteData format with improved ID generation
-    const votes: VoteData[] = data.events.map((event: any, index: number) => ({
-      id: `${event.userId}-${event.promptId}-${event.timestamp}-${index}-${Math.random().toString(36).substring(2, 8)}`,
-      promptId: event.promptId,
-      userId: event.userId,
-      value: event.value,
-      rating: event.value > 0 ? 'positive' : 'negative',
-      comment: event.comment,
+    // API now returns only vote events, so no need to filter
+    const voteEvents = data.events
+    
+    const votes: VoteData[] = voteEvents.map((event: any, index: number) => ({
+      id: `${event.user_id}-${event.properties.promptId}-${event.timestamp}-${index}-${Math.random().toString(36).substring(2, 8)}`,
+      promptId: event.properties.promptId || event.event_id,
+      userId: event.user_id,
+      value: event.properties.value,
+      rating: event.properties.value > 0 ? 'positive' : 'negative',
+      comment: event.properties.comment || '',
       timestamp: event.timestamp,
       date: new Date(event.timestamp).toISOString().split('T')[0],
-      promptText: event.promptText,
-      aiOutput: event.aiOutput,
-      responseTime: event.responseTime,
-      model: event.modelUsed,
-      metadata: event.metadata
+      promptText: event.prompt_text || '',
+      aiOutput: event.ai_response || '',
+      responseTime: event.properties.responseTime || 0,
+      model: event.properties.model || '',
+      metadata: event.properties
     }))
 
+    // API now returns filtered total count of vote events
     return {
       votes,
-      total: data.total,
+      total: data.total, // Now correctly represents total vote count
       page,
       limit
     }
@@ -304,13 +319,14 @@ export class ApiClient {
   /**
    * Fetch recent events for activity feed
    */
-  async fetchRecentEvents(limit: number = 20): Promise<RecentEventsResponse> {
+  async fetchRecentEvents(limit: number = 20, timeRange: string = '30d'): Promise<RecentEventsResponse> {
     const abortController = new AbortController()
 
     try {
       const params = new URLSearchParams({
         limit: limit.toString(),
-        offset: '0'
+        offset: '0',
+        timeRange: timeRange
       })
 
       const response = await fetch(`${this.baseUrl}/api/events?${params}`, {
@@ -662,23 +678,248 @@ export function useVotes(
   return { data, loading, error, refresh, fetchData }
 } 
 
+// Turn API Functions
+
+/**
+ * Fetch turn events with filtering and pagination
+ */
+async function fetchTurns(
+  filters: Partial<{ userId?: string; status?: string; conversationId?: string }> = {},
+  page: number = 1,
+  limit: number = 50,
+  timeRange: TimeRange = '30d'
+): Promise<{ turns: TurnData[]; total: number; page: number; limit: number }> {
+  const abortController = new AbortController()
+  
+  const params = new URLSearchParams({
+    limit: limit.toString(),
+    offset: ((page - 1) * limit).toString(),
+    timeRange: timeRange.toString(),
+    eventType: 'turn_completed,turn_failed'  // Only fetch turn events
+  })
+
+  const response = await fetch(`${API_BASE_URL}/api/events?${params}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    signal: abortController.signal,
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch turns: ${response.status} ${response.statusText}`)
+  }
+
+  const data = await response.json()
+  
+  const turnEvents = data.events
+  
+  const turns: TurnData[] = turnEvents.map((event: any, index: number) => ({
+    id: `${event.user_id}-${event.event_id}-${index}`,
+    userId: event.user_id,
+    status: event.event_type === 'turn_completed' ? 'completed' : 'failed',
+    promptText: event.properties.promptText || event.prompt_text || '',
+    responseText: event.properties.responseText || event.ai_response || '',
+    responseTime: event.properties.responseTime || event.properties.response_time || 0,
+    timestamp: event.timestamp,
+    conversationId: event.conversation_id || event.properties.conversationId,
+    voteValue: event.properties.voteValue,
+    model: event.properties.model || '',
+    metadata: event.properties
+  }))
+
+  return {
+    turns,
+    total: data.total,
+    page,
+    limit
+  }
+}
+
+/**
+ * Fetch turn analytics data
+ */
+async function fetchTurnAnalytics(timeRange: TimeRange = '30d'): Promise<TurnAnalytics> {
+  const abortController = new AbortController()
+
+  try {
+    const params = new URLSearchParams({
+      timeRange: timeRange
+    })
+
+    const response = await fetch(`${API_BASE_URL}/api/analytics/turns?${params}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      signal: abortController.signal,
+    })
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch turn analytics: ${response.status} ${response.statusText}`)
+    }
+
+    const data = await response.json()
+    return data
+  } catch (error) {
+    console.error('Failed to fetch turn analytics:', error)
+    // Return default analytics data
+    return {
+      overview: {
+        totalTurns: 0,
+        completedTurns: 0,
+        failedTurns: 0,
+        turnsWithFeedback: 0,
+        averageResponseTime: 0,
+        uniqueUsers: 0,
+        successRate: 0
+      },
+      trends: {
+        daily: [],
+        hourly: []
+      },
+      userBehavior: {
+        topUsers: []
+      },
+      performance: {
+        responseTimeDistribution: [],
+        errorTypes: []
+      }
+    }
+  }
+}
+
+/**
+ * Hook to fetch turns with pagination and filtering
+ */
+export function useTurns(
+  filters: Partial<{ userId?: string; status?: string; conversationId?: string }> = {},
+  page: number = 1,
+  limit: number = 50,
+  timeRange: TimeRange = '30d'
+) {
+  const [data, setData] = useState<{ turns: TurnData[]; total: number; page: number; limit: number } | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const abortControllerRef = useRef<AbortController | null>(null)
+
+  const memoizedFilters = useMemo(() => filters, [JSON.stringify(filters)])
+
+  const fetchData = async () => {
+    // Cancel any in-flight requests
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+
+    // Create new abort controller
+    abortControllerRef.current = new AbortController()
+
+    setLoading(true)
+    setError(null)
+
+    try {
+      const turns = await fetchTurns(memoizedFilters, page, limit, timeRange)
+      setData(turns)
+    } catch (err: any) {
+      if (err.name !== 'AbortError') {
+        setError(err.message || 'Failed to fetch turns')
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchData()
+
+    // Cleanup on unmount
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+    }
+  }, [memoizedFilters, page, limit, timeRange])
+
+  return { data, loading, error, refresh: fetchData }
+}
+
+/**
+ * Hook to fetch turn analytics
+ */
+export function useTurnAnalytics(timeRange: TimeRange = '30d') {
+  const [data, setData] = useState<TurnAnalytics | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true)
+      setError(null)
+
+      try {
+        const analytics = await fetchTurnAnalytics(timeRange)
+        setData(analytics)
+      } catch (err: any) {
+        setError(err.message || 'Failed to fetch turn analytics')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [timeRange])
+
+  return { data, loading, error }
+}
+
 // Conversation API Functions
 
 /**
  * Fetch conversation analytics data
  */
 export async function fetchConversationAnalytics(timeRange: string = '30d'): Promise<ConversationAnalytics> {
-  // Mock implementation - API endpoint doesn't exist yet
+  // Get overview data and events to calculate conversation analytics
+  const [overviewData, eventsData] = await Promise.all([
+    apiClient.fetchOverviewAnalytics(timeRange as TimeRange),
+    apiClient.fetchRecentEvents(1000, '365d') // Get more events for better analytics
+  ])
+  
+  // Filter for conversation-related events
+  const conversationEvents = eventsData.events.filter(event => 
+    event.event_type === 'conversation_started' || 
+    event.event_type === 'conversation_ended' || 
+    event.event_type === 'turn_completed' ||
+    event.event_type === 'turn_created'
+  )
+  
+  const conversationStarted = conversationEvents.filter(e => e.event_type === 'conversation_started')
+  const conversationEnded = conversationEvents.filter(e => e.event_type === 'conversation_ended')
+  const turnEvents = conversationEvents.filter(e => e.event_type === 'turn_completed' || e.event_type === 'turn_created')
+  
+  const totalConversations = conversationStarted.length
+  const completedConversations = conversationEnded.length
+  const activeConversations = Math.max(0, totalConversations - completedConversations)
+  
+  // Calculate averages
+  const averageLength = conversationEnded.length > 0 ? 
+    conversationEnded.reduce((sum, event) => sum + (event.properties.messageCount || 0), 0) / conversationEnded.length : 0
+  
+  const averageResponseTime = turnEvents.length > 0 ?
+    turnEvents.reduce((sum, event) => sum + (event.properties.responseTime || 0), 0) / turnEvents.length : 0
+  
+  const uniqueUsers = new Set(conversationEvents.map(e => e.user_id)).size
+  const totalMessages = conversationEnded.reduce((sum, event) => sum + (event.properties.messageCount || 0), 0)
+  
   return {
     overview: {
-      totalConversations: 0,
-      activeConversations: 0,
-      averageLength: 0,
-      averageResponseTime: 0,
-      satisfactionRate: 0,
-      completionRate: 0,
-      uniqueUsers: 0,
-      totalMessages: 0
+      totalConversations,
+      activeConversations,
+      averageLength,
+      averageResponseTime,
+      satisfactionRate: 0, // Would need vote data correlation
+      completionRate: totalConversations > 0 ? (completedConversations / totalConversations) * 100 : 0,
+      uniqueUsers,
+      totalMessages
     },
     trends: {
       daily: [],
@@ -692,7 +933,7 @@ export async function fetchConversationAnalytics(timeRange: string = '30d'): Pro
     userBehavior: {
       topUsers: [],
       engagementMetrics: {
-        averageConversationsPerUser: 0,
+        averageConversationsPerUser: uniqueUsers > 0 ? totalConversations / uniqueUsers : 0,
         medianConversationsPerUser: 0,
         powerUsers: 0,
         oneTimeUsers: 0
@@ -708,7 +949,7 @@ export async function fetchConversationAnalytics(timeRange: string = '30d'): Pro
       satisfactionDistribution: []
     },
     conversationFlow: {
-      averageMessagesPerConversation: 0,
+      averageMessagesPerConversation: averageLength,
       dropoffPoints: [],
       completionFunnels: []
     }
@@ -723,13 +964,70 @@ export async function fetchConversations(
   page: number = 1,
   limit: number = 50
 ): Promise<{ conversations: ConversationData[]; total: number; page: number; totalPages: number }> {
-  // No real conversation data exists - the server only tracks individual votes
-  // The "conversations" count in dashboard data is actually unique prompts, not real conversations
+  // Get conversation events and reconstruct conversation data
+  // Request all events (not just last 30 days) to avoid filtering out older conversations
+  const eventsData = await apiClient.fetchRecentEvents(1000, '365d')
+  
+  // Filter for ONLY conversation events, not turn events
+  const conversationEvents = eventsData.events.filter(event => 
+    event.event_type === 'conversation_started' || 
+    event.event_type === 'conversation_ended'
+  )
+  
+  // Group events by conversation ID
+  const conversationMap = new Map<string, any[]>()
+  conversationEvents.forEach(event => {
+    const conversationId = event.properties.conversationId
+    if (conversationId) {
+      if (!conversationMap.has(conversationId)) {
+        conversationMap.set(conversationId, [])
+      }
+      conversationMap.get(conversationId)!.push(event)
+    }
+  })
+  
+  // Also collect turn events for these conversations to get accurate stats
+  const turnEvents = eventsData.events.filter(event => 
+    (event.event_type === 'turn_completed' || event.event_type === 'turn_created') &&
+    event.properties.conversationId
+  )
+  
+  // Convert to conversation data format
+  const conversations: ConversationData[] = Array.from(conversationMap.entries()).map(([id, events]) => {
+    const startEvent = events.find(e => e.event_type === 'conversation_started')
+    const endEvent = events.find(e => e.event_type === 'conversation_ended')
+    
+    // Get turn events for this specific conversation
+    const conversationTurnEvents = turnEvents.filter(e => e.properties.conversationId === id)
+    
+    return {
+      id,
+      userId: startEvent?.user_id || events[0]?.user_id || '',
+      messages: [], // Could be reconstructed from turn events if needed
+      startTime: startEvent?.timestamp || events[0]?.timestamp || Date.now(),
+      endTime: endEvent?.timestamp || undefined,
+      totalMessages: endEvent?.properties?.messageCount || conversationTurnEvents.length || 0,
+      averageResponseTime: conversationTurnEvents.length > 0 ? 
+        conversationTurnEvents.reduce((sum, event) => sum + (event.properties.responseTime || 0), 0) / conversationTurnEvents.length : 0,
+      tags: [],
+      metadata: {
+        status: endEvent ? 'completed' : 'active',
+        context: startEvent?.properties?.context || 'unknown'
+      }
+    }
+  })
+  
+  // Apply pagination
+  const total = conversations.length
+  const totalPages = Math.ceil(total / limit)
+  const startIndex = (page - 1) * limit
+  const paginatedConversations = conversations.slice(startIndex, startIndex + limit)
+  
   return {
-    conversations: [],
-    total: 0,
+    conversations: paginatedConversations,
+    total,
     page,
-    totalPages: 0
+    totalPages
   }
 }
 
@@ -911,17 +1209,45 @@ export function useConversations(
  * Fetch journey analytics data
  */
 export async function fetchJourneyAnalytics(timeRange: string = '30d'): Promise<JourneyAnalytics> {
-  // Mock implementation - API endpoint doesn't exist yet
+  // Get overview data and events to calculate journey analytics
+  const [overviewData, eventsData] = await Promise.all([
+    apiClient.fetchOverviewAnalytics(timeRange as TimeRange),
+    apiClient.fetchRecentEvents(1000)
+  ])
+  
+  // Filter for journey events
+  const journeyEvents = eventsData.events.filter(event => event.event_type === 'journey_step')
+  
+  // Group by journey ID
+  const journeyMap = new Map<string, any[]>()
+  journeyEvents.forEach(event => {
+    const journeyId = event.properties.journeyId
+    if (journeyId) {
+      if (!journeyMap.has(journeyId)) {
+        journeyMap.set(journeyId, [])
+      }
+      journeyMap.get(journeyId)!.push(event)
+    }
+  })
+  
+  const totalJourneys = journeyMap.size
+  const completedJourneys = Array.from(journeyMap.values()).filter(events => 
+    events.some(e => e.properties.isCompleted)
+  ).length
+  
+  const uniqueUsers = new Set(journeyEvents.map(e => e.user_id)).size
+  const totalSteps = journeyEvents.length
+  
   return {
     overview: {
-      totalJourneys: 0,
-      activeJourneys: 0,
-      completedJourneys: 0,
-      abandonedJourneys: 0,
-      averageCompletionRate: 0,
-      averageTimeToComplete: 0,
-      uniqueUsers: 0,
-      totalSteps: 0
+      totalJourneys,
+      activeJourneys: totalJourneys - completedJourneys,
+      completedJourneys,
+      abandonedJourneys: 0, // Would need specific abandonment events
+      averageCompletionRate: totalJourneys > 0 ? (completedJourneys / totalJourneys) * 100 : 0,
+      averageTimeToComplete: 0, // Would need timestamp analysis
+      uniqueUsers,
+      totalSteps
     },
     performance: {
       topPerformingJourneys: [],
@@ -940,7 +1266,7 @@ export async function fetchJourneyAnalytics(timeRange: string = '30d'): Promise<
     userBehavior: {
       topUsers: [],
       engagementMetrics: {
-        averageJourneysPerUser: 0,
+        averageJourneysPerUser: uniqueUsers > 0 ? totalJourneys / uniqueUsers : 0,
         medianJourneysPerUser: 0,
         powerUsers: 0,
         oneTimeUsers: 0
@@ -966,13 +1292,77 @@ export async function fetchJourneys(
   page: number = 1,
   limit: number = 50
 ): Promise<{ journeys: JourneyData[]; total: number; page: number; totalPages: number }> {
-  // No real journey data exists - the server only tracks individual votes
-  // Journey data would need to be explicitly tracked through the SDK's journey tracking methods
+  // Get journey events and reconstruct journey data
+  const eventsData = await apiClient.fetchRecentEvents(1000)
+  
+  // Filter for journey events
+  const journeyEvents = eventsData.events.filter(event => event.event_type === 'journey_step')
+  
+  // Group by journey ID
+  const journeyMap = new Map<string, any[]>()
+  journeyEvents.forEach(event => {
+    const journeyId = event.properties.journeyId
+    if (journeyId) {
+      if (!journeyMap.has(journeyId)) {
+        journeyMap.set(journeyId, [])
+      }
+      journeyMap.get(journeyId)!.push(event)
+    }
+  })
+  
+  // Convert to journey data format
+  const journeys: JourneyData[] = Array.from(journeyMap.entries()).map(([id, events]) => {
+    const firstEvent = events[0]
+    const lastEvent = events[events.length - 1]
+    const completedSteps = events.filter(e => e.properties.isCompleted).length
+    const totalSteps = firstEvent?.properties?.totalSteps || 5
+    const isCompleted = events.some(e => e.properties.isCompleted)
+    
+    return {
+      id,
+      name: firstEvent?.properties?.journeyName || 'Unknown Journey',
+      userId: firstEvent?.user_id || '',
+      status: isCompleted ? 'completed' : 'active',
+      steps: Array.from({ length: totalSteps }, (_, i) => ({
+        id: `step_${i}`,
+        name: `Step ${i + 1}`,
+        type: 'action' as const,
+        order: i,
+        isRequired: true,
+        completionRate: i < completedSteps ? 100 : 0,
+        averageTimeSpent: 0,
+        dropoffRate: 0,
+        metadata: {
+          completed: i < completedSteps,
+          timestamp: events.find(e => e.properties.stepIndex === i)?.timestamp
+        }
+      })),
+      completedSteps: Array.from({ length: completedSteps }, (_, i) => `step_${i}`),
+      startTime: firstEvent?.timestamp || Date.now(),
+      endTime: isCompleted ? lastEvent?.timestamp : undefined,
+      completionRate: totalSteps > 0 ? (completedSteps / totalSteps) * 100 : 0,
+      totalTimeSpent: isCompleted && lastEvent && firstEvent ? 
+        (lastEvent.timestamp - firstEvent.timestamp) / 1000 : 0,
+      tags: [],
+      metadata: {
+        totalSteps,
+        completedSteps,
+        journeyName: firstEvent?.properties?.journeyName
+      }
+    }
+  })
+  
+  // Apply pagination
+  const total = journeys.length
+  const totalPages = Math.ceil(total / limit)
+  const startIndex = (page - 1) * limit
+  const paginatedJourneys = journeys.slice(startIndex, startIndex + limit)
+  
   return {
-    journeys: [],
-    total: 0,
+    journeys: paginatedJourneys,
+    total,
     page,
-    totalPages: 0
+    totalPages
   }
 }
 
