@@ -260,10 +260,10 @@ export class BilanServer {
     // Configure CORS if enabled
     if (this.config.cors) {
       const corsOptions = {
-        origin: process.env.ALLOWED_ORIGINS?.split(',') || ['http://localhost:3000', 'http://localhost:3002', 'http://localhost:3004'],
+        origin: process.env.BILAN_CORS_ORIGIN?.split(',') || ['http://localhost:3000', 'http://localhost:3002', 'http://localhost:3004'],
         methods: ['GET', 'POST', 'OPTIONS'],
         allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-        credentials: true
+        credentials: process.env.BILAN_CORS_CREDENTIALS === 'true'
       }
       this.fastify.register(cors, corsOptions)
     }
