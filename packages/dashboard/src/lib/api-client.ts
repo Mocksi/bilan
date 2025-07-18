@@ -763,29 +763,8 @@ async function fetchTurnAnalytics(timeRange: TimeRange = '30d'): Promise<TurnAna
     return data
   } catch (error) {
     console.error('Failed to fetch turn analytics:', error)
-    // Return default analytics data
-    return {
-      overview: {
-        totalTurns: 0,
-        completedTurns: 0,
-        failedTurns: 0,
-        turnsWithFeedback: 0,
-        averageResponseTime: 0,
-        uniqueUsers: 0,
-        successRate: 0
-      },
-      trends: {
-        daily: [],
-        hourly: []
-      },
-      userBehavior: {
-        topUsers: []
-      },
-      performance: {
-        responseTimeDistribution: [],
-        errorTypes: []
-      }
-    }
+    // Re-throw the error to let calling code handle it appropriately
+    throw new Error(`Turn analytics API request failed: ${error instanceof Error ? error.message : 'Unknown error'}`)
   }
 }
 
@@ -900,15 +879,24 @@ export async function fetchConversationAnalytics(timeRange: string = '30d'): Pro
   const completedConversations = conversationEnded.length
   const activeConversations = Math.max(0, totalConversations - completedConversations)
   
-  // Calculate averages
+  // Calculate averages with proper validation
   const averageLength = conversationEnded.length > 0 ? 
-    conversationEnded.reduce((sum, event) => sum + (event.properties.messageCount || 0), 0) / conversationEnded.length : 0
+    conversationEnded.reduce((sum, event) => {
+      const messageCount = event.properties?.messageCount
+      return sum + (typeof messageCount === 'number' && messageCount >= 0 ? messageCount : 0)
+    }, 0) / conversationEnded.length : 0
   
   const averageResponseTime = turnEvents.length > 0 ?
-    turnEvents.reduce((sum, event) => sum + (event.properties.responseTime || 0), 0) / turnEvents.length : 0
+    turnEvents.reduce((sum, event) => {
+      const responseTime = event.properties?.responseTime
+      return sum + (typeof responseTime === 'number' && responseTime >= 0 ? responseTime : 0)
+    }, 0) / turnEvents.length : 0
   
-  const uniqueUsers = new Set(conversationEvents.map(e => e.user_id)).size
-  const totalMessages = conversationEnded.reduce((sum, event) => sum + (event.properties.messageCount || 0), 0)
+  const uniqueUsers = new Set(conversationEvents.filter(e => e.user_id).map(e => e.user_id)).size
+  const totalMessages = conversationEnded.reduce((sum, event) => {
+    const messageCount = event.properties?.messageCount
+    return sum + (typeof messageCount === 'number' && messageCount >= 0 ? messageCount : 0)
+  }, 0)
   
   return {
     overview: {
