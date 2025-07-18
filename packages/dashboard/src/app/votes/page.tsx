@@ -247,7 +247,7 @@ const VotesContent: React.FC = () => {
                   totalPages={Math.ceil(data.total / limit)}
                   onPageChange={setPage}
                   totalItems={data.total}
-                  itemsPerPage={data.votes.length}
+                  itemsPerPage={limit}
                 />
               </div>
             </>

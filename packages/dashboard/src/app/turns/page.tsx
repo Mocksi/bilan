@@ -239,7 +239,7 @@ const TurnsContent: React.FC = () => {
                   totalPages={Math.ceil(data.total / limit)}
                   onPageChange={setPage}
                   totalItems={data.total}
-                  itemsPerPage={data.turns.length}
+                  itemsPerPage={limit}
                 />
               </div>
             </>

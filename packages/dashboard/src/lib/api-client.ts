@@ -20,7 +20,7 @@ import { TimeRange } from '@/components/TimeRangeSelector'
 import { formatDateForAPI, getDateRange, getPreviousDateRange } from './time-utils'
 
 // API Configuration
-const API_BASE_URL = process.env.BILAN_PUBLIC_API_BASE_URL || 'http://localhost:3001'
+const API_BASE_URL = process.env.BILAN_PUBLIC_API_BASE_URL || 'http://localhost:3002'
 
 export interface DashboardDataWithComparison extends DashboardData {
   comparison?: {
@@ -176,7 +176,7 @@ export class ApiClient {
     const voteEvents = data.events
     
     const votes: VoteData[] = voteEvents.map((event: any, index: number) => ({
-      id: `${event.user_id}-${event.properties.promptId}-${event.timestamp}-${index}-${Math.random().toString(36).substring(2, 8)}`,
+      id: event.event_id || `vote-${event.timestamp}-${index}`,
       promptId: event.properties.promptId || event.event_id,
       userId: event.user_id,
       value: event.properties.value,
