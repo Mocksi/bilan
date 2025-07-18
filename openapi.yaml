@@ -24,7 +24,7 @@ info:
     url: https://opensource.org/licenses/MIT
 
 servers:
-  - url: http://localhost:3001
+  - url: http://localhost:3002
     description: Development server (default)
   - url: https://api.bilan.example.com
     description: Production server

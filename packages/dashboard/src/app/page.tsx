@@ -104,7 +104,7 @@ const DashboardContent: React.FC = () => {
         <div className="col-sm-6 col-lg-3">
           <StatsCard
             title="Trust Score"
-            value={`${(data.feedbackStats.positiveRate * 100).toFixed(1)}%`}
+            value={`${data.feedbackStats.positiveRate.toFixed(1)}%`}
             change={undefined}
             trend={data.feedbackStats.recentTrend === 'improving' ? 'up' : 
                    data.feedbackStats.recentTrend === 'declining' ? 'down' : 'stable'}
@@ -149,7 +149,7 @@ const DashboardContent: React.FC = () => {
           <StatsCard
             title="Success Rate"
             value={data.conversationStats.successRate !== null ? 
-              `${(data.conversationStats.successRate * 100).toFixed(1)}%` : 
+              `${data.conversationStats.successRate.toFixed(1)}%` : 
               'N/A'}
             change={undefined}
             trend={data.conversationStats.successRate !== null ? 'up' : 'stable'}

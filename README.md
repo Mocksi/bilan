@@ -463,7 +463,7 @@ init({
   userId: 'user-123',
   
   // Optional: Custom endpoint for self-hosted server
-  endpoint: 'http://localhost:3001',
+  endpoint: 'http://localhost:3002',
   
   // Optional: Enable debug logging
   debug: true,
@@ -534,7 +534,7 @@ module.exports = {
   
   // API settings
   api: {
-    port: 3001,
+    port: 3002,
     cors: true,
     rateLimit: {
       max: 100,              // Requests per minute
@@ -604,7 +604,7 @@ interface PromptStats {
 Submit voting events to the server.
 
 ```bash
-curl -X POST http://localhost:3001/api/events \
+curl -X POST http://localhost:3002/api/events \
   -H "Content-Type: application/json" \
   -d '{
     "events": [{
@@ -622,7 +622,7 @@ curl -X POST http://localhost:3001/api/events \
 Get basic analytics for a user.
 
 ```bash
-curl http://localhost:3001/api/stats?userId=user-123
+curl http://localhost:3002/api/stats?userId=user-123
 ```
 
 ## Integration Examples
