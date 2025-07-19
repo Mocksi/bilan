@@ -4,7 +4,9 @@
   "description": "Open Source Trust Analytics for AI Products - Track user feedback on AI suggestions. Self-hostable, TypeScript-first, <5KB bundle.",
   "main": "index.js",
   "type": "module",
-  "workspaces": ["packages/*"],
+  "workspaces": [
+    "packages/*"
+  ],
   "engines": {
     "node": ">=14.17.0"
   },
@@ -22,7 +24,7 @@
     "test:sdk": "cd packages/sdk && npm run test",
     "test:server": "cd packages/server && npm run test",
     "dev": "npm run dev:server & npm run dev:dashboard",
-    "dev:server": "cd packages/server && PORT=3002 npm run dev",
+    "dev:server": "cd packages/server && BILAN_PORT=3002 npm run dev",
     "dev:dashboard": "cd packages/dashboard && PORT=3004 npm run dev",
     "dev:example": "cd packages/examples/nextjs && npm run dev",
     "update-bundle-size": "node scripts/update-bundle-size.js"
@@ -31,7 +33,14 @@
     "type": "git",
     "url": "git+https://github.com/Mocksi/bilan.git"
   },
-  "keywords": ["ai", "trust", "analytics", "feedback", "typescript", "open-source"],
+  "keywords": [
+    "ai",
+    "trust",
+    "analytics",
+    "feedback",
+    "typescript",
+    "open-source"
+  ],
   "author": "",
   "license": "MIT",
   "bugs": {
@@ -42,5 +51,6 @@
     "@types/node": "^24.0.12",
     "tsx": "^4.19.2",
     "typescript": "^5.6.3"
-  }
+  },
+  "dependencies": {}
 }

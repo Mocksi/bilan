@@ -2,7 +2,7 @@
 import { BilanServer } from './server.js'
 
 const portEnv = process.env.BILAN_PORT || process.env.PORT
-const port = portEnv ? parseInt(portEnv, 10) : 3001
+const port = portEnv ? parseInt(portEnv, 10) : 3002
 
 // Validate port number
 if (portEnv && (isNaN(port) || port < 1 || port > 65535)) {
@@ -12,7 +12,8 @@ if (portEnv && (isNaN(port) || port < 1 || port > 65535)) {
 
 const config = {
   port,
-  dbPath: process.env.BILAN_DB_PATH || process.env.DB_PATH || './bilan.db'
+  dbPath: process.env.BILAN_DB_PATH || process.env.DB_PATH || './bilan.db',
+  cors: true // Enable CORS for development
 }
 
 const server = new BilanServer(config)

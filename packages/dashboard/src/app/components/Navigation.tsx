@@ -9,6 +9,7 @@ export const Navigation: React.FC = () => {
 
   const navItems = [
     { href: '/', label: 'Home', icon: '🏠' },
+    { href: '/turns', label: 'Turns', icon: '🔄' },
     { href: '/votes', label: 'Votes', icon: '👍' },
     { href: '/conversations', label: 'Conversations', icon: '💬' },
     { href: '/journeys', label: 'Journeys', icon: '🗺️' },

@@ -49,6 +49,47 @@ export interface DashboardData {
 }
 
 /**
+ * Overview analytics data structure from the new event-based API
+ */
+export interface OverviewAnalytics {
+  totalEvents: number
+  totalUsers: number
+  eventTypes: Array<{
+    type: string
+    count: number
+  }>
+  timeRange: string
+  dateRange: {
+    start: string
+    end: string
+  }
+}
+
+/**
+ * Recent events response structure from the new event-based API
+ */
+export interface RecentEventsResponse {
+  events: Event[]
+  total: number
+  limit: number
+  offset: number
+  hasMore: boolean
+}
+
+/**
+ * Event structure from the new event-based API
+ */
+export interface Event {
+  event_id: string
+  user_id: string
+  event_type: string
+  timestamp: number
+  properties: Record<string, any>
+  prompt_text?: string | null
+  ai_response?: string | null
+}
+
+/**
  * Comprehensive vote data structure for votes analytics page
  */
 export interface VoteData {
@@ -70,6 +111,81 @@ export interface VoteData {
     sessionId?: string
     conversationId?: string
     [key: string]: any
+  }
+}
+
+/**
+ * Turn data structure for AI interactions
+ */
+export interface TurnData {
+  id: string
+  userId: string
+  status: 'completed' | 'failed'
+  promptText?: string
+  responseText?: string
+  responseTime?: number
+  timestamp: number
+  conversationId?: string
+  voteValue?: number // -1 for negative, 1 for positive
+  model?: string
+  metadata?: {
+    promptId?: string
+    journey?: string
+    step?: string
+    sessionId?: string
+    [key: string]: any
+  }
+}
+
+/**
+ * Turn analytics data structure
+ */
+export interface TurnAnalytics {
+  overview: {
+    totalTurns: number
+    completedTurns: number
+    failedTurns: number
+    turnsWithFeedback: number
+    averageResponseTime: number
+    uniqueUsers: number
+    successRate: number
+  }
+  trends: {
+    daily: {
+      date: string
+      totalTurns: number
+      completedTurns: number
+      failedTurns: number
+      successRate: number
+    }[]
+    hourly: {
+      hour: number
+      totalTurns: number
+      completedTurns: number
+      failedTurns: number
+      successRate: number
+    }[]
+  }
+  userBehavior: {
+    topUsers: {
+      userId: string
+      totalTurns: number
+      completedTurns: number
+      averageResponseTime: number
+      successRate: number
+    }[]
+  }
+  performance: {
+    responseTimeDistribution: {
+      bucket: string
+      count: number
+      percentage: number
+    }[]
+    errorTypes: {
+      type: string
+      count: number
+      percentage: number
+    }[]
   }
 }
 

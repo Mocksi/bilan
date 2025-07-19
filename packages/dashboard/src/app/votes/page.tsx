@@ -1,11 +1,12 @@
 'use client'
 
 import React, { useState, Suspense, useMemo } from 'react'
-import { useVotes } from '@/lib/api-client'
+import { useVotes, useVoteAnalytics } from '@/lib/api-client'
 import { VoteData } from '@/lib/types'
 import { DashboardLayout } from '@/components/DashboardLayout'
 import StatsCard from '@/components/StatsCard'
 import { ThumbsUpIcon } from '@/components/icons'
+import { Pagination } from '@/components/ui/pagination'
 
 /**
  * VotesContent component renders the main votes analytics interface
@@ -19,6 +20,7 @@ const VotesContent: React.FC = () => {
   const filters = useMemo(() => ({}), [])
   
   const { data, loading, error } = useVotes(filters, page, limit)
+  const { data: analytics } = useVoteAnalytics('30d')
 
   if (loading) {
     return (
@@ -49,11 +51,15 @@ const VotesContent: React.FC = () => {
     )
   }
 
-  const totalVotes = data?.votes.length || 0
-  const positiveVotes = data?.votes.filter(vote => vote.value > 0).length || 0
-  const negativeVotes = data?.votes.filter(vote => vote.value < 0).length || 0
-  const commentsCount = data?.votes.filter(vote => vote.comment).length || 0
-  const positiveRate = totalVotes > 0 ? (positiveVotes / totalVotes) * 100 : 0
+  // Use events API total for consistency, scale analytics proportionally
+  const totalVotes = data?.total || 0
+  const analyticsTotal = analytics?.overview.totalVotes || 1 // Avoid division by zero
+  const scaleFactor = totalVotes / analyticsTotal
+  
+  const positiveVotes = Math.round((analytics?.overview.positiveVotes || 0) * scaleFactor)
+  const negativeVotes = Math.round((analytics?.overview.negativeVotes || 0) * scaleFactor)
+  const commentsCount = Math.round((analytics?.overview.commentsCount || 0) * scaleFactor)
+  const positiveRate = analytics?.overview.positiveRate || 0
 
   return (
     <DashboardLayout 
@@ -130,8 +136,9 @@ const VotesContent: React.FC = () => {
         </div>
         <div className="card-body">
           {data && data.votes.length > 0 ? (
-            <div className="table-responsive">
-              <table className="table table-vcenter">
+            <>
+              <div className="table-responsive">
+                <table className="table table-vcenter">
                 <thead>
                   <tr>
                     <th>Prompt</th>
@@ -231,7 +238,19 @@ const VotesContent: React.FC = () => {
                   ))}
                 </tbody>
               </table>
-            </div>
+              </div>
+              
+              {/* Pagination Controls */}
+              <div className="mt-3">
+                <Pagination
+                  currentPage={page}
+                  totalPages={Math.ceil(data.total / limit)}
+                  onPageChange={setPage}
+                  totalItems={data.total}
+                  itemsPerPage={limit}
+                />
+              </div>
+            </>
           ) : (
             <div className="text-center py-5">
               <div className="text-muted">

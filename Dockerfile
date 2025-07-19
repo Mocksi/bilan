@@ -71,7 +71,7 @@ USER bilan
 
 # Set environment variables
 ENV NODE_ENV=production
-ENV PORT=3002
+ENV BILAN_PORT=3002
 ENV DB_PATH=/app/data/bilan.db
 
 # Create data directory
