@@ -9,7 +9,7 @@ describe('Performance and Load Tests', () => {
   let testPort: number
 
   beforeEach(async () => {
-    testPort = Math.floor(Math.random() * 10000) + 45000
+    testPort = Math.floor(Math.random() * 5000) + 50000 // Fixed to 50000-55000 range (valid port limit)
     
     db = new BilanDatabase(':memory:')
     
@@ -263,21 +263,21 @@ describe('Performance and Load Tests', () => {
         const userId = `analytics-user-${i % 100}` // 100 unique users
         const timestamp = Date.now() - (Math.random() * 30 * 24 * 60 * 60 * 1000) // Random within 30 days
 
-        let properties = { index: i }
+        let properties: Record<string, any> = { index: i }
 
         if (eventType === 'vote_cast') {
           properties = {
             ...properties,
             promptId: `prompt-${i % 50}`, // 50 unique prompts
             value: Math.random() > 0.3 ? 1 : -1, // 70% positive
-            comment: Math.random() > 0.7 ? `Comment ${i}` : undefined
+            ...(Math.random() > 0.7 ? { comment: `Comment ${i}` } : {}) // Only include comment if defined
           }
         } else if (eventType === 'turn_completed' || eventType === 'turn_failed') {
           properties = {
             ...properties,
             turnId: `turn-${i}`,
-            responseTime: eventType === 'turn_completed' ? 200 + Math.random() * 2000 : undefined,
-            errorType: eventType === 'turn_failed' ? 'api_error' : undefined
+            ...(eventType === 'turn_completed' ? { responseTime: 200 + Math.random() * 2000 } : {}),
+            ...(eventType === 'turn_failed' ? { errorType: 'api_error' } : {})
           }
         } else {
           properties = {
@@ -289,7 +289,7 @@ describe('Performance and Load Tests', () => {
         events.push({
           eventId: `analytics-${i}`,
           eventType,
-          timestamp,
+          timestamp: Date.now() - Math.floor(Math.random() * 30 * 24 * 60 * 60 * 1000), // Valid timestamp in the past
           userId,
           properties
         })

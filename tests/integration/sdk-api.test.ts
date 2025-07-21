@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { BilanServer } from '../../packages/server/src/server.js'
 import { BilanDatabase } from '../../packages/server/src/database/schema.js'
+import { getAvailablePort, releasePort } from './test-utils.js'
 
 // For now, we'll test without the SDK until we can verify its interface
 // import { BilanSDK } from '../../packages/sdk/src/index.js'
@@ -12,8 +13,8 @@ describe('SDK → API Integration Tests', () => {
   let testPort: number
 
   beforeEach(async () => {
-    // Get random port for testing
-    testPort = Math.floor(Math.random() * 10000) + 30000
+    // Get available port for testing (avoiding conflicts with other test files)
+    testPort = await getAvailablePort([20000, 30000]) // Non-overlapping range
     
     // Create server instance with test configuration
     server = new BilanServer({
@@ -39,6 +40,10 @@ describe('SDK → API Integration Tests', () => {
     }
     if (db) {
       db.close()
+    }
+    // Release port for other tests to use
+    if (testPort) {
+      releasePort(testPort)
     }
   })
 

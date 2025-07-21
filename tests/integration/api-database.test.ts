@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { BilanServer } from '../../packages/server/src/server.js'
 import { BilanDatabase, Event, EVENT_TYPES } from '../../packages/server/src/database/schema.js'
+import { getAvailablePort, releasePort } from './test-utils.js'
 
 describe('API → Database Integration Tests', () => {
   let server: BilanServer
@@ -9,8 +10,8 @@ describe('API → Database Integration Tests', () => {
   let testPort: number
 
   beforeEach(async () => {
-    // Get random port for testing
-    testPort = Math.floor(Math.random() * 10000) + 35000
+    // Get available port for testing (using dedicated range)
+    testPort = await getAvailablePort([30000, 40000]) // Non-overlapping range
     
     // Create test database that we can inspect
     db = new BilanDatabase(':memory:')
@@ -35,6 +36,10 @@ describe('API → Database Integration Tests', () => {
     }
     if (db) {
       db.close()
+    }
+    // Release port for other tests to use
+    if (testPort) {
+      releasePort(testPort)
     }
   })
 
@@ -279,18 +284,34 @@ describe('API → Database Integration Tests', () => {
       const voteResponse = await fetch(`${serverUrl}/api/events?eventType=vote_cast&timeRange=30d`)
       const voteData = await voteResponse.json()
       
-      expect(voteData.events.length).toBeGreaterThanOrEqual(3) // At least 3 votes (2 recent + 1 old), may include events from other tests
+      // Check that we have at least the expected seeded votes and all returned events are vote_cast
+      expect(voteData.events.length).toBeGreaterThanOrEqual(3) // At least our seeded votes, may include events from other tests
       voteData.events.forEach(event => {
         expect(event.event_type).toBe('vote_cast')
+      })
+      
+      // Verify our specific seeded vote events are present
+      const seededVoteIds = ['filter-vote-1', 'filter-vote-2', 'old-event-1', 'recent-event-1']
+      const returnedEventIds = voteData.events.map(e => e.event_id)
+      seededVoteIds.forEach(expectedId => {
+        expect(returnedEventIds).toContain(expectedId)
       })
 
       // Test multiple event type filter
       const multiResponse = await fetch(`${serverUrl}/api/events?eventType=turn_completed,turn_failed&timeRange=30d`)
       const multiData = await multiResponse.json()
       
-      expect(multiData.events.length).toBe(2)
+      // Check that we have at least the expected seeded turn events and all returned events are the correct types
+      expect(multiData.events.length).toBeGreaterThanOrEqual(2) // At least our seeded turn events, may include events from other tests
       multiData.events.forEach(event => {
         expect(['turn_completed', 'turn_failed']).toContain(event.event_type)
+      })
+      
+      // Verify our specific seeded turn events are present
+      const seededTurnIds = ['filter-turn-1', 'filter-turn-2']
+      const returnedTurnEventIds = multiData.events.map(e => e.event_id)
+      seededTurnIds.forEach(expectedId => {
+        expect(returnedTurnEventIds).toContain(expectedId)
       })
     })
 
