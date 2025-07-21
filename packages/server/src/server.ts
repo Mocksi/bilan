@@ -891,7 +891,7 @@ export class BilanServer {
         ])
 
         completedTurns.forEach(event => {
-          const time = (event.properties.responseTime || event.properties.response_time || 0) * 1000 // Convert to ms
+          const time = (event.properties.responseTime || event.properties.response_time || 0) // Already in ms
           if (time < 100) responseTimeBuckets.set('<100ms', responseTimeBuckets.get('<100ms')! + 1)
           else if (time < 500) responseTimeBuckets.set('100-500ms', responseTimeBuckets.get('100-500ms')! + 1)
           else if (time < 1000) responseTimeBuckets.set('500ms-1s', responseTimeBuckets.get('500ms-1s')! + 1)
@@ -907,11 +907,11 @@ export class BilanServer {
           percentage: totalResponseTimeEvents > 0 ? (count / totalResponseTimeEvents) * 100 : 0
         }))
 
-        // Calculate average response time
+        // Calculate average response time (response times are already in milliseconds)
         const totalResponseTime = completedTurns.reduce((sum, event) => {
           return sum + (event.properties.responseTime || event.properties.response_time || 0)
         }, 0)
-        const averageResponseTime = completedTurns.length > 0 ? (totalResponseTime / completedTurns.length) * 1000 : 0 // Convert to ms
+        const averageResponseTime = completedTurns.length > 0 ? (totalResponseTime / completedTurns.length) : 0 // Already in ms
 
         const analytics = {
           overview: {

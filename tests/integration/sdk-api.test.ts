@@ -488,7 +488,7 @@ describe('SDK → API Integration Tests', () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer test-e2e-key-abc123'
+          'Authorization': 'Bearer test-api-key-12345'
         },
         body: '{"invalid": json}'
       })
@@ -502,7 +502,7 @@ describe('SDK → API Integration Tests', () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer test-e2e-key-abc123'
+          'Authorization': 'Bearer test-api-key-12345'
         },
         body: JSON.stringify({ events: [] })
       })
@@ -534,7 +534,7 @@ describe('SDK → API Integration Tests', () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer test-e2e-key-abc123'
+          'Authorization': 'Bearer test-api-key-12345'
         },
         body: JSON.stringify(eventWithExtraProps)
       })
