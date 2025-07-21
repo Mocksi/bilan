@@ -4,18 +4,35 @@ info:
   description: |
     REST API for Bilan - Open Source Trust Analytics for AI Products
     
-    Track user feedback on AI suggestions, calculate trust metrics, and get actionable insights.
-    Self-hostable with SQLite backend.
+    **v0.4.0: Event-Based Architecture** - Comprehensive AI analytics platform with automatic turn tracking,
+    failure detection, and real-time insights. Self-hostable with unified events storage.
+    
+    ## Core Features
+    - **Turn-Based Analytics**: Automatic AI interaction tracking with success/failure metrics
+    - **Event-Driven Architecture**: Flexible event system supporting custom analytics
+    - **Real-Time Dashboard**: Live analytics with comprehensive user behavior insights
+    - **Privacy Controls**: Configurable data capture with PII sanitization
+    - **Performance Tracking**: Response time, error classification, and model performance
     
     ## Authentication
-    This API currently does not require authentication. Events are identified by userId.
+    API key authentication required for event ingestion and analytics endpoints.
+    Include your API key in the `Authorization` header as `Bearer {your-api-key}`.
     
-    ## Rate Limiting
-    No rate limiting is currently implemented.
+    ## Rate Limiting  
+    - Event ingestion: 100 requests per minute per API key
+    - Analytics endpoints: No rate limiting (read-only)
+    - Batch event ingestion: Maximum 1000 events per request
+    
+    ## Event Types
+    - `turn_started`, `turn_completed`, `turn_failed` - AI interaction lifecycle
+    - `vote_cast`, `user_action` - User feedback and interactions  
+    - `conversation_started`, `conversation_ended` - Session management
+    - `journey_step`, `regeneration_requested`, `frustration_detected` - User workflow tracking
     
     ## Error Handling
-    All errors follow standard HTTP status codes with JSON error responses.
-  version: 0.3.0
+    All errors follow standard HTTP status codes with structured JSON error responses
+    including actionable error codes and detailed error messages.
+  version: 0.4.0
   contact:
     name: Bilan Project
     url: https://github.com/Mocksi/bilan
@@ -28,6 +45,214 @@ servers:
     description: Development server (default)
   - url: https://api.bilan.example.com
     description: Production server
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: API Key
+      description: Include your API key as Bearer token
+
+  schemas:
+    Event:
+      type: object
+      required:
+        - eventId
+        - eventType
+        - timestamp
+        - userId
+        - properties
+      properties:
+        eventId:
+          type: string
+          description: Unique identifier for this event
+          example: "evt_1704067200_abc123"
+        eventType:
+          type: string
+          enum: [turn_started, turn_completed, turn_failed, vote_cast, user_action, conversation_started, conversation_ended, journey_step, regeneration_requested, frustration_detected]
+          description: Type of event being tracked
+        timestamp:
+          type: integer
+          format: int64
+          description: Unix timestamp in milliseconds
+          example: 1704067200000
+        userId:
+          type: string
+          description: Unique identifier for the user
+          example: "user-123"
+        properties:
+          type: object
+          description: Event-specific properties stored as flexible JSON
+          additionalProperties: true
+          example:
+            conversationId: "conv-456"
+            responseTime: 1250
+            model: "gpt-4"
+        promptText:
+          type: string
+          nullable: true
+          description: AI prompt text (if privacy settings allow capture)
+          example: "Help me write an email"
+        aiResponse:
+          type: string
+          nullable: true
+          description: AI response text (if privacy settings allow capture)
+
+    EventBatch:
+      type: object
+      properties:
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/Event'
+          maxItems: 1000
+          description: Array of events (max 1000 per batch)
+
+    VoteAnalytics:
+      type: object
+      properties:
+        overview:
+          type: object
+          properties:
+            totalVotes:
+              type: integer
+            positiveVotes:
+              type: integer
+            negativeVotes:
+              type: integer
+            positiveRate:
+              type: number
+              format: float
+            averageRating:
+              type: number
+              format: float
+            commentsCount:
+              type: integer
+            uniqueUsers:
+              type: integer
+            uniquePrompts:
+              type: integer
+        trends:
+          type: object
+          properties:
+            daily:
+              type: array
+              items:
+                type: object
+                properties:
+                  date:
+                    type: string
+                    format: date
+                  totalVotes:
+                    type: integer
+                  positiveVotes:
+                    type: integer
+                  negativeVotes:
+                    type: integer
+                  positiveRate:
+                    type: number
+                    format: float
+            hourly:
+              type: array
+              items:
+                type: object
+                properties:
+                  hour:
+                    type: integer
+                    minimum: 0
+                    maximum: 23
+                  totalVotes:
+                    type: integer
+                  positiveVotes:
+                    type: integer
+                  negativeVotes:
+                    type: integer
+                  positiveRate:
+                    type: number
+                    format: float
+
+    TurnAnalytics:
+      type: object
+      properties:
+        overview:
+          type: object
+          properties:
+            totalTurns:
+              type: integer
+            completedTurns:
+              type: integer
+            failedTurns:
+              type: integer
+            turnsWithFeedback:
+              type: integer
+            averageResponseTime:
+              type: number
+              format: float
+              description: Average response time in milliseconds
+            uniqueUsers:
+              type: integer
+            successRate:
+              type: number
+              format: float
+        trends:
+          type: object
+          properties:
+            daily:
+              type: array
+              items:
+                type: object
+                properties:
+                  date:
+                    type: string
+                    format: date
+                  totalTurns:
+                    type: integer
+                  completedTurns:
+                    type: integer
+                  failedTurns:
+                    type: integer
+                  successRate:
+                    type: number
+                    format: float
+
+    OverviewAnalytics:
+      type: object
+      properties:
+        totalEvents:
+          type: integer
+        totalUsers:
+          type: integer
+        eventTypes:
+          type: array
+          items:
+            type: object
+            properties:
+              type:
+                type: string
+              count:
+                type: integer
+        timeRange:
+          type: string
+        dateRange:
+          type: object
+          properties:
+            start:
+              type: string
+              format: date-time
+            end:
+              type: string
+              format: date-time
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error type
+        message:
+          type: string
+          description: Human-readable error message
 
 paths:
   /health:
@@ -48,6 +273,195 @@ paths:
                   status:
                     type: string
                     enum: [ok]
+                  timestamp:
+                    type: string
+                    format: date-time
+
+  /api/events:
+    post:
+      summary: Ingest events
+      description: |
+        Core endpoint for event ingestion. Supports both single events and batch processing.
+        Events are the foundation of v0.4.0 analytics - everything flows through this endpoint.
+      operationId: ingestEvents
+      tags:
+        - Events
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/Event'
+                - $ref: '#/components/schemas/EventBatch'
+                - type: array
+                  items:
+                    $ref: '#/components/schemas/Event'
+                  maxItems: 1000
+            examples:
+              single_event:
+                summary: Single turn completion event
+                value:
+                  eventId: "turn_1704067200_abc123"
+                  eventType: "turn_completed"
+                  timestamp: 1704067200000
+                  userId: "user-123"
+                  properties:
+                    turnId: "turn_abc123"
+                    conversationId: "conv-456"
+                    responseTime: 1250
+                    model: "gpt-4"
+                    systemPromptVersion: "v2.1"
+                  promptText: "Help me write an email"
+              vote_event:
+                summary: Vote cast event
+                value:
+                  eventId: "vote_1704067300_def456"
+                  eventType: "vote_cast"
+                  timestamp: 1704067300000
+                  userId: "user-123"
+                  properties:
+                    promptId: "prompt_789"
+                    value: 1
+                    comment: "Very helpful!"
+              batch_events:
+                summary: Batch event submission
+                value:
+                  events:
+                    - eventId: "turn_1704067200_abc123"
+                      eventType: "turn_completed"
+                      timestamp: 1704067200000
+                      userId: "user-123"
+                      properties:
+                        conversationId: "conv-456"
+                        responseTime: 1250
+                    - eventId: "vote_1704067300_def456"
+                      eventType: "vote_cast"
+                      timestamp: 1704067300000
+                      userId: "user-123"
+                      properties:
+                        promptId: "prompt_789"
+                        value: 1
+      responses:
+        '200':
+          description: Events processed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  processed:
+                    type: integer
+                    description: Number of events successfully processed
+                  skipped:
+                    type: integer
+                    description: Number of events skipped (duplicates)
+                  errors:
+                    type: integer
+                    description: Number of events that failed processing
+                  eventIds:
+                    type: array
+                    items:
+                      type: string
+                    description: IDs of successfully processed events
+        '400':
+          description: Bad request - invalid event format or batch too large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized - invalid or missing API key
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    get:
+      summary: List events
+      description: |
+        Retrieve events with pagination, filtering, and search capabilities.
+        Supports filtering by event type, user, time range, and text search.
+      operationId: listEvents
+      tags:
+        - Events
+      parameters:
+        - name: limit
+          in: query
+          description: Number of events to return (max 1000)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 50
+        - name: offset
+          in: query
+          description: Number of events to skip for pagination
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: timeRange
+          in: query
+          description: Time range for events
+          schema:
+            type: string
+            enum: [24h, 7d, 30d, 365d, ALL]
+            default: 30d
+        - name: eventType
+          in: query
+          description: Filter by event type (comma-separated for multiple)
+          schema:
+            type: string
+            example: "turn_completed,vote_cast"
+        - name: userId
+          in: query
+          description: Filter by specific user ID
+          schema:
+            type: string
+        - name: search
+          in: query
+          description: Search in prompt text, AI response, and comments
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Events retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Event'
+                  total:
+                    type: integer
+                    description: Total number of events matching filters
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+                  hasMore:
+                    type: boolean
+                    description: Whether there are more events available
+        '500':
+          description: Internal server error
                   timestamp:
                     type: string
                     format: date-time
@@ -432,13 +846,108 @@ components:
       required:
         - error
 
+  /api/analytics/overview:
+    get:
+      summary: Overview analytics
+      description: |
+        High-level analytics overview including total events, users, and event type distribution.
+        Perfect for dashboard summary cards and general system health monitoring.
+      operationId: getOverviewAnalytics
+      tags:
+        - Analytics
+      parameters:
+        - name: timeRange
+          in: query
+          description: Time range for analytics
+          schema:
+            type: string
+            enum: [24h, 7d, 30d, 90d, 365d, ALL]
+            default: 30d
+      responses:
+        '200':
+          description: Overview analytics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OverviewAnalytics'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/analytics/votes:
+    get:
+      summary: Vote analytics
+      description: |
+        Comprehensive vote analytics including trends, user behavior, and prompt performance.
+        Includes daily/hourly trends, top users, comment analysis, and sentiment metrics.
+      operationId: getVoteAnalytics
+      tags:
+        - Analytics
+      parameters:
+        - name: timeRange
+          in: query
+          description: Time range for vote analytics
+          schema:
+            type: string
+            enum: [24h, 7d, 30d, 90d, 365d, ALL]
+            default: 30d
+      responses:
+        '200':
+          description: Vote analytics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VoteAnalytics'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /api/analytics/turns:
+    get:
+      summary: Turn analytics
+      description: |
+        **NEW in v0.4.0** - Comprehensive AI turn analytics including success rates, response times,
+        error classification, and performance metrics. Essential for monitoring AI interaction quality.
+      operationId: getTurnAnalytics
+      tags:
+        - Analytics
+      parameters:
+        - name: timeRange
+          in: query
+          description: Time range for turn analytics
+          schema:
+            type: string
+            enum: [24h, 7d, 30d, 90d, 365d, ALL]
+            default: 30d
+      responses:
+        '200':
+          description: Turn analytics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TurnAnalytics'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
 tags:
   - name: Health
-    description: API health and status endpoints
+    description: Health check endpoints
   - name: Events
-    description: Submit and retrieve user feedback events
+    description: Core event ingestion and retrieval (v0.4.0)
+  - name: Analytics
+    description: Comprehensive analytics endpoints (v0.4.0)
   - name: Statistics
-    description: Get analytics and statistics on user feedback
+    description: Legacy analytics endpoints (v0.3.x compatibility)
 
 externalDocs:
   description: Bilan GitHub Repository
