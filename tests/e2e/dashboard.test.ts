@@ -190,7 +190,8 @@ describe('E2E: Dashboard Integration', () => {
 
       // Start and complete conversation
       const conversationId = await sdk.startConversation(createUserId('test-user'))
-      await sdk.addMessage(conversationId)
+      // Add a turn (message) to conversation
+      await sdk.trackTurn("How do I center a div?", async () => "Use flexbox with justify-content: center", { conversationId })
       await sdk.recordFeedback(conversationId, 1)
       await sdk.endConversation(conversationId, 'completed')
 

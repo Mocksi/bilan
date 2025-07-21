@@ -103,7 +103,7 @@ class BilanSDK {
   async trackTurn<T>(
     prompt: string,
     aiFunction: () => Promise<T>,
-    properties?: Record<string, any>,
+    properties?: Record<string, any> & { systemPromptVersion?: string },
     options?: { timeout?: number; retries?: number }
   ): Promise<T> {
     if (!this.isInitialized) {
@@ -147,7 +147,7 @@ class BilanSDK {
   async trackTurnWithRetry<T>(
     prompt: string,
     aiFunction: () => Promise<T>,
-    properties?: Record<string, any>,
+    properties?: Record<string, any> & { systemPromptVersion?: string },
     maxRetries: number = 3
   ): Promise<T> {
     if (!this.isInitialized) {
@@ -185,6 +185,122 @@ class BilanSDK {
 
 
   /**
+   * Core method to track any event type
+   */
+  async track(
+    eventType: string,
+    properties?: Record<string, any>,
+    content?: { promptText?: string; aiResponse?: string; context?: string }
+  ): Promise<void> {
+    if (!this.isInitialized) {
+      // Graceful degradation - log in debug mode but don't throw
+      if (this.config?.debug) {
+        console.warn('Bilan: SDK not initialized, skipping event tracking')
+      }
+      return
+    }
+
+    if (!this.turnTracker) {
+      await this.loadEventSystem()
+      
+      // Create event queue manager
+      const { EventQueueManager } = await import('./events/event-queue')
+      const eventQueue = new EventQueueManager(
+        this.config!,
+        this.storage,
+        async (events) => {
+          if (this.config?.debug) {
+            console.log('Bilan: Flushing events:', events)
+          }
+        }
+      )
+      
+      this.turnTracker = new turnTracker(
+        new eventTracker(this.config!, eventQueue), 
+        this.config!
+      )
+    }
+
+    // Get the event tracker from turn tracker
+    const tracker = this.turnTracker.eventTracker
+    await tracker.track(eventType as any, properties || {}, content)
+  }
+
+  /**
+   * Start a conversation and return conversation ID
+   */
+  async startConversation(userId: string): Promise<string> {
+    const conversationId = createConversationId(crypto.randomUUID())
+    
+    await this.track('conversation_started', {
+      conversation_id: conversationId,
+      user_id: userId,
+      started_at: Date.now()
+    })
+    
+    return conversationId
+  }
+
+  /**
+   * Cast a vote on a prompt/response
+   */
+  async vote(promptId: string, value: 1 | -1, comment?: string): Promise<void> {
+    await this.track('vote_cast', {
+      prompt_id: promptId,
+      value,
+      ...(comment && { comment }),
+      timestamp: Date.now()
+    })
+  }
+
+  /**
+   * Track a journey step completion
+   */
+  async trackJourneyStep(journeyName: string, stepName: string, userId: string): Promise<void> {
+    await this.track('journey_step', {
+      journey_name: journeyName,
+      step_name: stepName,
+      user_id: userId,
+      completed_at: Date.now()
+    })
+  }
+
+  /**
+   * Record feedback on a conversation
+   */
+  async recordFeedback(conversationId: string, value: 1 | -1, comment?: string): Promise<void> {
+    await this.track('user_action', {
+      action_type: 'feedback',
+      conversation_id: conversationId,
+      value,
+      ...(comment && { comment }),
+      timestamp: Date.now()
+    })
+  }
+
+  /**
+   * Record a regeneration request
+   */
+  async recordRegeneration(conversationId: string, reason?: string): Promise<void> {
+    await this.track('regeneration_requested', {
+      conversation_id: conversationId,
+      ...(reason && { reason }),
+      timestamp: Date.now()
+    })
+  }
+
+  /**
+   * End a conversation
+   */
+  async endConversation(conversationId: string, status: 'completed' | 'abandoned' = 'completed'): Promise<void> {
+    await this.track('conversation_ended', {
+      conversation_id: conversationId,
+      status,
+      ended_at: Date.now()
+    })
+  }
+
+  /**
    * Check if SDK is initialized
    */
   isReady(): boolean {
@@ -213,7 +329,7 @@ export const init = (config: InitConfig): Promise<void> => sdk.init(config)
 export const trackTurn = <T>(
   prompt: string,
   aiFunction: () => Promise<T>,
-  properties?: Record<string, any>,
+  properties?: Record<string, any> & { systemPromptVersion?: string },
   options?: { timeout?: number; retries?: number }
 ): Promise<T> => sdk.trackTurn(prompt, aiFunction, properties, options)
 
@@ -223,11 +339,53 @@ export const trackTurn = <T>(
 export const trackTurnWithRetry = <T>(
   prompt: string,
   aiFunction: () => Promise<T>,
-  properties?: Record<string, any>,
+  properties?: Record<string, any> & { systemPromptVersion?: string },
   maxRetries?: number
 ): Promise<T> => sdk.trackTurnWithRetry(prompt, aiFunction, properties, maxRetries)
 
+/**
+ * Core method to track any event type
+ */
+export const track = (
+  eventType: string,
+  properties?: Record<string, any>,
+  content?: { promptText?: string; aiResponse?: string; context?: string }
+): Promise<void> => sdk.track(eventType, properties, content)
 
+/**
+ * Start a conversation and return conversation ID
+ */
+export const startConversation = (userId: string): Promise<string> => sdk.startConversation(userId)
+
+/**
+ * Cast a vote on a prompt/response
+ */
+export const vote = (promptId: string, value: 1 | -1, comment?: string): Promise<void> => 
+  sdk.vote(promptId, value, comment)
+
+/**
+ * Track a journey step completion
+ */
+export const trackJourneyStep = (journeyName: string, stepName: string, userId: string): Promise<void> =>
+  sdk.trackJourneyStep(journeyName, stepName, userId)
+
+/**
+ * Record feedback on a conversation
+ */
+export const recordFeedback = (conversationId: string, value: 1 | -1, comment?: string): Promise<void> =>
+  sdk.recordFeedback(conversationId, value, comment)
+
+/**
+ * Record a regeneration request
+ */
+export const recordRegeneration = (conversationId: string, reason?: string): Promise<void> =>
+  sdk.recordRegeneration(conversationId, reason)
+
+/**
+ * End a conversation
+ */
+export const endConversation = (conversationId: string, status: 'completed' | 'abandoned' = 'completed'): Promise<void> =>
+  sdk.endConversation(conversationId, status)
 
 /**
  * Check if SDK is ready

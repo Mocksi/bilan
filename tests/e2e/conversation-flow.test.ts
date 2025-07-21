@@ -56,9 +56,9 @@ describe('E2E: Complete Conversation Flow', () => {
       expect(conversationId).toBeTruthy()
       expect(conversationId).toMatch(/^conv-/)
       
-      // Step 2: Add messages to conversation
-      await sdk.addMessage(conversationId)
-      await sdk.addMessage(conversationId)
+      // Step 2: Add messages to conversation (simulate AI interactions)
+      await sdk.trackTurn("How do I center a div?", async () => "Use flexbox with justify-content: center", { conversationId })
+      await sdk.trackTurn("Can you show me an example?", async () => "Here's a code example: <div style='display: flex; justify-content: center'>...</div>", { conversationId })
       
       // Step 3: Record user feedback
       await sdk.recordFeedback(conversationId, 1)
@@ -81,7 +81,7 @@ describe('E2E: Complete Conversation Flow', () => {
       // Add multiple AI responses and votes
       for (let i = 0; i < 3; i++) {
         const promptId = createPromptId(`test-prompt-${i}`)
-        await sdk.addMessage(conversationId)
+        await sdk.trackTurn("How do I center a div?", async () => "Use flexbox with justify-content: center", { conversationId })
         
         // Vote on the response
         await sdk.vote(promptId, i % 2 === 0 ? 1 : -1, `Comment ${i + 1}`)
@@ -97,8 +97,8 @@ describe('E2E: Complete Conversation Flow', () => {
       const conversationId = await sdk.startConversation(mockUserId)
       
       // Add some messages
-      await sdk.addMessage(conversationId)
-      await sdk.addMessage(conversationId)
+      await sdk.trackTurn("How do I center a div?", async () => "Use flexbox with justify-content: center", { conversationId })
+      await sdk.trackTurn("Can you show me an example?", async () => "Here's a code example: <div style='display: flex; justify-content: center'>...</div>", { conversationId })
       
       // Record frustration
       await sdk.recordFrustration(conversationId)
@@ -119,10 +119,10 @@ describe('E2E: Complete Conversation Flow', () => {
       
       // Add multiple interactions
       for (let i = 0; i < 5; i++) {
-        await sdk.addMessage(conversationId)
+        await sdk.trackTurn("How do I center a div?", async () => "Use flexbox with justify-content: center", { conversationId })
         
         const promptId = createPromptId(`prompt-${i}`)
-        await sdk.addMessage(conversationId)
+        await sdk.trackTurn("Can you show me an example?", async () => "Here's a code example: <div style='display: flex; justify-content: center'>...</div>", { conversationId })
         
         await sdk.vote(promptId, Math.random() > 0.3 ? 1 : -1)
       }
@@ -144,10 +144,10 @@ describe('E2E: Complete Conversation Flow', () => {
       
       // Add new conversation
       const conversationId = await sdk.startConversation(mockUserId)
-      await sdk.addMessage(conversationId)
+      await sdk.trackTurn("How do I center a div?", async () => "Use flexbox with justify-content: center", { conversationId })
       
       const promptId = createPromptId('real-time-test')
-      await sdk.addMessage(conversationId)
+      await sdk.trackTurn("Can you show me an example?", async () => "Here's a code example: <div style='display: flex; justify-content: center'>...</div>", { conversationId })
       
       await sdk.vote(promptId, 1, 'Great!')
       await sdk.endConversation(conversationId, 'completed')
@@ -196,10 +196,10 @@ describe('E2E: Complete Conversation Flow', () => {
         
         // Add messages
         for (let j = 0; j < 5; j++) {
-          await sdk.addMessage(conversationId)
+          await sdk.trackTurn("How do I center a div?", async () => "Use flexbox with justify-content: center", { conversationId })
           
           const promptId = createPromptId(`prompt-${i}-${j}`)
-          await sdk.addMessage(conversationId)
+          await sdk.trackTurn("Can you show me an example?", async () => "Here's a code example: <div style='display: flex; justify-content: center'>...</div>", { conversationId })
           
           await sdk.vote(promptId, Math.random() > 0.5 ? 1 : -1)
         }
@@ -237,10 +237,10 @@ describe('E2E: Complete Conversation Flow', () => {
       const conversationId = await sdk.startConversation(mockUserId)
       
       // Perform multiple operations
-      await sdk.addMessage(conversationId)
+      await sdk.trackTurn("How do I center a div?", async () => "Use flexbox with justify-content: center", { conversationId })
       
       const promptId = createPromptId('consistency-test')
-      await sdk.addMessage(conversationId)
+      await sdk.trackTurn("Can you show me an example?", async () => "Here's a code example: <div style='display: flex; justify-content: center'>...</div>", { conversationId })
       
       await sdk.vote(promptId, 1, 'Excellent!')
       await sdk.recordFeedback(conversationId, 1)
