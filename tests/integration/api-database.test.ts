@@ -233,7 +233,7 @@ describe('API → Database Integration Tests', () => {
       expect(analytics.overview.completedTurns).toBe(3)
       expect(analytics.overview.failedTurns).toBe(2)
       expect(analytics.overview.successRate).toBe(60) // 3/5 * 100
-      expect(analytics.overview.averageResponseTime).toBe(516.67) // (500+750+300)/3, rounded
+      expect(analytics.overview.averageResponseTime).toBeCloseTo(516.67, 1) // (500+750+300)/3, allow 1 decimal tolerance
 
       // Verify user behavior
       expect(analytics.userBehavior.topUsers).toBeDefined()

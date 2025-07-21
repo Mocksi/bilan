@@ -481,4 +481,78 @@ describe('SDK → API Integration Tests', () => {
       expect(Array.isArray(overview.eventTypes)).toBe(true)
     })
   })
+
+  describe('Edge Cases and Error Handling', () => {
+    it('should handle malformed JSON gracefully', async () => {
+      const response = await fetch(`${serverUrl}/api/events`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer test-e2e-key-abc123'
+        },
+        body: '{"invalid": json}'
+      })
+
+      // Should return 400 for malformed JSON
+      expect(response.status).toBe(400)
+    })
+
+    it('should handle empty batch requests', async () => {
+      const response = await fetch(`${serverUrl}/api/events`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer test-e2e-key-abc123'
+        },
+        body: JSON.stringify({ events: [] })
+      })
+
+      expect(response.status).toBe(200)
+      const result = await response.json()
+      expect(result.stats.processed).toBe(0)
+      expect(result.stats.errors).toBe(0)
+    })
+
+    it('should handle events with extra properties gracefully', async () => {
+      const eventWithExtraProps = {
+        eventId: 'extra-props-test',
+        eventType: 'user_action',
+        timestamp: Date.now(),
+        userId: 'user-extra-test',
+        properties: {
+          action: 'click',
+          extraProp1: 'should be preserved',
+          extraProp2: { nested: 'object', should: 'work' },
+          extraProp3: [1, 2, 3, 'array', 'should', 'work']
+        },
+        // Extra root level properties
+        extraRoot: 'should be ignored safely',
+        anotherExtra: 123
+      }
+
+      const response = await fetch(`${serverUrl}/api/events`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer test-e2e-key-abc123'
+        },
+        body: JSON.stringify(eventWithExtraProps)
+      })
+
+      expect(response.status).toBe(200)
+      const result = await response.json()
+      expect(result.stats.processed).toBe(1)
+      expect(result.stats.errors).toBe(0)
+
+      // Verify the event was stored with extra properties preserved
+      const eventsResponse = await fetch(`${serverUrl}/api/events?eventType=user_action&limit=5`)
+      const events = await eventsResponse.json()
+      
+      const storedEvent = events.events.find(e => e.event_id === 'extra-props-test')
+      expect(storedEvent).toBeDefined()
+      expect(storedEvent.properties.extraProp1).toBe('should be preserved')
+      expect(storedEvent.properties.extraProp2.nested).toBe('object')
+      expect(storedEvent.properties.extraProp3).toEqual([1, 2, 3, 'array', 'should', 'work'])
+    })
+  })
 }) 
