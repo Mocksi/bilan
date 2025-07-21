@@ -17,7 +17,7 @@ describe('Performance and Load Tests', () => {
       port: testPort,
       dbPath: ':memory:',
       cors: true,
-      apiKey: 'test-perf-key-xyz789',
+      apiKey: 'test-perf-key-12345',
       rateLimitMax: 10000, // High limit for performance testing
       rateLimitTimeWindow: '1 minute'
     })
@@ -55,7 +55,7 @@ describe('Performance and Load Tests', () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer test-perf-key-xyz789'
+          'Authorization': 'Bearer test-perf-key-12345'
         },
         body: JSON.stringify({ events: seedEvents })
       })
@@ -165,7 +165,7 @@ describe('Performance and Load Tests', () => {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': 'Bearer test-perf-key-xyz789'
+            'Authorization': 'Bearer test-perf-key-12345'
           },
           body: JSON.stringify({ events })
         })
@@ -206,7 +206,7 @@ describe('Performance and Load Tests', () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer test-perf-key-xyz789'
+          'Authorization': 'Bearer test-perf-key-12345'
         },
         body: JSON.stringify({ events: uniqueEvents })
       })
@@ -233,7 +233,7 @@ describe('Performance and Load Tests', () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer test-perf-key-xyz789'
+          'Authorization': 'Bearer test-perf-key-12345'
         },
         body: JSON.stringify({ events: duplicateEvents })
       })
@@ -255,7 +255,7 @@ describe('Performance and Load Tests', () => {
   describe('Analytics Calculation Speed', () => {
     async function createAnalyticsDataset() {
       const datasetSize = 2000
-      const events = []
+      const events: any[] = []
 
       // Create diverse dataset for analytics
       for (let i = 0; i < datasetSize; i++) {
@@ -303,12 +303,19 @@ describe('Performance and Load Tests', () => {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': 'Bearer test-perf-key-xyz789'
+            'Authorization': 'Bearer test-perf-key-12345'
           },
           body: JSON.stringify({ events: batch })
         })
         expect(response.status).toBe(200)
+        
+        // Verify batch was processed
+        const result = await response.json()
+        expect(result.stats.processed).toBeGreaterThan(0)
       }
+
+      // Allow time for all events to be fully processed
+      await new Promise(resolve => setTimeout(resolve, 300))
 
       return datasetSize
     }
@@ -425,7 +432,7 @@ describe('Performance and Load Tests', () => {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': 'Bearer test-perf-key-xyz789'
+            'Authorization': 'Bearer test-perf-key-12345'
           },
           body: JSON.stringify({ events: batch })
         })
@@ -595,7 +602,7 @@ describe('Performance and Load Tests', () => {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': 'Bearer test-perf-key-xyz789'
+            'Authorization': 'Bearer test-perf-key-12345'
           },
           body: JSON.stringify({ events: chunk })
         })
