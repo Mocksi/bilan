@@ -230,7 +230,7 @@ class BilanSDK {
    * Start a conversation and return conversation ID
    */
   async startConversation(userId: string): Promise<string> {
-    const conversationId = crypto.randomUUID()
+    const conversationId = createConversationId(crypto.randomUUID())
     
     await this.track('conversation_started', {
       conversation_id: conversationId,
