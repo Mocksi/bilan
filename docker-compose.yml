@@ -15,7 +15,7 @@ services:
       # Uncomment and set for production deployment:
       # - BILAN_API_KEY=your-secure-api-key-here
       # CORS configuration
-      - BILAN_CORS_ORIGIN=http://localhost:3002,http://localhost:3004
+      - BILAN_CORS_ORIGIN="http://localhost:3002,http://localhost:3004"
       - BILAN_CORS_CREDENTIALS=true
       # Debug configuration
       - BILAN_DEBUG=true

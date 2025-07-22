@@ -16,7 +16,7 @@ services:
       # v0.4.1: REQUIRED - Set your secure API key
       - BILAN_API_KEY=${BILAN_API_KEY}  # Set in .env file or environment
       # CORS configuration for production
-      - BILAN_CORS_ORIGIN=https://yourdomain.com,https://dashboard.yourdomain.com
+      - BILAN_CORS_ORIGIN="https://yourdomain.com,https://dashboard.yourdomain.com"
       - BILAN_CORS_CREDENTIALS=true
       # Production logging
       - BILAN_DEBUG=false
