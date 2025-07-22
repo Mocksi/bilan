@@ -13,6 +13,7 @@ if (portEnv && (isNaN(port) || port < 1 || port > 65535)) {
 const config = {
   port,
   dbPath: process.env.BILAN_DB_PATH || process.env.DB_PATH || './bilan.db',
+  apiKey: process.env.BILAN_API_KEY,
   cors: true // Enable CORS for development
 }
 
