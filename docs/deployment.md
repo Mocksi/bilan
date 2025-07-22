@@ -2,6 +2,28 @@
 
 This guide provides comprehensive instructions for deploying Bilan in various environments using Docker.
 
+## 🆕 v0.4.1 Authentication Requirements
+
+**IMPORTANT**: Bilan v0.4.1 introduces API key authentication for analytics endpoints. Before deploying, ensure you understand the authentication requirements:
+
+### Development Mode (Default in Docker Compose)
+```env
+# Development - allows missing API key
+BILAN_DEV_MODE=true
+```
+
+### Production Mode (Required for Production)
+```env
+# Production - requires secure API key
+BILAN_API_KEY=your-secure-api-key-here
+NEXT_PUBLIC_BILAN_API_KEY=your-secure-api-key-here  # For dashboard
+
+# Generate secure API key:
+openssl rand -hex 32
+```
+
+**⚠️ Security Warning**: Never set `BILAN_DEV_MODE=true` in production. Always use a secure API key.
+
 ## Quick Start
 
 For a quick deployment with default settings:

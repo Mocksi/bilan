@@ -1,0 +1,154 @@
+version: '3.8'
+
+# Production Docker Compose configuration for Bilan v0.4.1
+# Copy this file and customize for your production deployment
+
+services:
+  # Bilan Server - Production Configuration
+  bilan-server:
+    build: .
+    ports:
+      - "3002:3002"
+    environment:
+      - BILAN_NODE_ENV=production
+      - BILAN_PORT=3002
+      - BILAN_DB_PATH=/app/data/bilan.db
+      # v0.4.1: REQUIRED - Set your secure API key
+      - BILAN_API_KEY=${BILAN_API_KEY}  # Set in .env file or environment
+      # CORS configuration for production
+      - BILAN_CORS_ORIGIN=https://yourdomain.com,https://dashboard.yourdomain.com
+      - BILAN_CORS_CREDENTIALS=true
+      # Production logging
+      - BILAN_DEBUG=false
+      - BILAN_LOG_LEVEL=warn
+      # Rate limiting
+      - BILAN_RATE_LIMIT_MAX=100
+      - BILAN_RATE_LIMIT_WINDOW=60000
+    volumes:
+      - bilan-data:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - postgres
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3002/health').then(() => process.exit(0)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  # Bilan Dashboard - Production Configuration
+  bilan-dashboard:
+    build:
+      context: .
+      dockerfile: packages/dashboard/Dockerfile
+    ports:
+      - "3004:3004"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_BASE_URL=https://api.yourdomain.com
+      # v0.4.1: REQUIRED - Dashboard API key (must match server BILAN_API_KEY)
+      - NEXT_PUBLIC_BILAN_API_KEY=${BILAN_API_KEY}
+    depends_on:
+      - bilan-server
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  # PostgreSQL Database - Production Configuration
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=bilan
+      - POSTGRES_USER=bilan
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}  # Set secure password
+    ports:
+      - "5432:5432"  # Remove or change port for security
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./scripts/init-postgres.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bilan -d bilan"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  # Redis Cache - Optional for production
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256M
+        reservations:
+          cpus: '0.125'
+          memory: 128M
+
+  # Reverse Proxy (Optional - add your SSL/TLS configuration)
+  # nginx:
+  #   image: nginx:alpine
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./nginx.conf:/etc/nginx/nginx.conf
+  #     - ./ssl:/etc/nginx/ssl
+  #   depends_on:
+  #     - bilan-server
+  #     - bilan-dashboard
+  #   restart: unless-stopped
+
+volumes:
+  bilan-data:
+    driver: local
+  postgres-data:
+    driver: local
+  redis-data:
+    driver: local
+
+networks:
+  default:
+    name: bilan-production-network
+
+# Production deployment checklist:
+# 1. Copy this file to docker-compose.yml or use: docker-compose -f docker-compose.production.yml up
+# 2. Create .env file with: BILAN_API_KEY=<secure-key> POSTGRES_PASSWORD=<secure-password>
+# 3. Generate API key: openssl rand -hex 32
+# 4. Update CORS origins to match your domain
+# 5. Configure SSL/TLS termination (nginx, traefik, or cloud provider)
+# 6. Set up database backups
+# 7. Configure monitoring and alerting 
