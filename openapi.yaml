@@ -4,8 +4,8 @@ info:
   description: |
     REST API for Bilan - Open Source Trust Analytics for AI Products
 
-    **v0.4.0: Event-Based Architecture** - Comprehensive AI analytics platform with automatic turn tracking,
-    failure detection, and real-time insights. Self-hostable with unified events storage.
+    **v0.4.1: Turn ID Unification** - Industry-standard event correlation with enhanced security.
+    Simplified analytics platform with automatic turn-to-vote correlation following Amplitude/Mixpanel patterns.
 
     ## Core Features
     - **Turn-Based Analytics**: Automatic AI interaction tracking with success/failure metrics
@@ -32,7 +32,7 @@ info:
     ## Error Handling
     All errors follow standard HTTP status codes with structured JSON error responses
     including actionable error codes and detailed error messages.
-  version: 0.4.0
+  version: 0.4.1
   contact:
     name: Bilan Project
     url: https://github.com/Mocksi/bilan
@@ -523,6 +523,8 @@ paths:
       operationId: listEvents
       tags:
         - Events
+      security:
+        - BearerAuth: []
       parameters:
         - name: limit
           in: query
@@ -699,6 +701,8 @@ paths:
       operationId: getOverviewAnalytics
       tags:
         - Analytics
+      security:
+        - BearerAuth: []
       parameters:
         - name: timeRange
           in: query
@@ -726,10 +730,14 @@ paths:
       summary: Vote analytics
       description: |
         Comprehensive vote analytics including trends, user behavior, and prompt performance.
+      security:
+        - BearerAuth: []
         Includes daily/hourly trends, top users, comment analysis, and sentiment metrics.
       operationId: getVoteAnalytics
       tags:
         - Analytics
+      security:
+        - BearerAuth: []
       parameters:
         - name: timeRange
           in: query
@@ -761,6 +769,8 @@ paths:
       operationId: getTurnAnalytics
       tags:
         - Analytics
+      security:
+        - BearerAuth: []
       parameters:
         - name: timeRange
           in: query

@@ -72,12 +72,20 @@ export class TurnTracker {
   private config: InitConfig
   private timeoutMs: number
   private contentProcessor: ContentProcessor
+  private lastGeneratedTurnId: string = ''
 
   constructor(eventTracker: EventTracker, config: InitConfig) {
     this.eventTracker = eventTracker
     this.config = config
     this.timeoutMs = 30000 // 30 seconds default timeout
     this.contentProcessor = new ContentProcessor(new PrivacyController(config.privacyConfig))
+  }
+
+  /**
+   * Get the turnId from the last trackTurn call
+   */
+  getLastTurnId(): string {
+    return this.lastGeneratedTurnId
   }
 
   /**
@@ -93,6 +101,7 @@ export class TurnTracker {
     properties: Record<string, any> = {}
   ): Promise<T> {
     const turnId = generateTurnId()
+    this.lastGeneratedTurnId = turnId  // Store for SDK to access
     const startTime = Date.now()
     
     // Track turn start

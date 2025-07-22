@@ -2,7 +2,6 @@
  * Branded types for better type safety and preventing ID confusion.
  */
 export type UserId = string & { __brand: 'UserId' }
-export type PromptId = string & { __brand: 'PromptId' }
 export type ConversationId = string & { __brand: 'ConversationId' }
 export type EventId = string & { __brand: 'EventId' }
 export type TurnId = string & { __brand: 'TurnId' }
@@ -25,7 +24,7 @@ export type EventType =
   | 'custom'
 
 /**
- * Core event interface for flexible analytics
+ * Core event interface for flexible analytics with optional relationship context
  */
 export interface Event {
   eventId: EventId
@@ -33,8 +32,26 @@ export interface Event {
   timestamp: number
   userId: UserId
   properties: Record<string, any>
+  
+  // Optional contextual relationships
+  journey_id?: string
+  conversation_id?: string
+  turn_id?: string
+  turn_sequence?: number
+  
   promptText?: string
   aiResponse?: string
+}
+
+/**
+ * Enhanced context parameter for trackTurn method
+ */
+export interface TurnContext {
+  systemPromptVersion?: string
+  journey_id?: string        // Optional journey context
+  conversation_id?: string   // Optional conversation context  
+  turn_sequence?: number     // Order within conversation
+  [key: string]: any         // Allow additional custom properties
 }
 
 /**
@@ -42,6 +59,7 @@ export interface Event {
  */
 export interface TurnEvent extends Event {
   eventType: 'turn_started' | 'turn_completed' | 'turn_failed'
+  turn_id: string           // Always present for turn events
   properties: {
     turnId: TurnId
     modelUsed?: string
@@ -70,18 +88,18 @@ export interface UserActionEvent extends Event {
 }
 
 /**
- * Event for vote casting (backward compatibility)
+ * Event for vote casting - updated to use turn_id instead of promptId
  */
 export interface VoteCastEvent extends Event {
   eventType: 'vote_cast'
   properties: {
-    promptId: PromptId
+    turn_id: string         // Required - references the turn being voted on
     value: 1 | -1
     comment?: string
-    turnId?: TurnId
-    conversationId?: string
+    timestamp: number
     [key: string]: any
   }
+  // Automatically inherits journey_id, conversation_id if turn had them
 }
 
 /**
@@ -115,8 +133,6 @@ export interface EventQueue {
   flushInterval: number
 }
 
-
-
 /**
  * Interface for custom storage adapters.
  */
@@ -127,13 +143,10 @@ export interface StorageAdapter {
   clear(): Promise<void>
 }
 
-
-
 /**
  * Helper functions to create branded types
  */
 export const createUserId = (id: string): UserId => id as UserId
-export const createPromptId = (id: string): PromptId => id as PromptId
 export const createConversationId = (id: string): ConversationId => id as ConversationId
 
 /**
