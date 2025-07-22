@@ -99,7 +99,7 @@ export const VoteDetailModal: React.FC<VoteDetailModalProps> = ({ vote, onClose 
                   <div className="text-muted">
                     {vote.metadata.journey}
                     {vote.metadata.step && (
-                      <span className="ms-2 badge bg-info">
+                      <span className="ms-2 badge bg-info text-white">
                         {vote.metadata.step}
                       </span>
                     )}

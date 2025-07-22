@@ -83,7 +83,7 @@ export const ConversationDetailModal: React.FC<ConversationDetailModalProps> = (
                           </div>
                         )}
                       </div>
-                      <span className={`badge ${conversation.outcome === 'positive' ? 'badge-success' : 'badge-danger'}`}>
+                      <span className={`badge ${conversation.outcome === 'positive' ? 'bg-success text-white' : 'bg-danger text-white'}`}>
                         {conversation.outcome}
                       </span>
                     </div>
@@ -108,7 +108,7 @@ export const ConversationDetailModal: React.FC<ConversationDetailModalProps> = (
                     <h6 className="card-title">Pattern Analysis</h6>
                     {pattern ? (
                       <div className="mb-3">
-                        <span className="badge badge-info me-2">{pattern}</span>
+                        <span className="badge bg-info text-white me-2">{pattern}</span>
                         <div className="text-muted small mt-1">
                           {getPatternDescription(pattern)}
                         </div>
@@ -237,7 +237,7 @@ const ConversationOverview: React.FC<{ conversation: ConversationSummary; contex
       <div className="border rounded p-3 mb-3">
         {conversation.comment ? (
           <div>
-            <span className={`badge ${conversation.outcome === 'positive' ? 'badge-success' : 'badge-danger'} me-2`}>
+            <span className={`badge ${conversation.outcome === 'positive' ? 'bg-success text-white' : 'bg-danger text-white'} me-2`}>
               {conversation.outcome}
             </span>
             <div className="mt-2">"{conversation.comment}"</div>
@@ -265,7 +265,7 @@ const ConversationOverview: React.FC<{ conversation: ConversationSummary; contex
 const ConversationTimeline: React.FC<{ conversation: ConversationSummary; context: ConversationContext }> = ({ conversation, context }) => (
   <div className="timeline">
     <div className="timeline-item">
-      <div className="timeline-badge bg-primary">
+      <div className="timeline-badge bg-primary text-white">
         <i className="fas fa-play"></i>
       </div>
       <div className="timeline-panel">
@@ -285,7 +285,7 @@ const ConversationTimeline: React.FC<{ conversation: ConversationSummary; contex
     </div>
     
     <div className="timeline-item">
-      <div className="timeline-badge bg-info">
+      <div className="timeline-badge bg-info text-white">
         <i className="fas fa-comment"></i>
       </div>
       <div className="timeline-panel">
@@ -304,7 +304,7 @@ const ConversationTimeline: React.FC<{ conversation: ConversationSummary; contex
     </div>
     
     <div className="timeline-item">
-      <div className="timeline-badge bg-success">
+      <div className="timeline-badge bg-success text-white">
         <i className="fas fa-robot"></i>
       </div>
       <div className="timeline-panel">
@@ -323,7 +323,7 @@ const ConversationTimeline: React.FC<{ conversation: ConversationSummary; contex
     </div>
     
     <div className="timeline-item">
-      <div className={`timeline-badge ${conversation.outcome === 'positive' ? 'bg-success' : 'bg-danger'}`}>
+      <div className={`timeline-badge ${conversation.outcome === 'positive' ? 'bg-success text-white' : 'bg-danger text-white'}`}>
         <i className={`fas ${conversation.outcome === 'positive' ? 'fa-thumbs-up' : 'fa-thumbs-down'}`}></i>
       </div>
       <div className="timeline-panel">
@@ -334,7 +334,7 @@ const ConversationTimeline: React.FC<{ conversation: ConversationSummary; contex
           </p>
         </div>
         <div className="timeline-body">
-          <span className={`badge ${conversation.outcome === 'positive' ? 'badge-success' : 'badge-danger'} me-2`}>
+            <span className={`badge ${conversation.outcome === 'positive' ? 'bg-success text-white' : 'bg-danger text-white'} me-2`}>
             {conversation.outcome}
           </span>
           {conversation.comment && (

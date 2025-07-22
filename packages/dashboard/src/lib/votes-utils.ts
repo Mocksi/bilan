@@ -111,9 +111,9 @@ export function getVoteRatingColor(value: number): string {
  * Get vote rating badge class
  */
 export function getVoteRatingBadgeClass(value: number): string {
-  if (value > 0) return 'badge bg-success'
-  if (value < 0) return 'badge bg-danger'
-  return 'badge bg-secondary'
+  if (value > 0) return 'badge bg-success text-white'
+  if (value < 0) return 'badge bg-danger text-white'
+  return 'badge bg-secondary text-white'
 }
 
 /**

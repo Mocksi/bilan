@@ -101,7 +101,7 @@ export const ConversationTable: React.FC<ConversationTableProps> = ({
               </td>
               <td>
                 <span className={`badge ${
-                  conversation.outcome === 'positive' ? 'bg-success' : 'bg-danger'
+                  conversation.outcome === 'positive' ? 'bg-success text-white' : 'bg-danger text-white'
                 }`}>
                   {conversation.outcome}
                 </span>

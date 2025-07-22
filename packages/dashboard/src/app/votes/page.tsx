@@ -165,7 +165,7 @@ const VotesContent: React.FC = () => {
                         <code>{vote.userId}</code>
                       </td>
                       <td>
-                        <span className={`badge ${vote.value > 0 ? 'bg-success' : 'bg-danger'}`}>
+                        <span className={`badge ${vote.value > 0 ? 'bg-success text-white' : 'bg-danger text-white'}`}>
                           {vote.value > 0 ? '+1' : '-1'}
                         </span>
                       </td>
@@ -226,7 +226,7 @@ const VotesContent: React.FC = () => {
                       </td>
                       <td className="text-muted">
                         {vote.metadata?.journey ? (
-                          <span className="badge bg-info">{vote.metadata.journey}</span>
+                          <span className="badge bg-info text-white">{vote.metadata.journey}</span>
                         ) : (
                           '-'
                         )}
