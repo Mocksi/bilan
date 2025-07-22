@@ -250,6 +250,141 @@ describe('Migration Rollback Safety', () => {
       expect(preservedEvent.promptId).toBe('prompt_original')
       expect(preservedEvent.value).toBe(1)
     })
+
+    it('should ensure transaction atomicity in PostgreSQL-style migrations', () => {
+      // Test that migration transactions are atomic using SQLite's transaction equivalent
+      // This simulates the PostgreSQL BEGIN/COMMIT behavior
+      
+      const initialEvents: Event[] = [
+        {
+          event_id: 'atomic_test_vote_1',
+          user_id: 'user_123',
+          event_type: EVENT_TYPES.VOTE_CAST,
+          timestamp: Date.now(),
+          properties: { promptId: 'prompt_atomic_test', value: 1 }
+        },
+        {
+          event_id: 'atomic_test_turn_1',
+          user_id: 'user_123',
+          event_type: EVENT_TYPES.TURN_COMPLETED,
+          timestamp: Date.now(),
+          properties: { model: 'gpt-4', responseTime: 1000 }
+        }
+      ]
+
+      db.insertEvents(initialEvents)
+
+      // Verify initial state
+      const initialCount = db.queryOne('SELECT COUNT(*) as count FROM events')
+      expect(initialCount.count).toBe(2)
+
+      // Simulate a transaction that should succeed (all operations work)
+      expect(() => {
+        db.executeRaw('BEGIN')
+        
+                 // Create backup
+         db.executeRaw('CREATE TABLE test_backup AS SELECT * FROM events WHERE event_type = \'vote_cast\'')
+        
+        // Update vote event (simulating migration)
+        db.executeRaw(`
+          UPDATE events 
+          SET properties = json_set(
+            json_remove(properties, '$.promptId'),
+            '$.turn_id', 
+            properties->>'promptId'
+          )
+          WHERE event_type = 'vote_cast' AND event_id = 'atomic_test_vote_1'
+        `)
+        
+        // Insert log entry
+        db.executeRaw(`
+          INSERT INTO events (event_id, user_id, event_type, timestamp, properties)
+          VALUES ('atomic_transaction_log', 'system', 'user_action', ${Date.now()}, '{"test": "success"}')
+        `)
+        
+        db.executeRaw('COMMIT')
+      }).not.toThrow()
+
+      // Verify all changes were applied
+      const finalCount = db.queryOne('SELECT COUNT(*) as count FROM events')
+      expect(finalCount.count).toBe(3) // 2 original + 1 log
+
+      const migratedVote = db.queryOne(`
+        SELECT properties->>'turn_id' as turn_id, properties->>'promptId' as promptId
+        FROM events WHERE event_id = 'atomic_test_vote_1'
+      `)
+      expect(migratedVote.turn_id).toBe('prompt_atomic_test')
+      expect(migratedVote.promptId).toBeNull()
+
+      // Cleanup
+      db.executeRaw('DROP TABLE test_backup')
+    })
+
+    it('should rollback all changes if any step fails in transaction', () => {
+      // Test transaction rollback behavior when an error occurs
+      
+      const testEvents: Event[] = [
+        {
+          event_id: 'rollback_test_vote_1',
+          user_id: 'user_456',
+          event_type: EVENT_TYPES.VOTE_CAST,
+          timestamp: Date.now(),
+          properties: { promptId: 'prompt_rollback_test', value: -1 }
+        }
+      ]
+
+      db.insertEvents(testEvents)
+
+      const initialCount = db.queryOne('SELECT COUNT(*) as count FROM events')
+      const initialVote = db.queryOne(`
+        SELECT properties->>'promptId' as promptId, properties->>'turn_id' as turn_id
+        FROM events WHERE event_id = 'rollback_test_vote_1'
+      `)
+
+             // Simulate a transaction that fails (one operation will cause an error)
+       // In SQLite, we need to explicitly handle the rollback
+       let errorOccurred = false
+       try {
+         db.executeRaw('BEGIN')
+         
+         // First operation succeeds
+         db.executeRaw(`
+           UPDATE events 
+           SET properties = json_set(properties, '$.temp_marker', 'modified')
+           WHERE event_id = 'rollback_test_vote_1'
+         `)
+         
+         // Second operation will fail due to invalid SQL (simulate migration failure)
+         db.executeRaw('INSERT INTO nonexistent_table VALUES (1)') // This will cause an error
+         
+         // This COMMIT will never be reached
+         db.executeRaw('COMMIT')
+       } catch (error) {
+         errorOccurred = true
+         // Explicitly rollback on error (simulating what PostgreSQL does automatically)
+         try {
+           db.executeRaw('ROLLBACK')
+         } catch {
+           // Ignore rollback errors if transaction is already rolled back
+         }
+       }
+       
+       expect(errorOccurred).toBe(true)
+
+      // Verify NO changes were applied due to automatic rollback
+      const finalCount = db.queryOne('SELECT COUNT(*) as count FROM events')
+      expect(finalCount.count).toBe(initialCount.count) // Same count
+
+      const finalVote = db.queryOne(`
+        SELECT properties->>'promptId' as promptId, properties->>'turn_id' as turn_id, properties->>'temp_marker' as temp_marker
+        FROM events WHERE event_id = 'rollback_test_vote_1'
+      `)
+      
+      // Original data should be unchanged (transaction rolled back)
+      expect(finalVote.promptId).toBe(initialVote.promptId)
+      expect(finalVote.turn_id).toBe(initialVote.turn_id)
+      expect(finalVote.temp_marker).toBeNull() // Update was rolled back
+    })
   })
 
   describe('Rollback Data Integrity', () => {

@@ -3,6 +3,9 @@
 -- Author: Bilan v0.4.1 Development Team
 -- Date: 2024-01-18
 
+-- BEGIN TRANSACTION: Ensure all migration steps are atomic
+BEGIN;
+
 -- Safety: Create backup table for vote events before migration
 CREATE TABLE IF NOT EXISTS vote_events_backup AS 
 SELECT * FROM events WHERE event_type = 'vote_cast';
@@ -97,4 +100,7 @@ BEGIN
 END $$;
 
 -- Cleanup temp table
-DROP TABLE migration_verification; 
+DROP TABLE migration_verification;
+
+-- COMMIT TRANSACTION: All migration steps completed successfully
+COMMIT; 
