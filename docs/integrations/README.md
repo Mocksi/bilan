@@ -140,198 +140,50 @@ steps.forEach(step => {
 ## Common Use Cases
 
 ### 📊 **Analytics & Monitoring**
-Track AI performance across different models and prompts:
+Track AI performance across different models and prompts through the dashboard:
 
 ```typescript
-import { getStats } from '@mocksi/bilan-sdk'
+// Analytics available through dashboard at /api/analytics/*
+// All endpoints require API key authentication
 
-const stats = await getStats()
-console.log({
-  trustScore: stats.trustScore,
-  totalVotes: stats.totalVotes,
-  positiveVotes: stats.positiveVotes
-})
+// Track turns with automatic correlation
+const { result, turnId } = await trackTurn('Generate code', aiCall)
+await vote(turnId, 1, 'Great code!')
+
+// Dashboard shows:
+// - Turn performance metrics at /api/analytics/turns
+// - Vote trends and sentiment at /api/analytics/votes  
+// - Turn-to-vote correlation analysis
+// - Event overview at /api/analytics/overview
 ```
 
 ### 🔄 **A/B Testing**
-Compare different AI models or prompts:
+Use analytics data to optimize AI performance:
 
 ```typescript
-// Route to different models based on trust score
-const stats = await getStats()
-const model = stats.trustScore < 0.7 ? 'gpt-4' : 'gpt-3.5-turbo'
+// Use dashboard analytics to make routing decisions
+// Access performance data through authenticated API endpoints
+// Route based on model performance metrics from dashboard
 ```
 
 ### 🎯 **Adaptive Routing**
 Automatically improve based on feedback:
 
 ```typescript
-// Use better model for low-trust scenarios
-if (stats.trustScore < 0.6) {
-  response = await generateWithBetterModel(prompt)
-} else {
-  response = await generateWithFastModel(prompt)
-}
+// Route to different models based on dashboard analytics
+// Use turn performance data from /api/analytics/turns
+// Dashboard provides insights for intelligent routing decisions
 ```
 
 ### 📈 **Continuous Improvement**
 Collect feedback to improve prompts:
 
 ```typescript
-// Track which prompts get positive feedback
-const promptAnalytics = await getPromptStats(promptId)
-if (promptAnalytics.averageScore > 0.8) {
-  // This prompt works well, use it as template
-}
+// Track which prompts get positive feedback using dashboard
+// Use vote analytics from /api/analytics/votes
+// Dashboard correlation shows turn-to-vote relationships
 ```
-
-## Framework Comparison
-
-| Framework | Streaming | Function Calling | Multi-turn | Complexity |
-|-----------|-----------|------------------|------------|------------|
-| Vercel AI SDK | ✅ | ✅ | ✅ | Low |
-| LangChain | ✅ | ✅ | ✅ | Medium |
-| CopilotKit | ✅ | ✅ | ✅ | Low |
-| OpenAI API | ✅ | ✅ | ✅ | Low |
-| Anthropic | ✅ | ✅ | ✅ | Low |
-| Custom LLM | ⚠️ | ⚠️ | ✅ | High |
-
-**Legend:**
-- ✅ Fully supported
-- ⚠️ Depends on provider
-- ❌ Not supported
-
-## Analytics API Authentication
-
-**🔒 Important**: As of v0.4.1, all analytics endpoints require Bearer token authentication:
-
-- `GET /api/events` - Requires API key
-- `GET /api/analytics/overview` - Requires API key  
-- `GET /api/analytics/votes` - Requires API key
-- `GET /api/analytics/turns` - Requires API key
-
-**Environment Variables:**
-```bash
-# Server-side (secure)
-BILAN_API_KEY=your-server-api-key-here
-
-# Client-side (dashboard)
-NEXT_PUBLIC_BILAN_API_KEY=your-client-api-key-here
-```
-
-**Direct API Usage:**
-```typescript
-const response = await fetch('/api/analytics/votes', {
-  headers: {
-    'Authorization': `Bearer ${process.env.BILAN_API_KEY}`,
-    'Content-Type': 'application/json'
-  }
-})
-```
-
-**SDK Usage:** The Bilan SDK handles authentication automatically when properly configured.
-
-## Best Practices
-
-### 1. **Always Generate Unique IDs**
-```typescript
-// Cross-platform UUID generation
-function generateId(): string {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-    return crypto.randomUUID()
-  }
-  // Fallback for environments without crypto.randomUUID
-  return Math.random().toString(36).substring(2) + Date.now().toString(36)
-}
-
-const promptId = generateId() // Use this for tracking
-```
-
-### 2. **Handle Errors Gracefully**
-```typescript
-try {
-  const response = await generateResponse(prompt)
-  await vote(response.promptId, 1)
-} catch (error) {
-  console.error('AI request failed:', error)
-  // Continue without breaking user experience
-}
-```
-
-### 3. **Provide Context in Feedback**
-```typescript
-await vote(promptId, -1, 'Response was too technical for my use case')
-```
-
-### 4. **Monitor Performance**
-```typescript
-const stats = await getStats()
-if (stats.trustScore < 0.5) {
-  // Consider switching models or updating prompts
-}
-```
-
-### 5. **Batch Feedback for Performance**
-```typescript
-// Instead of individual votes, batch them
-const feedbackBatch = [
-  { promptId: 'id1', value: 1 },
-  { promptId: 'id2', value: -1 }
-]
-// Process batch efficiently
-```
-
-## Troubleshooting
-
-### Common Issues
-
-**Q: Feedback not being recorded?**
-A: Check that you're using the correct `promptId` from the response.
-
-**Q: Trust score not updating?**
-A: Ensure votes are being submitted successfully with `await vote()`.
-
-**Q: Integration not working?**
-A: Verify Bilan is initialized before making AI calls.
-
-### Debug Mode
-
-Enable debug mode to see what's happening:
-
-```typescript
-const bilan = await init({
-  mode: 'local',
-  userId: 'user-123',
-  debug: true // Enable debug logging
-})
-```
-
-### Getting Help
-
-- **[GitHub Issues](https://github.com/mocksi/bilan/issues)** - Report bugs
-- **[Discussions](https://github.com/mocksi/bilan/discussions)** - Ask questions
-- **[Discord](https://discord.gg/bilan)** - Real-time help
-
-## Contributing
-
-Want to add a new integration guide? 
-
-1. Follow the existing structure
-2. Include working code examples
-3. Add comprehensive testing section
-4. Update this README with your integration
-
-See our [Contributing Guide](../../CONTRIBUTING.md) for details.
-
-## Next Steps
-
-After integrating with your AI provider:
-
-- **[Dashboard Setup](../dashboard.md)** - Visualize your analytics
-- **[Server Mode](../server-mode.md)** - Scale for production
-- **[Advanced Analytics](../advanced-analytics.md)** - Deep dive into metrics
-- **[A/B Testing](../ab-testing.md)** - Optimize your AI performance
 
 ---
 
-**Need help?** Join our [Discord community](https://discord.gg/bilan) or [open an issue](https://github.com/mocksi/bilan/issues). 
+**Need help?** Join our [GitHub Discussions](https://github.com/Mocksi/bilan/discussions) or [open an issue](https://github.com/Mocksi/bilan/issues). We're here to help you succeed with AI analytics! 🚀 

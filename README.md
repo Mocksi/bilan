@@ -20,6 +20,24 @@
 
 ---
 
+## 📑 Table of Contents
+
+- [What is Bilan?](#what-is-bilan)
+- [✨ v0.4.1: Turn ID Unification](#-v041-turn-id-unification)
+- [Quick Start](#quick-start)
+- [Platform Features](#platform-features)
+- [Self-Hosting](#self-hosting)
+- [Architecture](#architecture)
+- [Configuration](#configuration)
+- [API Reference](#api-reference)
+- [Bundle Size & Performance](#bundle-size--performance)
+- [Migration Guide](#migration-guide)
+- [FAQ](#faq)
+- [Contributing](#contributing)
+- [License](#license)
+
+---
+
 ## What is Bilan?
 
 Bilan is an open source analytics platform that helps you understand how users interact with your AI-powered features. Think "Google Analytics for AI" - track every turn, conversation, and user interaction with comprehensive event-based analytics running on your own infrastructure.
@@ -121,11 +139,16 @@ import { init, trackTurn, vote, startConversation, trackJourneyStep, createUserI
 
 // Initialize the SDK
 await init({
-  apiKey: 'your-api-key',
+  mode: 'local', // or 'server' 
   userId: createUserId('user-123'),
   // Privacy controls
-  capturePrompts: true,
-  captureResponses: false  // Default: privacy-first
+  privacyConfig: {
+    defaultCaptureLevel: 'sanitized',
+    captureLevels: {
+      prompts: 'sanitized',
+      responses: 'none'  // Default: privacy-first
+    }
+  }
 })
 
 // ✅ v0.4.1: Industry-standard event correlation
@@ -136,7 +159,7 @@ const { result, turnId } = await trackTurn(
     messages: [{ role: 'user', content: prompt }]
   }),
   {
-    conversationId: 'conv-123',
+    conversation_id: 'conv-123',
     systemPromptVersion: 'v2.1',
     modelUsed: 'gpt-4'
   }
@@ -146,8 +169,8 @@ const { result, turnId } = await trackTurn(
 await vote(turnId, 1, 'Very helpful!')
 
 // Track user journeys with optional context
-await trackJourneyStep('email-workflow', 'draft-composed', createUserId('user-123'))
-await trackJourneyStep('email-workflow', 'ai-enhanced', createUserId('user-123'))
+await trackJourneyStep('email-workflow', 'draft-composed', 'user-123')
+await trackJourneyStep('email-workflow', 'ai-enhanced', 'user-123')
 ```
 
 #### **📊 Complete Workflow Example**
@@ -316,221 +339,68 @@ await vote(turnId, 1, 'Perfect code generation!')
 
 **Conversation Tracking Methods**
 
-**`conversation.start(userId: UserId): Promise<ConversationId>`**
+**`startConversation(userId: string): Promise<string>`**
 Start a new conversation session.
 
-**`conversation.addMessage(conversationId: ConversationId): Promise<void>`**
-Record a message in the conversation.
-
-**`conversation.recordFrustration(conversationId: ConversationId): Promise<void>`**
-Record a user frustration event.
-
-**`conversation.recordRegeneration(conversationId: ConversationId): Promise<void>`**
-Record when user regenerates AI response.
-
-**`conversation.recordFeedback(conversationId: ConversationId, value: 1 | -1, comment?: string): Promise<void>`**
-Record explicit user feedback.
-
-**`conversation.end(conversationId: ConversationId, outcome: 'completed' | 'abandoned'): Promise<void>`**
+**`endConversation(conversationId: string, status?: 'completed' | 'abandoned'): Promise<void>`**
 End conversation with success/failure outcome.
 
 ```typescript
 // Complete conversation flow
-const conversationId = await conversation.start(createUserId('user-123'))
-await conversation.addMessage(conversationId)
-await conversation.recordFeedback(conversationId, 1, 'Helpful!')
-await conversation.end(conversationId, 'completed')
+const conversationId = await startConversation('user-123')
+
+// Track AI interactions within the conversation
+const { result, turnId } = await trackTurn(
+  'Help with email',
+  () => callAI(prompt),
+  { conversation_id: conversationId }
+)
+
+// Record feedback using turnId
+await vote(turnId, 1, 'Helpful!')
+
+// End conversation
+await endConversation(conversationId, 'completed')
 ```
 
 **Journey Tracking Methods**
 
-**`journey.trackStep(journeyName: string, stepName: string, userId: UserId): Promise<void>`**
+**`trackJourneyStep(journeyName: string, stepName: string, userId: string): Promise<void>`**
 Record progress through a journey step.
-
-**`journey.complete(journeyName: string, userId: UserId): Promise<void>`**
-Mark a journey as completed.
 
 ```typescript
 // Track email workflow journey
-await journey.trackStep('email-workflow', 'draft-created', userId)
-await journey.trackStep('email-workflow', 'ai-suggestions-applied', userId)
-await journey.complete('email-workflow', userId)
+await trackJourneyStep('email-workflow', 'draft-created', 'user-123')
+await trackJourneyStep('email-workflow', 'ai-suggestions-applied', 'user-123')
+await trackJourneyStep('email-workflow', 'completed', 'user-123') // Final step indicates completion
 ```
 
 **Analytics Methods**
 
-**`getStats(): Promise<AnalyticsStats>`**
-Get comprehensive analytics including conversations, journeys, and quality signals.
+Analytics data is available through the dashboard and server API endpoints:
+- `/api/analytics/overview` - Event overview statistics  
+- `/api/analytics/votes` - Vote analytics with trends and sentiment
+- `/api/analytics/turns` - AI turn performance metrics
 
-**`getConversationStats(conversationId?: ConversationId): Promise<ConversationStats>`**
-Get analytics for conversations (specific or all).
-
-**`getJourneyStats(journeyName?: string): Promise<JourneyStats>`**
-Get analytics for journeys (specific or all).
-
-#### Error Handling
-
-The SDK includes robust error handling with graceful degradation:
-
-```typescript
-// Production mode: warnings logged, execution continues
-await init({ mode: 'local', userId: createUserId('user-123') })
-
-// Debug mode: errors thrown for debugging
-await init({ 
-  mode: 'local', 
-  userId: createUserId('user-123'),
-  debug: true  // Throws errors instead of warning
-})
-```
-
-**Error Types:**
-- `BilanInitializationError` - SDK setup issues
-- `BilanVoteError` - Vote recording problems  
-- `BilanStatsError` - Analytics retrieval issues
-- `BilanNetworkError` - Network connectivity problems
-- `BilanStorageError` - Storage operation failures
-
-**Error Handling Strategies:**
-
-```typescript
-import { init, vote, BilanVoteError } from '@mocksi/bilan-sdk'
-
-// Graceful degradation (recommended for production)
-try {
-  await vote(createPromptId('prompt-123'), 1)
-} catch (error) {
-  if (error instanceof BilanVoteError) {
-    console.warn('Vote failed:', error.message)
-    // App continues normally
-  }
-}
-
-// Debug mode for development
-await init({ 
-  mode: 'local', 
-  userId: createUserId('user-123'),
-  debug: true  // Throws detailed errors
-})
-```
-
-#### Telemetry & Privacy
-
-The SDK includes optional telemetry to help improve the library:
-
-```typescript
-await init({
-  mode: 'local',
-  userId: createUserId('user-123'),
-  telemetry: {
-    enabled: true,  // Default: true for server mode, false for local
-    endpoint: 'https://your-analytics.com/events'  // Optional custom endpoint
-  }
-})
-```
-
-**What's Collected:**
-- SDK initialization events
-- Error occurrences (without sensitive data)
-- Basic usage metrics (vote counts, not content)
-- Performance metrics
-
-**Privacy Features:**
-- User IDs are hashed before transmission
-- No personal data or vote content is sent
-- Prompt IDs are hashed for privacy
-- Disabled automatically in development mode
-- Easy to disable completely
-
-**Disable Telemetry:**
-```typescript
-// Disable for all modes
-await init({
-  mode: 'local',
-  userId: createUserId('user-123'),
-  telemetry: { enabled: false }
-})
-
-// Or set environment variable
-process.env.BILAN_TELEMETRY = 'false'
-```
-
-**Custom Telemetry Endpoint:**
-```typescript
-await init({
-  mode: 'server',
-  userId: createUserId('user-123'),
-  endpoint: 'https://your-api.com',
-  telemetry: {
-    enabled: true,
-    endpoint: 'https://your-analytics.com/events'
-  }
-})
-```
-
-#### Multiple Instances
-
-Create separate SDK instances for different contexts:
-
-```typescript
-import { BilanSDK, createUserId } from '@mocksi/bilan-sdk'
-
-const userSDK = new BilanSDK()
-const adminSDK = new BilanSDK()
-
-await userSDK.init({ mode: 'local', userId: createUserId('user-123') })
-await adminSDK.init({ mode: 'server', userId: createUserId('admin-456'), endpoint: 'https://api.example.com' })
-```
-
-### Bundle Size & Performance
-
-- **Minified**: 5.5KB
-- **Gzipped**: 1.7KB  
-- **Dependencies**: 0
-- **ES2020 target**: Modern, efficient JavaScript
-- **Tree-shakeable**: Import only what you need
-
-### Migration Guide
-
-If upgrading from version 0.2.x or earlier:
-
-```typescript
-// Before (0.2.x)
-await init({ mode: 'local', userId: 'user-123' })
-await vote('prompt-abc', 1)
-
-// After (0.3.0+) - with branded types
-await init({ mode: 'local', userId: createUserId('user-123') })
-await vote(createPromptId('prompt-abc'), 1)
-
-// Or continue using strings (auto-converted)
-await vote('prompt-abc', 1) // Still works!
-```
+All analytics endpoints require API key authentication (Bearer token).
 
 ## Self-Hosting
 
-### Option 1: Local Development
+### Docker Deployment
 
 ```bash
-git clone https://github.com/bilan-ai/bilan.git
+git clone https://github.com/Mocksi/bilan.git
 cd bilan
-npm install
-npm run dev
+docker-compose up -d
 ```
 
-Your dashboard will be available at `http://localhost:3000`
+Your dashboard will be available at `http://localhost:3004`
 
-### Option 2: Docker
-
-```bash
-docker run -p 3000:3000 bilan/bilan:latest
-```
-
-### Option 3: Full Self-Hosted Setup
+### Manual Setup
 
 ```bash
 # Clone the repository
-git clone https://github.com/bilan-ai/bilan.git
+git clone https://github.com/Mocksi/bilan.git
 cd bilan
 
 # Install dependencies
@@ -540,174 +410,87 @@ npm install
 cp .env.example .env
 # Edit .env with your database settings
 
-# Run migrations
-npm run db:migrate
-
 # Start the server
-npm run start
+npm run dev
 ```
 
-## Architecture
+## 🏗️ Architecture
 
-### Open Source Components
+Bilan follows a modern, scalable architecture:
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   @mocksi/bilan-sdk    │ -> │  Local Storage  │ -> │   Dashboard     │
-│   (TypeScript)  │    │  or Database    │    │   (Next.js)     │
+│   @mocksi/bilan-sdk   │ ──► │   Bilan Server  │ ──► │   Dashboard     │
+│   (TypeScript)  │    │   (Fastify API)  │    │   (Next.js)     │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
+                                  │
+                       ┌─────────────────┐
+                       │   SQLite/PgSQL  │
+                       │   (Event Store) │
+                       └─────────────────┘
 ```
 
-### What's Included
+- **SDK**: <5KB TypeScript client with privacy controls
+- **API**: High-performance Fastify server (<20ms P99)
+- **Dashboard**: Real-time Next.js analytics interface
+- **Database**: SQLite for simple deployments, PostgreSQL for scale
 
-- **[@mocksi/bilan-sdk](./packages/sdk)** - TypeScript SDK for tracking user feedback
-- **[Basic Server](./packages/server)** - Self-hostable API server
-- **[Dashboard](./packages/dashboard)** - Web interface for viewing metrics
-- **[Examples](./packages/examples)** - Integration examples (React, Next.js, etc.)
+## ❓ FAQ
 
-### Performance Characteristics
+<details>
+<summary><strong>How is this different from traditional analytics?</strong></summary>
 
-- **Bundle Size**: 5.4KB minified, 1.7KB gzipped
-- **Dependencies**: Zero external dependencies
-- **Memory Usage**: <100KB for 1000+ events
-- **Storage**: Auto-cleanup, keeps last 1000 events
-- **Network**: Efficient batching for server mode
-- **CPU**: <1ms for analytics calculations
+Bilan is built specifically for AI applications. Unlike Google Analytics or Mixpanel, we understand AI-specific concepts like turns, prompts, model performance, and user trust. We provide correlation between AI performance and user satisfaction.
+</details>
 
-## Configuration
+<details>
+<summary><strong>Can I use this with any AI provider?</strong></summary>
 
-### SDK Options
+Yes! Bilan wraps around your existing AI calls (OpenAI, Anthropic, local models, etc.) and works with any provider. Check our **[Integration Guides](./docs/integrations/)**.
+</details>
 
-```typescript
-init({
-  // Mode: 'local' (browser storage) or 'server' (self-hosted API)
-  mode: 'local',
-  
-  // Required: User identifier
-  userId: 'user-123',
-  
-  // Optional: Custom endpoint for self-hosted server
-  endpoint: 'http://localhost:3002',
-  
-  // Optional: Enable debug logging
-  debug: true,
-  
-  // Optional: Custom storage adapter
-  storage: new CustomStorageAdapter(),
-  
-  // Optional: Configure trend calculation
-  trendConfig: {
-    sensitivity: 0.15,      // Threshold for trend detection (default: 0.1)
-    timeWeightHours: 48,    // Hours for time decay (default: 24)
-    minSampleSize: 8,       // Minimum events needed (default: 5)
-    recentWindowSize: 15    // Size of recent window (default: 10)
-  },
-  
-  // Optional: Telemetry configuration
-  telemetry: {
-    enabled: true,          // Enable/disable telemetry (default: true for server mode)
-    endpoint: 'https://your-analytics.com/events'  // Custom telemetry endpoint
-  }
-})
+<details>
+<summary><strong>What about data privacy?</strong></summary>
+
+Bilan is privacy-first with configurable data capture levels. You can choose to capture no content, sanitized content, or full content. Everything runs on your infrastructure when self-hosted.
+</details>
+
+<details>
+<summary><strong>How does pricing work?</strong></summary>
+
+The SDK is completely free (MIT license). Self-hosting is also free. We may offer managed hosting in the future with transparent pricing.
+</details>
+
+## 🚀 Contributing
+
+We **❤️ contributions** of all sizes! Here's how to get involved:
+
+### 🎯 Quick Contributions
+- ⭐ **Star the repo** - Show your support
+- 🐛 **Report bugs** - Help us improve quality  
+- 💡 **Request features** - Share your ideas
+- 📖 **Improve docs** - Fix typos, add examples
+
+### 🛠️ Code Contributions
+
+1. **Fork the repository**
+2. **Create a feature branch**: `git checkout -b feature/your-feature`
+3. **Make your changes** following our **[Development Guide](./CONTRIBUTING.md)**
+4. **Add tests** - We aim for >90% coverage
+5. **Submit a PR** with a clear description
+
+### 📋 Development Setup
+```bash
+git clone https://github.com/Mocksi/bilan.git
+cd bilan
+npm install
+npm run dev
 ```
 
-### Trend Configuration
+See **[CONTRIBUTING.md](./CONTRIBUTING.md)** for detailed development instructions.
 
-The SDK includes an improved trend calculation that uses time weighting and statistical significance. You can configure it with:
+## 📄 License
 
-```typescript
-import { init, TrendConfig } from '@mocksi/bilan-sdk'
+**MIT License** - Feel free to use Bilan in your commercial and open-source projects.
 
-const customTrendConfig: TrendConfig = {
-  sensitivity: 0.2,        // Higher = more sensitive to changes
-  timeWeightHours: 12,     // Shorter = more focus on recent events
-  minSampleSize: 10,       // Higher = more reliable but slower to detect
-  recentWindowSize: 20     // Larger = smoother trend detection
-}
-
-init({
-  mode: 'local',
-  userId: 'user-123',
-  trendConfig: customTrendConfig
-})
-```
-
-**How it works:**
-- **Time weighting**: Recent events have more influence on the trend
-- **Statistical significance**: Trends are only detected when statistically meaningful
-- **Configurable sensitivity**: Adjust how easily trends are detected
-- **Minimum sample size**: Ensures trends are based on sufficient data
-
-### Server Configuration
-
-```javascript
-// bilan.config.js
-module.exports = {
-  // Database configuration
-  database: {
-    type: 'sqlite', // SQLite database
-    path: process.env.DB_PATH || './bilan.db'
-  },
-  
-  // Basic trust scoring settings
-  scoring: {
-    decayFactor: 0.1,        // How much old votes matter
-    minimumVotes: 5,         // Minimum votes for reliable score
-    windowSize: 100          // Number of recent votes to consider
-  },
-  
-  // API settings
-  api: {
-    port: 3002,
-    cors: true,
-    rateLimit: {
-      max: 100,              // Requests per minute
-      window: 60000
-    }
-  }
-}
-```
-
-## API Reference
-
-### SDK Methods
-
-#### `init(config: InitConfig)`
-Initialize the Bilan SDK.
-
-```typescript
-interface InitConfig {
-  mode: 'local' | 'server'
-  userId: string
-  endpoint?: string
-  debug?: boolean
-  storage?: StorageAdapter
-  trendConfig?: TrendConfig
-  telemetry?: {
-    enabled: boolean
-    endpoint?: string
-  }
-}
-```
-
-#### `vote(promptId: string, value: 1 | -1, comment?: string)`
-Record user feedback on an AI suggestion.
-
-```typescript
-vote('prompt-123', 1)                    // Positive vote
-vote('prompt-456', -1, 'Not helpful')    // Negative vote with comment
-```
-
-#### `getStats(): BasicStats`
-Get basic analytics for the current user.
-
-```typescript
-interface BasicStats {
-  totalVotes: number
-  positiveRate: number
-  recentTrend: 'improving' | 'declining' | 'stable'
-  topFeedback: string[]
-}
-```
-
-#### `getPromptStats(promptId: string): PromptStats`
+See **[LICENSE](./LICENSE)** for full details.
