@@ -1,0 +1,26 @@
+version: '3.8'
+
+# Docker Compose Override Example for Local Development
+# Copy this file to docker-compose.override.yml for local development
+
+# USAGE:
+# 1. Copy this file: cp docker-compose.override.yml.example docker-compose.override.yml
+# 2. Run: docker-compose up -d
+# 3. Docker Compose automatically merges override files
+
+services:
+  bilan-server:
+    environment:
+      # Enable development mode - bypasses API key requirement
+      - BILAN_DEV_MODE=true
+      # Optional: Enable verbose debugging
+      - BILAN_DEBUG=true
+      - BILAN_LOG_LEVEL=debug
+      # Optional: Custom development database path
+      # - BILAN_DB_PATH=/app/data/dev-bilan.db
+
+# SECURITY NOTES:
+# - This file is for LOCAL DEVELOPMENT only
+# - Never commit docker-compose.override.yml to version control
+# - Never use BILAN_DEV_MODE=true in production
+# - For production, use docker-compose.production.yml with proper API keys 

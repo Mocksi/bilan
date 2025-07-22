@@ -11,8 +11,9 @@ services:
       - BILAN_PORT=3002
       - BILAN_DB_PATH=/app/data/bilan.db
       # v0.4.1: Authentication configuration
-      - BILAN_DEV_MODE=true  # Allow running without API key in development
-      # Uncomment and set for production deployment:
+      # SECURITY: Uncomment BILAN_DEV_MODE=true for local development only
+      # - BILAN_DEV_MODE=true  # Allow running without API key in development
+      # For production deployment, set a secure API key instead:
       # - BILAN_API_KEY=your-secure-api-key-here
       # CORS configuration
       - BILAN_CORS_ORIGIN="http://localhost:3002,http://localhost:3004"

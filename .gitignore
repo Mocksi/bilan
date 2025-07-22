@@ -111,6 +111,8 @@ Thumbs.db
 
 # Docker
 .docker/
+# Docker Compose local overrides (for development)
+docker-compose.override.yml
 
 # Local development
 .env.local
