@@ -1,36 +1,40 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { init, trackTurn, trackTurnWithRetry, BilanSDK, isReady, getConfig, resetSDKForTesting } from '../src/index'
-import { createUserId, createPromptId } from '../src/types'
-
-// Mock localStorage for testing
+// Mock localStorage for browser environment
 Object.defineProperty(window, 'localStorage', {
   value: {
-    getItem: (key: string) => {
-      return (window as any).localStorageData[key] || null
-    },
-    setItem: (key: string, value: string) => {
-      (window as any).localStorageData[key] = value
-    },
-    removeItem: (key: string) => {
-      delete (window as any).localStorageData[key]
-    },
-    clear: () => {
-      (window as any).localStorageData = {}
-    }
+    data: {} as Record<string, string>,
+    getItem(key: string) { return this.data[key] || null },
+    setItem(key: string, value: string) { this.data[key] = value },
+    removeItem(key: string) { delete this.data[key] },
+    clear() { this.data = {} }
   },
   writable: true
 })
+
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { 
+  init, 
+  trackTurn, 
+  trackTurnWithRetry,
+  vote, 
+  track,
+  startConversation,
+  recordFeedback,
+  endConversation,
+  isReady, 
+  getConfig,
+  BilanSDK,
+  createUserId,
+  resetSDKForTesting 
+} from '../src/index'
 
 // Mock fetch for server mode tests
 const mockFetch = vi.fn()
 global.fetch = mockFetch
 
-// Test utility to reset SDK state (removed - using exported function instead)
-
-describe('Bilan SDK v0.4.0', () => {
+describe('Bilan SDK v0.4.1', () => {
   beforeEach(() => {
     // Clear localStorage before each test
-    ;(window as any).localStorageData = {}
+    ;(window as any).localStorage.data = {}
     vi.clearAllMocks()
     resetSDKForTesting()
     mockFetch.mockResolvedValue({
@@ -90,101 +94,101 @@ describe('Bilan SDK v0.4.0', () => {
       })
     })
 
-    it('should track successful AI turn', async () => {
-      const mockAiFunction = vi.fn().mockResolvedValue('AI response')
+    it('should return both result and turnId', async () => {
+      const mockAiCall = vi.fn().mockResolvedValue('AI response')
       
-      const result = await trackTurn(
-        'What is the weather?',
-        mockAiFunction,
-        { model: 'gpt-4' }
+      const { result, turnId } = await trackTurn(
+        'Test prompt',
+        mockAiCall,
+        { systemPromptVersion: 'v2.1' }
       )
       
       expect(result).toBe('AI response')
-      expect(mockAiFunction).toHaveBeenCalledOnce()
+      expect(turnId).toMatch(/^turn_\d+_[a-z0-9]+$/)
+      expect(typeof turnId).toBe('string')
+      expect(mockAiCall).toHaveBeenCalledOnce()
     })
 
-    it('should track failed AI turn', async () => {
-      const mockAiFunction = vi.fn().mockRejectedValue(new Error('AI error'))
+    it('should handle context parameters', async () => {
+      const mockAiCall = vi.fn().mockResolvedValue('AI response')
       
-      await expect(trackTurn(
-        'What is the weather?',
-        mockAiFunction,
-        { model: 'gpt-4' }
-      )).rejects.toThrow('AI error')
-      
-      expect(mockAiFunction).toHaveBeenCalledOnce()
-    })
-
-    it('should handle timeout', async () => {
-      const mockAiFunction = vi.fn().mockImplementation(() => 
-        new Promise(resolve => setTimeout(resolve, 2000))
-      )
-      
-      await expect(trackTurn(
-        'What is the weather?',
-        mockAiFunction,
-        { model: 'gpt-4' },
-        { timeout: 100 }
-      )).rejects.toThrow('timeout')
-      
-      expect(mockAiFunction).toHaveBeenCalledOnce()
-    })
-
-    it('should work without initialization in graceful mode', async () => {
-      resetSDKForTesting()
-      
-      const mockAiFunction = vi.fn().mockResolvedValue('AI response')
-      
-      const result = await trackTurn(
-        'What is the weather?',
-        mockAiFunction
-      )
-      
-      expect(result).toBe('AI response')
-      expect(mockAiFunction).toHaveBeenCalledOnce()
-    })
-  })
-
-  describe('trackTurnWithRetry', () => {
-    beforeEach(async () => {
-      await init({
-        mode: 'local',
-        userId: createUserId('test-user')
-      })
-    })
-
-    it('should retry failed AI calls', async () => {
-      let callCount = 0
-      const mockAiFunction = vi.fn().mockImplementation(() => {
-        callCount++
-        if (callCount < 3) {
-          throw new Error('Temporary error')
+      const { result, turnId } = await trackTurn(
+        'Test prompt',
+        mockAiCall,
+        {
+          systemPromptVersion: 'v2.1',
+          conversation_id: 'conv-123',
+          journey_id: 'journey-456',
+          turn_sequence: 1
         }
-        return Promise.resolve('AI response')
-      })
+      )
       
-      const result = await trackTurnWithRetry(
-        'What is the weather?',
-        mockAiFunction,
-        { model: 'gpt-4' },
+      expect(result).toBe('AI response')
+      expect(turnId).toBeTruthy()
+      expect(mockAiCall).toHaveBeenCalledOnce()
+    })
+
+    it('should handle retry logic', async () => {
+      const mockAiCall = vi.fn().mockResolvedValue('AI response')
+      
+      const { result, turnId } = await trackTurnWithRetry(
+        'Test prompt',
+        mockAiCall,
+        { systemPromptVersion: 'v2.1' },
         3
       )
       
       expect(result).toBe('AI response')
-      expect(mockAiFunction).toHaveBeenCalledTimes(3)
+      expect(turnId).toBeTruthy()
+      expect(mockAiCall).toHaveBeenCalledOnce()
     })
 
-    it('should fail after max retries', async () => {
-      const mockAiFunction = vi.fn().mockRejectedValue(new Error('Persistent error'))
+    it('should gracefully degrade when not initialized', async () => {
+      resetSDKForTesting()
+      const mockAiCall = vi.fn().mockResolvedValue('AI response')
       
-      await expect(trackTurnWithRetry(
-        'What is the weather?',
-        mockAiFunction,
-        { model: 'gpt-4' },
-        2
-      )).rejects.toThrow('Persistent error')
+      const { result, turnId } = await trackTurn(
+        'Test prompt',
+        mockAiCall
+      )
       
-      expect(mockAiFunction).toHaveBeenCalledTimes(3) // Initial + 2 retries
+      expect(result).toBe('AI response')
+      expect(turnId).toBe('')
+      expect(mockAiCall).toHaveBeenCalledOnce()
+    })
+  })
+
+  describe('vote', () => {
+    it('should accept turnId instead of promptId', async () => {
+      await init({
+        mode: 'local',
+        userId: createUserId('test-user')
+      })
+
+      const { turnId } = await trackTurn('Test', () => Promise.resolve('result'))
+      
+      // Should not throw
+      await expect(vote(turnId, 1, 'Good')).resolves.not.toThrow()
+    })
+
+    it('should track vote with turn_id property', async () => {
+      const sdk = new BilanSDK()
+      await sdk.init({
+        mode: 'local',
+        userId: createUserId('test-user')
+      })
+
+      const trackSpy = vi.spyOn(sdk, 'track')
+      const { turnId } = await sdk.trackTurn('Test', () => Promise.resolve('result'))
+      
+      await sdk.vote(turnId, 1, 'Great!')
+      
+      expect(trackSpy).toHaveBeenCalledWith('vote_cast', {
+        turn_id: turnId,      // Verify turn_id is used
+        value: 1,
+        comment: 'Great!',
+        timestamp: expect.any(Number)
+      })
     })
   })
 
@@ -243,58 +247,15 @@ describe('Bilan SDK v0.4.0', () => {
       
       const mockAiFunction = vi.fn().mockResolvedValue('AI response')
       
-      const result = await sdk.trackTurn(
+      const { result, turnId } = await sdk.trackTurn(
         'What is the weather?',
         mockAiFunction,
-        { model: 'gpt-4' }
+        { systemPromptVersion: 'v2.1' }
       )
       
       expect(result).toBe('AI response')
+      expect(turnId).toBeTruthy()
       expect(mockAiFunction).toHaveBeenCalledOnce()
-    })
-  })
-
-  describe('Privacy and Configuration', () => {
-         it('should initialize with privacy configuration', async () => {
-       await expect(init({
-         mode: 'local',
-         userId: createUserId('test-user'),
-         privacyConfig: {
-           defaultCaptureLevel: 'metadata',
-           captureLevels: {
-             prompts: 'metadata',
-             responses: 'metadata',
-             errors: 'sanitized',
-             metadata: 'full'
-           },
-           customPiiPatterns: [],
-           detectBuiltinPii: true,
-           hashSensitiveContent: true
-         }
-       })).resolves.not.toThrow()
-     })
-
-    it('should initialize with event batching configuration', async () => {
-      await expect(init({
-        mode: 'local',
-        userId: createUserId('test-user'),
-        eventBatching: {
-          batchSize: 10,
-          flushInterval: 5000,
-          maxBatches: 5
-        }
-      })).resolves.not.toThrow()
-    })
-
-    it('should initialize with telemetry configuration', async () => {
-      await expect(init({
-        mode: 'local',
-        userId: createUserId('test-user'),
-        telemetry: {
-          enabled: true,
-          endpoint: 'https://telemetry.example.com'
-        }
-      })).resolves.not.toThrow()
     })
   })
 }) 

@@ -1,4 +1,4 @@
-import { InitConfig, UserId, PromptId, ConversationId, createUserId, createPromptId, createConversationId, generateTurnId, generateEventId } from './types'
+import { InitConfig, UserId, ConversationId, createUserId, createConversationId, generateTurnId, generateEventId, TurnContext } from './types'
 import { LocalStorageAdapter } from './storage/local-storage'
 
 import { ErrorHandler } from './error-handling'
@@ -101,14 +101,15 @@ class BilanSDK {
    * Track a turn (AI interaction) with automatic failure detection
    */
   async trackTurn<T>(
-    prompt: string,
-    aiFunction: () => Promise<T>,
-    properties?: Record<string, any> & { systemPromptVersion?: string },
+    promptText: string,
+    aiCall: () => Promise<T>,
+    context?: TurnContext,
     options?: { timeout?: number; retries?: number }
-  ): Promise<T> {
+  ): Promise<{ result: T, turnId: string }> {
     if (!this.isInitialized) {
       // Graceful degradation - just execute the AI function without tracking
-      return await aiFunction()
+      const result = await aiCall()
+      return { result, turnId: '' }
     }
     
     if (!this.turnTracker) {
@@ -138,21 +139,31 @@ class BilanSDK {
       this.turnTracker.setTimeoutMs(options.timeout)
     }
     
-    return this.turnTracker.trackTurn(prompt, aiFunction, properties)
+    // Convert context to properties for backward compatibility with turn tracker
+    const properties = {
+      ...(context || {}),
+      systemPromptVersion: context?.systemPromptVersion
+    }
+    
+    const result = await this.turnTracker.trackTurn(promptText, aiCall, properties)
+    const turnId = this.turnTracker.getLastTurnId()
+    
+    return { result, turnId }
   }
 
   /**
    * Track a turn with retry logic
    */
   async trackTurnWithRetry<T>(
-    prompt: string,
-    aiFunction: () => Promise<T>,
-    properties?: Record<string, any> & { systemPromptVersion?: string },
+    promptText: string,
+    aiCall: () => Promise<T>,
+    context?: TurnContext,
     maxRetries: number = 3
-  ): Promise<T> {
+  ): Promise<{ result: T, turnId: string }> {
     if (!this.isInitialized) {
       // Graceful degradation - just execute the AI function without tracking
-      return await aiFunction()
+      const result = await aiCall()
+      return { result, turnId: '' }
     }
     
     if (!this.turnTracker) {
@@ -177,7 +188,16 @@ class BilanSDK {
       )
     }
     
-    return this.turnTracker.trackTurnWithRetry(prompt, aiFunction, properties, maxRetries)
+    // Convert context to properties for backward compatibility with turn tracker
+    const properties = {
+      ...(context || {}),
+      systemPromptVersion: context?.systemPromptVersion
+    }
+    
+    const result = await this.turnTracker.trackTurnWithRetry(promptText, aiCall, properties, maxRetries)
+    const turnId = this.turnTracker.getLastTurnId()
+    
+    return { result, turnId }
   }
 
 
@@ -242,11 +262,11 @@ class BilanSDK {
   }
 
   /**
-   * Cast a vote on a prompt/response
+   * Cast a vote on a turn using turnId
    */
-  async vote(promptId: string, value: 1 | -1, comment?: string): Promise<void> {
+  async vote(turnId: string, value: 1 | -1, comment?: string): Promise<void> {
     await this.track('vote_cast', {
-      prompt_id: promptId,
+      turn_id: turnId,  // Use turn_id instead of promptId
       value,
       ...(comment && { comment }),
       timestamp: Date.now()
@@ -327,21 +347,21 @@ export const init = (config: InitConfig): Promise<void> => sdk.init(config)
  * Track a turn (AI interaction) with automatic failure detection
  */
 export const trackTurn = <T>(
-  prompt: string,
+  promptText: string,
   aiFunction: () => Promise<T>,
-  properties?: Record<string, any> & { systemPromptVersion?: string },
+  context?: TurnContext,
   options?: { timeout?: number; retries?: number }
-): Promise<T> => sdk.trackTurn(prompt, aiFunction, properties, options)
+): Promise<{ result: T, turnId: string }> => sdk.trackTurn(promptText, aiFunction, context, options)
 
 /**
  * Track a turn with retry logic
  */
 export const trackTurnWithRetry = <T>(
-  prompt: string,
+  promptText: string,
   aiFunction: () => Promise<T>,
-  properties?: Record<string, any> & { systemPromptVersion?: string },
+  context?: TurnContext,
   maxRetries?: number
-): Promise<T> => sdk.trackTurnWithRetry(prompt, aiFunction, properties, maxRetries)
+): Promise<{ result: T, turnId: string }> => sdk.trackTurnWithRetry(promptText, aiFunction, context, maxRetries)
 
 /**
  * Core method to track any event type
@@ -358,10 +378,10 @@ export const track = (
 export const startConversation = (userId: string): Promise<string> => sdk.startConversation(userId)
 
 /**
- * Cast a vote on a prompt/response
+ * Cast a vote on a turn using turnId
  */
-export const vote = (promptId: string, value: 1 | -1, comment?: string): Promise<void> => 
-  sdk.vote(promptId, value, comment)
+export const vote = (turnId: string, value: 1 | -1, comment?: string): Promise<void> => 
+  sdk.vote(turnId, value, comment)
 
 /**
  * Track a journey step completion
@@ -398,8 +418,8 @@ export const isReady = (): boolean => sdk.isReady()
 export const getConfig = (): InitConfig | null => sdk.getConfig()
 
 // Export types and utilities
-export type { InitConfig, UserId, PromptId, ConversationId, Event, TurnEvent, UserActionEvent, VoteCastEvent } from './types'
-export { createUserId, createPromptId, createConversationId, generateTurnId, generateEventId } from './types'
+export type { InitConfig, UserId, ConversationId, Event, TurnEvent, UserActionEvent, VoteCastEvent, TurnContext } from './types'
+export { createUserId, createConversationId, generateTurnId, generateEventId } from './types'
 export { PrivacyUtils } from './events/privacy-controls'
 export { ErrorHandler } from './error-handling'
 
