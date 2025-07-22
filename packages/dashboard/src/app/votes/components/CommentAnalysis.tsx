@@ -241,7 +241,7 @@ export const CommentAnalysis: React.FC<CommentAnalysisProps> = ({ analytics, loa
                   <div key={index} className="border-start border-4 border-primary ps-3 mb-3">
                     <div className="d-flex align-items-start">
                       <div className="me-2">
-                        <span className={`badge ${comment.vote > 0 ? 'bg-success' : 'bg-danger'}`}>
+                        <span className={`badge ${comment.vote > 0 ? 'bg-success text-white' : 'bg-danger text-white'}`}>
                           {comment.vote > 0 ? '👍' : '👎'}
                         </span>
                       </div>

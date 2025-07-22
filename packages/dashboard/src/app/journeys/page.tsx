@@ -148,8 +148,8 @@ function JourneysContent() {
                       </td>
                       <td>
                         <span className={`badge ${
-                          journey.status === 'completed' ? 'bg-success' : 
-                          journey.status === 'abandoned' ? 'bg-danger' : 'bg-primary'
+                          journey.status === 'completed' ? 'bg-success text-white' : 
+                          journey.status === 'abandoned' ? 'bg-danger text-white' : 'bg-primary text-white'
                         }`}>
                           {journey.status}
                         </span>
