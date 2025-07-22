@@ -5,7 +5,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue?style=flat-square)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 
-**TypeScript SDK for Bilan trust analytics** - Track user feedback on AI suggestions. Self-hostable, TypeScript-first, <5KB bundle.
+**TypeScript SDK for Bilan trust analytics** - Track user feedback on AI suggestions. Self-hostable, TypeScript-first, <6 KB bundle.
 
 ## Quick Start
 
@@ -97,7 +97,7 @@ await vote(turnId, 1, 'Perfect email!')
 
 ## Features
 
-- **🚀 Lightweight**: <5KB gzipped bundle size
+- **🚀 Lightweight**: <6 KB gzipped bundle size
 - **🔒 Type Safe**: Full TypeScript support with branded types
 - **🏃‍♂️ Zero Dependencies**: Uses only native web APIs
 - **📱 Universal**: Works in browsers, Node.js, and edge environments
