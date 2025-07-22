@@ -189,7 +189,7 @@ export const VoteFilter: React.FC<VoteFilterProps> = ({ onFilterChange, classNam
               <small className="text-muted me-2">Active filters:</small>
               
               {filters.search && (
-                <span className="badge bg-primary">
+                <span className="badge bg-primary text-white">
                   Search: "{filters.search}"
                   <button
                     type="button"
@@ -201,7 +201,7 @@ export const VoteFilter: React.FC<VoteFilterProps> = ({ onFilterChange, classNam
               )}
 
               {filters.rating !== 'all' && (
-                <span className="badge bg-info">
+                <span className="badge bg-info text-white">
                   Rating: {filters.rating}
                   <button
                     type="button"
@@ -213,7 +213,7 @@ export const VoteFilter: React.FC<VoteFilterProps> = ({ onFilterChange, classNam
               )}
 
               {filters.user && (
-                <span className="badge bg-success">
+                <span className="badge bg-success text-white">
                   User: {filters.user}
                   <button
                     type="button"
@@ -225,7 +225,7 @@ export const VoteFilter: React.FC<VoteFilterProps> = ({ onFilterChange, classNam
               )}
 
               {filters.prompt && (
-                <span className="badge bg-warning">
+                <span className="badge bg-warning text-white">
                   Prompt: {filters.prompt}
                   <button
                     type="button"
@@ -237,7 +237,7 @@ export const VoteFilter: React.FC<VoteFilterProps> = ({ onFilterChange, classNam
               )}
 
               {filters.hasComment !== null && (
-                <span className="badge bg-secondary">
+                <span className="badge bg-secondary text-white">
                   {filters.hasComment ? 'With Comments' : 'Without Comments'}
                   <button
                     type="button"

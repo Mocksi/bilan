@@ -84,7 +84,7 @@ export const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
       title: 'Feedback Provided',
       description: conversation.comment || 'No feedback comment',
       icon: conversation.outcome === 'positive' ? 'fa-thumbs-up' : 'fa-thumbs-down',
-      color: conversation.outcome === 'positive' ? 'bg-success' : 'bg-danger'
+      color: conversation.outcome === 'positive' ? 'bg-success text-white' : 'bg-danger'
     }
   ]
 
@@ -116,7 +116,7 @@ export const ConversationTimeline: React.FC<ConversationTimelineProps> = ({
                 )}
                 {event.type === 'feedback' && conversation.outcome && (
                   <div className="mt-2">
-                    <span className={`badge ${conversation.outcome === 'positive' ? 'badge-success' : 'badge-danger'}`}>
+                    <span className={`badge ${conversation.outcome === 'positive' ? 'bg-success text-white' : 'bg-danger text-white'}`}>
                       {conversation.outcome}
                     </span>
                   </div>

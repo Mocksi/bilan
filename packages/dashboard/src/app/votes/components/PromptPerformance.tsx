@@ -178,7 +178,7 @@ export const PromptPerformance: React.FC<PromptPerformanceProps> = ({ analytics,
                       <td>
                         <div className="d-flex align-items-center">
                           <div className="me-2">
-                            <span className={`badge ${prompt.positiveRate > 0.7 ? 'bg-success' : prompt.positiveRate > 0.3 ? 'bg-warning' : 'bg-danger'}`}>
+                            <span className={`badge ${prompt.positiveRate > 0.7 ? 'bg-success text-white' : prompt.positiveRate > 0.3 ? 'bg-warning' : 'bg-danger text-white'}`}>
                               {(prompt.positiveRate * 100).toFixed(1)}%
                             </span>
                           </div>
@@ -198,19 +198,19 @@ export const PromptPerformance: React.FC<PromptPerformanceProps> = ({ analytics,
                       <td>
                         <div className="d-flex align-items-center">
                           {prompt.positiveRate > 0.8 && (
-                            <span className="badge bg-success me-1">Excellent</span>
+                            <span className="badge bg-success text-white me-1">Excellent</span>
                           )}
                           {prompt.positiveRate > 0.6 && prompt.positiveRate <= 0.8 && (
-                            <span className="badge bg-primary me-1">Good</span>
+                            <span className="badge bg-primary text-white me-1">Good</span>
                           )}
                           {prompt.positiveRate > 0.4 && prompt.positiveRate <= 0.6 && (
-                            <span className="badge bg-warning me-1">Average</span>
+                            <span className="badge bg-warning text-white me-1">Average</span>
                           )}
                           {prompt.positiveRate <= 0.4 && (
-                            <span className="badge bg-danger me-1">Poor</span>
+                            <span className="badge bg-danger text-white me-1">Poor</span>
                           )}
                           {prompt.totalVotes >= 100 && (
-                            <span className="badge bg-info">High Volume</span>
+                            <span className="badge bg-info text-white">High Volume</span>
                           )}
                         </div>
                       </td>

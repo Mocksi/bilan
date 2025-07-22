@@ -11,11 +11,11 @@ export function JourneyPerformance({ data, className = '' }: JourneyPerformanceP
   
   const getStatusBadge = (completionRate: number) => {
     if (completionRate >= 0.8) {
-      return 'badge bg-success'
+      return 'badge bg-success text-white'
     } else if (completionRate >= 0.6) {
-      return 'badge bg-warning'
+      return 'badge bg-warning text-white'
     } else {
-      return 'badge bg-danger'
+      return 'badge bg-danger text-white'
     }
   }
 
