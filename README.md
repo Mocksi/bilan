@@ -12,7 +12,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 [![CI](https://img.shields.io/github/actions/workflow/status/Mocksi/bilan/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/Mocksi/bilan/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/Mocksi/bilan/graph/badge.svg?token=YV3PW1YYM3)](https://codecov.io/gh/Mocksi/bilan)
-[![Bundle Size](https://img.shields.io/badge/Bundle%20Size-4.8KB%20gzipped-brightgreen?style=flat-square)](https://github.com/Mocksi/bilan/tree/main/packages/sdk)
+[![Bundle Size](https://img.shields.io/badge/Bundle%20Size-5.4KB%20gzipped-yellow?style=flat-square)](https://github.com/Mocksi/bilan/tree/main/packages/sdk)
 [![Docker](https://img.shields.io/badge/Docker-Ready-blue?style=flat-square)](https://github.com/Mocksi/bilan/tree/main/docker)
 [![Production](https://img.shields.io/badge/Production-Ready-green?style=flat-square)](https://github.com/Mocksi/bilan/tree/main/docs/deployment.md)
 
@@ -23,15 +23,13 @@
 ## 📑 Table of Contents
 
 - [What is Bilan?](#what-is-bilan)
-- [✨ v0.4.1: Turn ID Unification](#-v041-turn-id-unification)
-- [Quick Start](#quick-start)
+- [Turn ID Unification (v0.4.1)](#v041-turn-id-unification)
 - [Platform Features](#platform-features)
+- [Quick Start](#quick-start)
+- [Advanced Configuration](#advanced-configuration)
+- [API Reference](#complete-api-reference)
 - [Self-Hosting](#self-hosting)
 - [Architecture](#architecture)
-- [Configuration](#configuration)
-- [API Reference](#api-reference)
-- [Bundle Size & Performance](#bundle-size--performance)
-- [Migration Guide](#migration-guide)
 - [FAQ](#faq)
 - [Contributing](#contributing)
 - [License](#license)
