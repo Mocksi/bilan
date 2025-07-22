@@ -38,8 +38,9 @@ Wrap any AI call to automatically track success, failures, and performance:
 const response = await openai.chat.completions.create({...})
 
 // After: Automatic turn tracking with failure detection
+const prompt = 'Help me write an email'
 const response = await bilan.trackTurn(
-  'Help me write an email',
+  prompt,
   () => openai.chat.completions.create({
     model: 'gpt-4',
     messages: [{ role: 'user', content: prompt }]
