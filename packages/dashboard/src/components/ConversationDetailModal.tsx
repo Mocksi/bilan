@@ -83,7 +83,7 @@ export const ConversationDetailModal: React.FC<ConversationDetailModalProps> = (
                           </div>
                         )}
                       </div>
-                      <span className={`badge ${conversation.outcome === 'positive' ? 'badge-success text-white' : 'badge-danger text-white'}`}>
+                      <span className={`badge ${conversation.outcome === 'positive' ? 'bg-success text-white' : 'bg-danger text-white'}`}>
                         {conversation.outcome}
                       </span>
                     </div>
@@ -285,7 +285,7 @@ const ConversationTimeline: React.FC<{ conversation: ConversationSummary; contex
     </div>
     
     <div className="timeline-item">
-      <div className="timeline-badge bg-info">
+      <div className="timeline-badge bg-info text-white">
         <i className="fas fa-comment"></i>
       </div>
       <div className="timeline-panel">
@@ -334,7 +334,7 @@ const ConversationTimeline: React.FC<{ conversation: ConversationSummary; contex
           </p>
         </div>
         <div className="timeline-body">
-          <span className={`badge ${conversation.outcome === 'positive' ? 'badge-success' : 'badge-danger'} me-2`}>
+            <span className={`badge ${conversation.outcome === 'positive' ? 'bg-success text-white' : 'bg-danger text-white'} me-2`}>
             {conversation.outcome}
           </span>
           {conversation.comment && (

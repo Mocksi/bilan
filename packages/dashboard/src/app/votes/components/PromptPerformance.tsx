@@ -178,7 +178,7 @@ export const PromptPerformance: React.FC<PromptPerformanceProps> = ({ analytics,
                       <td>
                         <div className="d-flex align-items-center">
                           <div className="me-2">
-                            <span className={`badge ${prompt.positiveRate > 0.7 ? 'bg-success text-white' : prompt.positiveRate > 0.3 ? 'bg-warning' : 'bg-danger text-white'}`}>
+                            <span className={`badge ${prompt.positiveRate > 0.7 ? 'bg-success text-white' : prompt.positiveRate > 0.3 ? 'bg-warning text-white' : 'bg-danger text-white'}`}>
                               {(prompt.positiveRate * 100).toFixed(1)}%
                             </span>
                           </div>

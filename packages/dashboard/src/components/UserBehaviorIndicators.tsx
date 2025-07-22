@@ -50,10 +50,10 @@ export const UserBehaviorIndicators: React.FC<UserBehaviorIndicatorsProps> = ({
         return 'bg-danger text-white'
       case 'medium':
         return 'bg-warning text-white'
-              case 'low':
-          return 'bg-secondary text-white'
-        default:
-          return 'bg-secondary text-white'
+      case 'low':
+        return 'bg-secondary text-white'
+      default:
+        return 'bg-secondary text-white'
     }
   }
   
