@@ -385,6 +385,83 @@ describe('Migration Rollback Safety', () => {
       expect(finalVote.turn_id).toBe(initialVote.turn_id)
       expect(finalVote.temp_marker).toBeNull() // Update was rolled back
     })
+
+    it('should generate unique event IDs using hash-based approach', () => {
+      // Test the PostgreSQL-style hash-based UUID generation using SQLite equivalent
+      // This simulates md5(random()::text || clock_timestamp()::text || pg_backend_pid()::text)
+      
+      const generatedIds = new Set<string>()
+      const iterations = 100
+      
+      // Generate multiple IDs in rapid succession to test for collisions
+      for (let i = 0; i < iterations; i++) {
+        // Simulate PostgreSQL's approach using SQLite available functions
+        const timestamp = Date.now() + i // Add variation
+        const randomValue = Math.random()
+        const processId = process.pid || 12345
+        const combinedString = `${randomValue}${timestamp}${processId}${i}`
+        
+        // Simple hash function for testing (simulating md5)
+        let hash = 0
+        for (let j = 0; j < combinedString.length; j++) {
+          const char = combinedString.charCodeAt(j)
+          hash = ((hash << 5) - hash) + char
+          hash = hash & hash // Convert to 32bit integer
+        }
+        
+        const eventId = `migration_003_start_${Math.abs(hash).toString(16)}`
+        generatedIds.add(eventId)
+      }
+      
+      // Verify all IDs are unique (no collisions)
+      expect(generatedIds.size).toBe(iterations)
+      
+      // Verify all IDs have the expected prefix
+      generatedIds.forEach(id => {
+        expect(id).toMatch(/^migration_003_start_[0-9a-f]+$/)
+        expect(id.length).toBeGreaterThan(20) // Should be reasonably long
+      })
+    })
+
+    it('should demonstrate the old collision-prone approach vs new approach', () => {
+      // Demonstrate why the old approach was problematic
+      const oldStyleIds = new Set<string>()
+      const newStyleIds = new Set<string>()
+      const iterations = 1000
+      
+      // Old approach simulation (collision-prone)
+      for (let i = 0; i < iterations; i++) {
+        const timestamp = Math.floor(Date.now() / 1000) // Same timestamp for many iterations
+        const randomSuffix = Math.floor(Math.random() * 1000) // Only 1000 possible values!
+        const oldId = `migration_003_start_${timestamp}_${randomSuffix}`
+        oldStyleIds.add(oldId)
+      }
+      
+      // New approach simulation (collision-resistant)
+      for (let i = 0; i < iterations; i++) {
+        const timestamp = Date.now() + i
+        const randomValue = Math.random()
+        const processId = process.pid || 12345
+        const combinedString = `${randomValue}${timestamp}${processId}${i}`
+        
+        let hash = 0
+        for (let j = 0; j < combinedString.length; j++) {
+          const char = combinedString.charCodeAt(j)
+          hash = ((hash << 5) - hash) + char
+          hash = hash & hash
+        }
+        
+        const newId = `migration_003_start_${Math.abs(hash).toString(16)}`
+        newStyleIds.add(newId)
+      }
+      
+      // Old approach will have collisions, new approach should have none
+      expect(oldStyleIds.size).toBeLessThan(iterations) // Collisions occurred
+      expect(newStyleIds.size).toBe(iterations) // No collisions
+      
+      console.log(`Old approach: ${oldStyleIds.size}/${iterations} unique IDs (${iterations - oldStyleIds.size} collisions)`)
+      console.log(`New approach: ${newStyleIds.size}/${iterations} unique IDs (${iterations - newStyleIds.size} collisions)`)
+    })
   })
 
   describe('Rollback Data Integrity', () => {

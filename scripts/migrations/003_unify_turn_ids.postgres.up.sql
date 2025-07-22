@@ -13,7 +13,7 @@ SELECT * FROM events WHERE event_type = 'vote_cast';
 -- Log pre-migration state
 INSERT INTO events (event_id, user_id, event_type, timestamp, properties) 
 VALUES (
-  'migration_003_start_' || EXTRACT(EPOCH FROM NOW())::TEXT || '_' || (random() * 1000)::INTEGER,
+  'migration_003_start_' || md5(random()::text || clock_timestamp()::text || pg_backend_pid()::text),
   'system',
   'user_action',
   EXTRACT(EPOCH FROM NOW())::BIGINT * 1000,
@@ -61,7 +61,7 @@ WHERE event_type = 'vote_cast';
 -- Log post-migration state
 INSERT INTO events (event_id, user_id, event_type, timestamp, properties) 
 VALUES (
-  'migration_003_complete_' || EXTRACT(EPOCH FROM NOW())::TEXT || '_' || (random() * 1000)::INTEGER,
+  'migration_003_complete_' || md5(random()::text || clock_timestamp()::text || pg_backend_pid()::text),
   'system',
   'user_action',
   EXTRACT(EPOCH FROM NOW())::BIGINT * 1000,

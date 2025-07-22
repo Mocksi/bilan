@@ -9,7 +9,7 @@ BEGIN;
 -- Log rollback start
 INSERT INTO events (event_id, user_id, event_type, timestamp, properties) 
 VALUES (
-  'migration_003_rollback_' || EXTRACT(EPOCH FROM NOW())::TEXT || '_' || (random() * 1000)::INTEGER,
+  'migration_003_rollback_' || md5(random()::text || clock_timestamp()::text || pg_backend_pid()::text),
   'system',
   'user_action',
   EXTRACT(EPOCH FROM NOW())::BIGINT * 1000,
@@ -40,7 +40,7 @@ ON CONFLICT (event_id) DO NOTHING;
 -- Log rollback completion
 INSERT INTO events (event_id, user_id, event_type, timestamp, properties) 
 VALUES (
-  'migration_003_rollback_complete_' || EXTRACT(EPOCH FROM NOW())::TEXT || '_' || (random() * 1000)::INTEGER,
+  'migration_003_rollback_complete_' || md5(random()::text || clock_timestamp()::text || pg_backend_pid()::text),
   'system',
   'user_action',
   EXTRACT(EPOCH FROM NOW())::BIGINT * 1000,
