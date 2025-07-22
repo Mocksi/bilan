@@ -95,6 +95,7 @@ export interface Event {
 export interface VoteData {
   id: string
   promptId: string
+  turn_id?: string      // NEW: Add turn_id support
   userId: string
   value: number // -1 for negative, 1 for positive
   rating?: 'positive' | 'negative'
