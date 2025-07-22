@@ -28,10 +28,12 @@ WHERE event_type = 'journey_step'
   AND JSON_EXTRACT(properties, '$.journeyName') IS NOT NULL;
 
 -- Populate turn_sequence for turn events where available (with safe casting)
+-- Note: GLOB '[0-9]*' matches digits-only strings; empty string protection via NULLIF + LENGTH checks
 UPDATE events
 SET turn_sequence = CASE 
-  WHEN NULLIF(TRIM(properties->>'turn_sequence'), '') GLOB '[0-9]*'
+  WHEN NULLIF(TRIM(properties->>'turn_sequence'), '') IS NOT NULL
    AND LENGTH(NULLIF(TRIM(properties->>'turn_sequence'), '')) > 0
+   AND NULLIF(TRIM(properties->>'turn_sequence'), '') GLOB '[0-9]*'
    AND CAST(NULLIF(TRIM(properties->>'turn_sequence'), '') AS INTEGER) > 0
   THEN CAST(NULLIF(TRIM(properties->>'turn_sequence'), '') AS INTEGER)
   ELSE NULL

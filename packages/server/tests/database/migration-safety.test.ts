@@ -29,8 +29,9 @@ describe('Migration Safety - Safe Integer Casting', () => {
       const result = db.queryOne(`
         SELECT 
           CASE 
-            WHEN NULLIF(TRIM(properties->>'turn_sequence'), '') GLOB '[0-9]*'
+            WHEN NULLIF(TRIM(properties->>'turn_sequence'), '') IS NOT NULL
              AND LENGTH(NULLIF(TRIM(properties->>'turn_sequence'), '')) > 0
+             AND NULLIF(TRIM(properties->>'turn_sequence'), '') GLOB '[0-9]*'
              AND CAST(NULLIF(TRIM(properties->>'turn_sequence'), '') AS INTEGER) > 0
             THEN CAST(NULLIF(TRIM(properties->>'turn_sequence'), '') AS INTEGER)
             ELSE NULL
@@ -143,7 +144,7 @@ describe('Migration Safety - Safe Integer Casting', () => {
         FROM events WHERE event_id = ?
       `, ['turn_negative'])
 
-      // Negative numbers should be null (doesn't match [0-9]* pattern and condition requires > 0)
+              // Negative numbers should be null (GLOB '[0-9]* matches digits-only; condition requires > 0)
       expect(result.safe_turn_sequence).toBeNull()
     })
 
