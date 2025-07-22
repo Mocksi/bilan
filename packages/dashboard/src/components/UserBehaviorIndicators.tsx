@@ -47,13 +47,13 @@ export const UserBehaviorIndicators: React.FC<UserBehaviorIndicatorsProps> = ({
   const getIntensityBadge = (intensity: BehaviorSignal['intensity']): string => {
     switch (intensity) {
       case 'high':
-        return 'badge-danger'
+        return 'bg-danger text-white'
       case 'medium':
-        return 'badge-warning'
+        return 'bg-warning text-white'
       case 'low':
-        return 'badge-secondary'
+        return 'bg-secondary text-white'
       default:
-        return 'badge-secondary'
+        return 'bg-secondary text-white'
     }
   }
   
@@ -206,11 +206,11 @@ export const UserBehaviorIndicators: React.FC<UserBehaviorIndicatorsProps> = ({
                   <span>Engagement Level:</span>
                   <span>
                     {userActions.length > 3 ? (
-                      <span className="badge badge-success">High</span>
+                      <span className="badge bg-success text-white">High</span>
                     ) : userActions.length > 1 ? (
-                      <span className="badge badge-warning">Medium</span>
+                      <span className="badge bg-warning text-white">Medium</span>
                     ) : (
-                      <span className="badge badge-secondary">Low</span>
+                      <span className="badge bg-secondary text-white">Low</span>
                     )}
                   </span>
                 </div>
@@ -218,11 +218,11 @@ export const UserBehaviorIndicators: React.FC<UserBehaviorIndicatorsProps> = ({
                   <span>Session Quality:</span>
                   <span>
                     {behaviorSignals.some(s => s.type === 'frustration') ? (
-                      <span className="badge badge-danger">Problematic</span>
+                      <span className="badge bg-danger text-white">Problematic</span>
                     ) : behaviorSignals.some(s => s.type === 'success') ? (
-                      <span className="badge badge-success">Excellent</span>
+                      <span className="badge bg-success text-white">Excellent</span>
                     ) : (
-                      <span className="badge badge-info">Normal</span>
+                      <span className="badge bg-info text-white">Normal</span>
                     )}
                   </span>
                 </div>

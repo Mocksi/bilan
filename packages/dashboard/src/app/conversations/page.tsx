@@ -145,7 +145,7 @@ const ConversationsContent: React.FC = () => {
                       </td>
                       <td>
                         <span className={`badge ${
-                          conversation.endTime ? 'bg-success' : 'bg-primary'
+                          conversation.endTime ? 'bg-success text-white' : 'bg-primary text-white'
                         }`}>
                           {conversation.endTime ? 'completed' : 'active'}
                         </span>

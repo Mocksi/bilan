@@ -83,7 +83,7 @@ export function VotesOverview({ analytics, loading }: VotesOverviewProps) {
             <div className="d-flex align-items-baseline">
               <div className="h1 mb-0 me-2">{(overview.positiveRate * 100).toFixed(1)}%</div>
               <div className="ms-auto">
-                <span className={`badge ${overview.positiveRate > 0.7 ? 'bg-success' : overview.positiveRate < 0.3 ? 'bg-danger' : 'bg-secondary'}`}>
+                <span className={`badge ${overview.positiveRate > 0.7 ? 'bg-success text-white' : overview.positiveRate < 0.3 ? 'bg-danger text-white' : 'bg-secondary'}`}>
                   {overview.positiveRate > 0.7 ? 'Positive' : overview.positiveRate < 0.3 ? 'Negative' : 'Neutral'}
                 </span>
               </div>
@@ -110,7 +110,7 @@ export function VotesOverview({ analytics, loading }: VotesOverviewProps) {
             <div className="d-flex align-items-baseline">
               <div className="h1 mb-0 me-2">{overview.averageRating.toFixed(2)}</div>
               <div className="ms-auto">
-                <span className={`badge ${overview.averageRating > 0 ? 'bg-success' : overview.averageRating < 0 ? 'bg-danger' : 'bg-secondary'}`}>
+                <span className={`badge ${overview.averageRating > 0 ? 'bg-success text-white' : overview.averageRating < 0 ? 'bg-danger text-white' : 'bg-secondary'}`}>
                   {overview.averageRating > 0 ? 'Positive' : overview.averageRating < 0 ? 'Negative' : 'Neutral'}
                 </span>
               </div>

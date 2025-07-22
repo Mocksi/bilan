@@ -197,12 +197,12 @@ export const VoteTable: React.FC<VoteTableProps> = ({ votes, loading, onVoteClic
                         </svg>
                       </button>
                       {vote.metadata?.journey && (
-                        <span className="badge bg-info" title={`Journey: ${vote.metadata.journey}`}>
+                        <span className="badge bg-info text-white" title={`Journey: ${vote.metadata.journey}`}>
                           {vote.metadata.step || 'Journey'}
                         </span>
                       )}
                       {vote.model && (
-                        <span className="badge bg-secondary" title={`Model: ${vote.model}`}>
+                        <span className="badge bg-secondary text-white" title={`Model: ${vote.model}`}>
                           {vote.model}
                         </span>
                       )}

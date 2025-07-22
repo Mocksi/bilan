@@ -46,19 +46,19 @@ export const QualitySignalIndicator: React.FC<QualitySignalIndicatorProps> = ({
             <div className="card-body">
               <div className="d-flex justify-content-between align-items-center mb-2">
                 <span className="text-muted">Positive Signals</span>
-                <span className="badge badge-success">
+                <span className="badge bg-success text-white">
                   {positiveSignals.length}
                 </span>
               </div>
               <div className="d-flex justify-content-between align-items-center mb-2">
                 <span className="text-muted">Negative Signals</span>
-                <span className="badge badge-danger">
+                <span className="badge bg-danger text-white">
                   {negativeSignals.length}
                 </span>
               </div>
               <div className="d-flex justify-content-between align-items-center">
                 <span className="text-muted">Net Score</span>
-                <span className={`badge ${positiveSignals.length > negativeSignals.length ? 'badge-success' : 'badge-danger'}`}>
+                <span className={`badge ${positiveSignals.length > negativeSignals.length ? 'bg-success text-white' : 'bg-danger text-white'}`}>
                   {positiveSignals.length - negativeSignals.length > 0 ? '+' : ''}{positiveSignals.length - negativeSignals.length}
                 </span>
               </div>
