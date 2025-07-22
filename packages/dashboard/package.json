@@ -1,6 +1,6 @@
 {
   "name": "@bilan/dashboard",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "Fixed analytics dashboard for Bilan trust metrics",
   "private": true,
   "scripts": {
