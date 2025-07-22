@@ -284,7 +284,7 @@ export class BilanDatabase {
       event_type: EVENT_TYPES.VOTE_CAST,
       timestamp: event.timestamp,
       properties: {
-        prompt_id: event.promptId,
+        turn_id: event.promptId, // Map promptId to turn_id for consistency
         value: event.value,
         comment: event.comment,
         model_used: event.modelUsed,
@@ -390,27 +390,39 @@ export class BilanDatabase {
   }
 
   /**
-   * Legacy method for backward compatibility
-   * Maps old vote queries to new event structure
+   * Get vote events with optional filtering for backward compatibility
+   * Supports both new turn_id and legacy promptId filtering
    */
   getVoteEvents(filters: { 
     userId?: string; 
-    promptId?: string; 
-    limit?: number; 
-    offset?: number;
-    startTimestamp?: number;
-    endTimestamp?: number;
+    promptId?: string;  // Legacy support
+    turnId?: string;    // New turn_id support
   } = {}): VoteEvent[] {
-    const { promptId, ...eventFilters } = filters
+    const { promptId, turnId, ...eventFilters } = filters
     
-    const events = this.getEvents({
-      ...eventFilters,
-      eventType: EVENT_TYPES.VOTE_CAST
+    const events = this.getEvents({ 
+      eventType: EVENT_TYPES.VOTE_CAST,
+      limit: 10000,
+      ...eventFilters
     })
     
     return events
-      .filter(event => !promptId || event.properties.prompt_id === promptId)
-      .map(this.mapEventToVote)
+      // Filter by turn_id if provided (new approach)
+      .filter(event => !turnId || event.properties.turn_id === turnId)
+      // Filter by promptId for legacy compatibility (maps to turn_id)
+      .filter(event => !promptId || event.properties.turn_id === promptId)
+      .map(event => ({
+        promptId: event.properties.turn_id || event.properties.prompt_id, // Return as promptId for backward compatibility
+        value: event.properties.value,
+        comment: event.properties.comment,
+        timestamp: event.timestamp,
+        userId: event.user_id,
+        metadata: event.properties,
+        promptText: event.prompt_text || undefined,
+        aiOutput: event.ai_response || undefined,
+        modelUsed: event.properties.model_used || event.properties.modelUsed || undefined,
+        responseTime: event.properties.response_time || event.properties.responseTime || undefined
+      }))
   }
 
   private mapRowToEvent(row: any): Event {
