@@ -26,56 +26,53 @@ Bilan is an open source analytics platform that helps you understand how users i
 
 **Perfect for:** Individual developers, startups, and teams who want complete visibility into AI user experience without external dependencies.
 
-### ✨ **v0.4.0: Event-Based Architecture**
+### ✨ **v0.4.1: Turn ID Unification**
 
-Bilan v0.4.0 transforms AI analytics with a flexible, event-driven approach that automatically captures success rates, failure modes, and user behavior patterns with minimal integration effort.
+Bilan v0.4.1 simplifies AI analytics with industry-standard event linking that follows proven patterns from Amplitude and Mixpanel. No more confusing dual-ID systems - just clean, correlated analytics.
 
-#### 🚀 One-Line AI Tracking
-Wrap any AI call to automatically track success, failures, and performance:
-
+#### 🚀 Industry-Standard Event Correlation
 ```typescript
-// Before: Manual conversation management 
-const response = await openai.chat.completions.create({...})
-
-// After: Automatic turn tracking with failure detection
-const prompt = 'Help me write an email'
-const response = await bilan.trackTurn(
-  prompt,
+// ✅ v0.4.1: Clean event linking with shared identifier
+const { result, turnId } = await bilan.trackTurn(
+  'Help me write an email',
   () => openai.chat.completions.create({
     model: 'gpt-4',
     messages: [{ role: 'user', content: prompt }]
   })
 )
+
+// Use the same turnId for related events
+await bilan.vote(turnId, 1, 'Great response!')
 ```
 
 **Automatically captures:**
-- ✅ Success rates and response times
-- ❌ Timeouts, rate limits, and API errors
-- 📊 Model performance metrics
-- 👤 User interaction patterns
+- ✅ Success rates and response times with **direct turn-to-vote correlation**
+- ❌ Timeouts, rate limits, and API errors **linked to user feedback**
+- 📊 Model performance metrics **with user satisfaction data**
+- 👤 User interaction patterns **across complete workflows**
 
-#### 🎯 Core Capabilities
+#### 🎯 Enhanced Context Tracking
 
 ##### **🔄 Turn-Based Analytics**
-Every AI interaction is tracked as an atomic "turn" with comprehensive metrics:
-- **Success/Failure Tracking**: Automatic detection of timeouts, API errors, and cancellations
-- **Performance Metrics**: Response times, token usage, and model performance
-- **Error Classification**: Detailed error categorization (timeout, rate_limit, network, etc.)
+Every AI interaction is tracked as an atomic "turn" with **automatic event correlation**:
+- **Success/Failure Tracking**: Automatic detection with user feedback correlation
+- **Performance Metrics**: Response times linked to satisfaction scores
+- **Error Classification**: Detailed categorization with user reaction data
 - **Privacy Controls**: Configurable prompt and response capture with PII sanitization
 
 ##### **💬 Conversation Aggregation**  
-Turns automatically aggregate into conversation sessions:
+Turns automatically aggregate into conversation sessions with **optional context**:
 - **Session Management**: Automatic conversation grouping and lifecycle tracking
-- **Multi-turn Analysis**: Conversation flow patterns and user behavior insights
-- **Abandonment Detection**: Identify where users drop off or get frustrated
-- **Success Metrics**: Completion rates and conversation quality scores
+- **Multi-turn Analysis**: Conversation flow patterns with turn sequencing
+- **Abandonment Detection**: Identify where users drop off with contextual data
+- **Success Metrics**: Completion rates correlated with user feedback
 
 ##### **🗺️ Journey Workflows**
-Track user progress through multi-step AI-powered workflows:
-- **Step Progression**: Monitor progress through predefined journey steps
-- **Funnel Analysis**: Identify optimization opportunities and drop-off points
-- **Completion Tracking**: Measure end-to-end workflow success rates
-- **User Path Analysis**: Understand how users navigate AI-powered experiences
+Track user progress through multi-step AI-powered workflows with **flexible relationships**:
+- **Step Progression**: Monitor progress with optional journey context
+- **Funnel Analysis**: Identify optimization opportunities with turn-level data
+- **Completion Tracking**: Measure end-to-end workflow success with user satisfaction
+- **Cross-Context Insights**: Understand user behavior across different workflows
 
 ##### **👍 Enhanced Feedback Collection**
 Capture both explicit and implicit user signals:
@@ -117,7 +114,7 @@ Built on a flexible event architecture that grows with your needs:
 npm install @mocksi/bilan-sdk
 ```
 
-#### **🚀 Effortless AI Tracking**
+#### **🚀 Industry-Standard Event Correlation**
 
 ```typescript
 import { init, trackTurn, vote, startConversation, trackJourneyStep, createUserId } from '@mocksi/bilan-sdk'
@@ -131,8 +128,8 @@ await init({
   captureResponses: false  // Default: privacy-first
 })
 
-// Wrap any AI call for automatic tracking
-const response = await trackTurn(
+// ✅ v0.4.1: Industry-standard event correlation
+const { result, turnId } = await trackTurn(
   'Help me write a professional email',
   () => openai.chat.completions.create({
     model: 'gpt-4',
@@ -145,10 +142,10 @@ const response = await trackTurn(
   }
 )
 
-// Capture user feedback
-await vote(promptId, 1, 'Very helpful!')
+// Use the same turnId for user feedback - automatic correlation
+await vote(turnId, 1, 'Very helpful!')
 
-// Track user journeys
+// Track user journeys with optional context
 await trackJourneyStep('email-workflow', 'draft-composed', createUserId('user-123'))
 await trackJourneyStep('email-workflow', 'ai-enhanced', createUserId('user-123'))
 ```
@@ -159,26 +156,35 @@ await trackJourneyStep('email-workflow', 'ai-enhanced', createUserId('user-123')
 // Start a conversation
 const conversationId = await startConversation('user-123')
 
-// Track AI interactions with automatic failure detection
-const response1 = await trackTurn(
+// Track AI interactions with automatic correlation
+const { result: response1, turnId: turn1 } = await trackTurn(
   'Write an email subject line',
   () => callOpenAI(prompt),
-  { conversationId }
+  { 
+    conversationId,
+    journey_id: 'email-workflow',
+    turn_sequence: 1 
+  }
 )
 
-const response2 = await trackTurn(
+const { result: response2, turnId: turn2 } = await trackTurn(
   'Write the email body',
   () => callOpenAI(bodyPrompt),  
-  { conversationId }
+  { 
+    conversationId,
+    journey_id: 'email-workflow', 
+    turn_sequence: 2
+  }
 )
 
-// Record user feedback
-await recordFeedback(conversationId, 1, 'Great suggestions!')
+// Record user feedback using turnIds - automatic correlation
+await vote(turn1, 1, 'Great subject line!')
+await vote(turn2, 1, 'Perfect email body!')
 
-// End conversation
+// End conversation with success metrics
 await endConversation(conversationId, 'completed')
 
-// Analytics are automatically available in your dashboard
+// Analytics are automatically available with turn-to-vote correlation
 ```
 
 ### Advanced Configuration
@@ -268,6 +274,45 @@ interface AnalyticsStats {
 
 **`init(config: InitConfig): Promise<void>`**
 Initialize the SDK with configuration.
+
+**Turn Tracking Methods (v0.4.1)**
+
+**`trackTurn<T>(prompt: string, aiCall: () => Promise<T>, context?: object): Promise<{ result: T, turnId: string }>`**
+Track an AI interaction and return both the result and turnId for event correlation.
+
+```typescript
+// Basic turn tracking
+const { result, turnId } = await trackTurn(
+  'How do I center a div?',
+  () => openai.chat.completions.create({ 
+    model: 'gpt-4', 
+    messages: [{ role: 'user', content: prompt }] 
+  })
+)
+
+// Turn tracking with context
+const { result, turnId } = await trackTurn(
+  'Review this code',
+  () => callAI(prompt),
+  {
+    journey_id: 'code-review-workflow',
+    conversation_id: 'conv_123',
+    turn_sequence: 2,
+    systemPromptVersion: 'v2.1'
+  }
+)
+```
+
+**Feedback Methods (v0.4.1)**
+
+**`vote(turnId: string, value: 1 | -1, comment?: string): Promise<void>`**
+Record user feedback using the turnId from trackTurn for automatic correlation.
+
+```typescript
+// ✅ v0.4.1: Use turnId from trackTurn for automatic correlation
+const { result, turnId } = await trackTurn('Generate code', aiCall)
+await vote(turnId, 1, 'Perfect code generation!')
+```
 
 **Conversation Tracking Methods**
 
@@ -666,117 +711,3 @@ interface BasicStats {
 ```
 
 #### `getPromptStats(promptId: string): PromptStats`
-Get analytics for a specific prompt.
-
-```typescript
-interface PromptStats {
-  promptId: string
-  totalVotes: number
-  positiveRate: number
-  comments: string[]
-}
-```
-
-### Server API
-
-#### `POST /api/events`
-Submit voting events to the server.
-
-```bash
-curl -X POST http://localhost:3002/api/events \
-  -H "Content-Type: application/json" \
-  -d '{
-    "events": [{
-      "promptId": "prompt-123",
-      "value": 1,
-      "comment": "Great suggestion!",
-      "metadata": {
-        "timestamp": 1642634400000
-      }
-    }]
-  }'
-```
-
-#### `GET /api/stats?userId=user-123`
-Get basic analytics for a user.
-
-```bash
-curl http://localhost:3002/api/stats?userId=user-123
-```
-
-## Integration Examples
-
-### React Hook
-
-```typescript
-import { useEffect, useState } from 'react'
-import { init, vote, getStats } from '@mocksi/bilan-sdk'
-
-export function useBilan(userId: string) {
-  const [stats, setStats] = useState(null)
-  
-  useEffect(() => {
-    init({ mode: 'local', userId })
-    setStats(getStats())
-  }, [userId])
-  
-  const handleVote = (promptId: string, value: 1 | -1, comment?: string) => {
-    vote(promptId, value, comment)
-    setStats(getStats()) // Update stats
-  }
-  
-  return { stats, vote: handleVote }
-}
-```
-
-### Next.js App Router
-
-```typescript
-// app/components/AIFeedback.tsx
-'use client'
-import { useBilan } from '@/hooks/useBilan'
-
-export default function AIFeedback({ promptId, suggestion }: Props) {
-  const { vote } = useBilan(user.id)
-  
-  return (
-    <div className="ai-suggestion">
-      <p>{suggestion}</p>
-      <div className="feedback-buttons">
-        <button onClick={() => vote(promptId, 1)}>👍</button>
-        <button onClick={() => vote(promptId, -1)}>👎</button>
-      </div>
-    </div>
-  )
-}
-```
-
-### Vue.js
-
-```vue
-<template>
-  <div class="ai-suggestion">
-    <p>{{ suggestion }}</p>
-    <button @click="vote(promptId, 1)">👍</button>
-    <button @click="vote(promptId, -1)">👎</button>
-  </div>
-</template>
-
-<script setup>
-import { init, vote } from '@mocksi/bilan-sdk'
-
-const props = defineProps(['promptId', 'suggestion'])
-const { userId } = useAuth()
-
-onMounted(() => {
-  init({ mode: 'local', userId })
-})
-</script>
-```
-
-## Development
-
-### Project Structure
-
-```
-```
