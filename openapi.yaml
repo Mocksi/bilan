@@ -462,16 +462,10 @@ paths:
                     description: Whether there are more events available
         '500':
           description: Internal server error
-                  timestamp:
-                    type: string
-                    format: date-time
-                    description: ISO 8601 timestamp
-                required:
-                  - status
-                  - timestamp
-              example:
-                status: ok
-                timestamp: "2024-01-15T10:30:00.000Z"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /api/events:
     post:
