@@ -186,6 +186,70 @@ describe('Migration Rollback Safety', () => {
       // Cleanup
       db.executeRaw(`DROP TABLE events_temp`)
     })
+
+    it('should handle ON CONFLICT DO NOTHING safely (PostgreSQL-style)', () => {
+      // Test the PostgreSQL-specific ON CONFLICT (event_id) DO NOTHING logic
+      // using SQLite's INSERT OR IGNORE equivalent
+      
+      const voteEvents: Event[] = [
+        {
+          event_id: 'conflict_test_vote_1',
+          user_id: 'user_123',
+          event_type: EVENT_TYPES.VOTE_CAST,
+          timestamp: Date.now(),
+          properties: { promptId: 'prompt_original', value: 1 }
+        }
+      ]
+
+      db.insertEvents(voteEvents)
+
+      // Create backup table
+      db.executeRaw(`
+        CREATE TABLE vote_events_backup AS 
+        SELECT * FROM events WHERE event_type = 'vote_cast'
+      `)
+
+      // Simulate PostgreSQL ON CONFLICT behavior using SQLite's INSERT OR IGNORE
+      // This should not cause errors even if the event_id already exists
+      
+      // First, try to insert the same event (should be ignored)
+      expect(() => {
+        db.executeRaw(`
+          INSERT OR IGNORE INTO events 
+          SELECT * FROM vote_events_backup 
+          WHERE event_type = 'vote_cast'
+        `)
+      }).not.toThrow()
+
+      // Verify only one row exists (no duplicates)
+      const voteCount = db.queryOne(`
+        SELECT COUNT(*) as count FROM events WHERE event_type = 'vote_cast'
+      `)
+      expect(voteCount.count).toBe(1)
+
+      // Try inserting again - should still be safe
+      expect(() => {
+        db.executeRaw(`
+          INSERT OR IGNORE INTO events 
+          SELECT * FROM vote_events_backup 
+          WHERE event_type = 'vote_cast'
+        `)
+      }).not.toThrow()
+
+      // Verify still only one row (ON CONFLICT DO NOTHING behavior)
+      const finalCount = db.queryOne(`
+        SELECT COUNT(*) as count FROM events WHERE event_type = 'vote_cast'
+      `)
+      expect(finalCount.count).toBe(1)
+
+      // Verify the original data is preserved
+      const preservedEvent = db.queryOne(`
+        SELECT properties->>'promptId' as promptId, JSON_EXTRACT(properties, '$.value') as value
+        FROM events WHERE event_type = 'vote_cast' AND event_id = 'conflict_test_vote_1'
+      `)
+      expect(preservedEvent.promptId).toBe('prompt_original')
+      expect(preservedEvent.value).toBe(1)
+    })
   })
 
   describe('Rollback Data Integrity', () => {

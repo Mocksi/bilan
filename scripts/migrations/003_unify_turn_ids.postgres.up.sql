@@ -21,7 +21,8 @@ VALUES (
     'votes_with_promptId', (SELECT COUNT(*) FROM events WHERE event_type = 'vote_cast' AND properties ? 'promptId'),
     'votes_with_turnId', (SELECT COUNT(*) FROM events WHERE event_type = 'vote_cast' AND properties ? 'turnId')
   )
-);
+)
+ON CONFLICT (event_id) DO NOTHING;
 
 -- Update vote events to use turn_id instead of promptId
 -- Handle different possible property structures for compatibility
@@ -69,7 +70,8 @@ VALUES (
     'votes_with_promptId_remaining', votes_with_promptId_remaining,
     'migration_success', CASE WHEN votes_with_promptId_remaining = 0 AND votes_with_turn_id > 0 THEN 1 ELSE 0 END
   ) FROM migration_verification)
-);
+)
+ON CONFLICT (event_id) DO NOTHING;
 
 -- Final verification with error handling
 DO $$

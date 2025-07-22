@@ -16,7 +16,8 @@ VALUES (
     'vote_events_before_rollback', (SELECT COUNT(*) FROM events WHERE event_type = 'vote_cast'),
     'votes_with_turn_id', (SELECT COUNT(*) FROM events WHERE event_type = 'vote_cast' AND properties ? 'turn_id')
   )
-);
+)
+ON CONFLICT (event_id) DO NOTHING;
 
 -- Restore vote events from backup if available
 -- Note: We only need to restore vote_cast events since non-vote events weren't modified
@@ -24,10 +25,11 @@ VALUES (
 -- Delete current vote events
 DELETE FROM events WHERE event_type = 'vote_cast';
 
--- Restore vote events from backup table
+-- Restore vote events from backup table (with conflict resolution for safety)
 INSERT INTO events 
 SELECT * FROM vote_events_backup 
-WHERE event_type = 'vote_cast';
+WHERE event_type = 'vote_cast'
+ON CONFLICT (event_id) DO NOTHING;
 
 -- Note: Non-vote events are already in the events table and don't need restoration
 -- since they were never modified during the forward migration
@@ -45,7 +47,8 @@ VALUES (
     'vote_events_restored', (SELECT COUNT(*) FROM events WHERE event_type = 'vote_cast'),
     'votes_with_promptId', (SELECT COUNT(*) FROM events WHERE event_type = 'vote_cast' AND properties ? 'promptId')
   )
-);
+)
+ON CONFLICT (event_id) DO NOTHING;
 
 -- Verify rollback
 SELECT 
