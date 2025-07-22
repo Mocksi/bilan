@@ -391,6 +391,46 @@ describe('SDK → API Integration Tests', () => {
     })
   })
 
+  describe('Analytics Authentication', () => {
+    const analyticsEndpoints = [
+      '/api/events',
+      '/api/analytics/overview',
+      '/api/analytics/votes',
+      '/api/analytics/turns'
+    ]
+
+    analyticsEndpoints.forEach(endpoint => {
+      describe(`${endpoint}`, () => {
+        it('should require authentication', async () => {
+          const response = await fetch(`${serverUrl}${endpoint}`)
+          expect(response.status).toBe(401)
+          const result = await response.json()
+          expect(result.error).toBe('Missing API key')
+        })
+
+        it('should reject invalid API key', async () => {
+          const response = await fetch(`${serverUrl}${endpoint}`, {
+            headers: {
+              'Authorization': 'Bearer invalid-key-12345'
+            }
+          })
+          expect(response.status).toBe(401)
+          const result = await response.json()
+          expect(result.error).toBe('Invalid API key')
+        })
+
+        it('should accept valid API key', async () => {
+          const response = await fetch(`${serverUrl}${endpoint}`, {
+            headers: {
+              'Authorization': 'Bearer test-api-key-12345'
+            }
+          })
+          expect(response.status).toBe(200)
+        })
+      })
+    })
+  })
+
   describe('Analytics API Integration', () => {
     it('should return vote analytics', async () => {
       // First, add some vote events
@@ -423,8 +463,12 @@ describe('SDK → API Integration Tests', () => {
         })
       }
 
-      // Test analytics endpoint
-      const response = await fetch(`${serverUrl}/api/analytics/votes?timeRange=30d`)
+      // Test analytics endpoint with authentication
+      const response = await fetch(`${serverUrl}/api/analytics/votes?timeRange=30d`, {
+        headers: {
+          'Authorization': 'Bearer test-api-key-12345'
+        }
+      })
       expect(response.status).toBe(200)
       
       const analytics = await response.json()

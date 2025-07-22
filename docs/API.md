@@ -16,6 +16,22 @@
 npm install @mocksi/bilan-sdk
 ```
 
+## Authentication (v0.4.1 Update)
+
+**🔒 Security Enhancement**: As of v0.4.1, analytics endpoints require authentication:
+
+- `GET /api/events` - Bearer token required
+- `GET /api/analytics/*` - Bearer token required
+
+**Environment Setup:**
+```bash
+# Required for analytics dashboard access
+BILAN_API_KEY=your-secure-api-key
+NEXT_PUBLIC_BILAN_API_KEY=your-dashboard-api-key
+```
+
+The Bilan SDK handles authentication automatically when properly configured.
+
 ## Configuration
 
 ### `init(config: InitConfig): Promise<void>`

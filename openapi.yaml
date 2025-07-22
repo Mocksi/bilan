@@ -736,6 +736,8 @@ paths:
       operationId: getVoteAnalytics
       tags:
         - Analytics
+      security:
+        - BearerAuth: []
       parameters:
         - name: timeRange
           in: query

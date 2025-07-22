@@ -21,6 +21,7 @@ import { formatDateForAPI, getDateRange, getPreviousDateRange } from './time-uti
 
 // API Configuration
 const API_BASE_URL = process.env.BILAN_PUBLIC_API_BASE_URL || 'http://localhost:3002'
+const API_KEY = process.env.NEXT_PUBLIC_BILAN_API_KEY || process.env.BILAN_API_KEY || null
 
 export interface DashboardDataWithComparison extends DashboardData {
   comparison?: {
@@ -31,9 +32,26 @@ export interface DashboardDataWithComparison extends DashboardData {
 
 export class ApiClient {
   private baseUrl: string
+  private apiKey: string | null
 
-  constructor(baseUrl: string = API_BASE_URL) {
+  constructor(baseUrl: string = API_BASE_URL, apiKey: string | null = API_KEY) {
     this.baseUrl = baseUrl
+    this.apiKey = apiKey
+  }
+
+  /**
+   * Get headers for API requests with authentication
+   */
+  private getHeaders(): Record<string, string> {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    }
+
+    if (this.apiKey) {
+      headers['Authorization'] = `Bearer ${this.apiKey}`
+    }
+
+    return headers
   }
 
   /**
@@ -160,9 +178,7 @@ export class ApiClient {
 
     const response = await fetch(`${this.baseUrl}/api/events?${params}`, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: this.getHeaders(),
       signal: abortController.signal,
     })
 
@@ -215,9 +231,7 @@ export class ApiClient {
 
       const response = await fetch(`${this.baseUrl}/api/analytics/votes?${params}`, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: this.getHeaders(),
         signal: abortController.signal,
       })
 
@@ -269,9 +283,7 @@ export class ApiClient {
 
     const response = await fetch(`${this.baseUrl}/api/dashboard?${params}`, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: this.getHeaders(),
     })
 
     if (!response.ok) {
@@ -294,9 +306,7 @@ export class ApiClient {
 
       const response = await fetch(`${this.baseUrl}/api/analytics/overview?${params}`, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: this.getHeaders(),
         signal: abortController.signal,
       })
 
@@ -331,9 +341,7 @@ export class ApiClient {
 
       const response = await fetch(`${this.baseUrl}/api/events?${params}`, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: this.getHeaders(),
         signal: abortController.signal,
       })
 
@@ -360,9 +368,7 @@ export class ApiClient {
     try {
       const response = await fetch(`${this.baseUrl}/health`, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: this.getHeaders(),
       })
 
       return response.ok
@@ -382,7 +388,7 @@ export class ApiClient {
 }
 
 // Default API client instance
-export const apiClient = new ApiClient()
+export const apiClient = new ApiClient(API_BASE_URL, API_KEY)
 
 // Custom hook for dashboard data fetching with time range support
 export function useDashboardData(timeRange: TimeRange = '30d', includeComparison: boolean = false) {
@@ -698,11 +704,16 @@ async function fetchTurns(
     eventType: 'turn_completed,turn_failed'  // Only fetch turn events
   })
 
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  }
+  if (API_KEY) {
+    headers['Authorization'] = `Bearer ${API_KEY}`
+  }
+
   const response = await fetch(`${API_BASE_URL}/api/events?${params}`, {
     method: 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers,
     signal: abortController.signal,
   })
 
@@ -747,11 +758,16 @@ async function fetchTurnAnalytics(timeRange: TimeRange = '30d'): Promise<TurnAna
       timeRange: timeRange
     })
 
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    }
+    if (API_KEY) {
+      headers['Authorization'] = `Bearer ${API_KEY}`
+    }
+
     const response = await fetch(`${API_BASE_URL}/api/analytics/turns?${params}`, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers,
       signal: abortController.signal,
     })
 
