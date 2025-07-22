@@ -18,7 +18,6 @@ import {
 } from './types'
 import { TimeRange } from '@/components/TimeRangeSelector'
 import { formatDateForAPI, getDateRange, getPreviousDateRange } from './time-utils'
-import fs from 'fs'
 
 /**
  * Read a secret from environment variable or file (Docker secrets support)
@@ -36,6 +35,8 @@ function readSecret(varName: string): string | undefined {
   
   if (filePath) {
     try {
+      // Dynamic import for Node.js environments only
+      const fs = require('fs')
       return fs.readFileSync(filePath, 'utf8').trim()
     } catch (error: any) {
       console.error(`Failed to read secret from file ${filePath}:`, error)
