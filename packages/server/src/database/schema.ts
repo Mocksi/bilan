@@ -304,12 +304,13 @@ export class BilanDatabase {
   getEvents(filters: { 
     userId?: string
     eventType?: EventType | EventType[]
+    turnId?: string
     startTimestamp?: number
     endTimestamp?: number
     limit?: number
     offset?: number
   } = {}): Event[] {
-    const { userId, eventType, startTimestamp, endTimestamp, limit = 100, offset = 0 } = filters
+    const { userId, eventType, turnId, startTimestamp, endTimestamp, limit = 100, offset = 0 } = filters
     
     let sql = 'SELECT * FROM events WHERE 1=1'
     const params: any[] = []
@@ -327,6 +328,11 @@ export class BilanDatabase {
         sql += ' AND event_type = ?'
         params.push(eventType)
       }
+    }
+
+    if (turnId) {
+      sql += ' AND JSON_EXTRACT(properties, "$.turn_id") = ?'
+      params.push(turnId)
     }
 
     if (startTimestamp) {
@@ -352,10 +358,11 @@ export class BilanDatabase {
   getEventsCount(filters: { 
     userId?: string
     eventType?: EventType | EventType[]
+    turnId?: string
     startTimestamp?: number
     endTimestamp?: number
   } = {}): number {
-    const { userId, eventType, startTimestamp, endTimestamp } = filters
+    const { userId, eventType, turnId, startTimestamp, endTimestamp } = filters
     
     let sql = 'SELECT COUNT(*) as count FROM events WHERE 1=1'
     const params: any[] = []
@@ -373,6 +380,11 @@ export class BilanDatabase {
         sql += ' AND event_type = ?'
         params.push(eventType)
       }
+    }
+
+    if (turnId) {
+      sql += ' AND JSON_EXTRACT(properties, "$.turn_id") = ?'
+      params.push(turnId)
     }
 
     if (startTimestamp) {

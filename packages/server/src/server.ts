@@ -1206,12 +1206,14 @@ export class BilanServer {
           return reply.status(400).send({ error: 'Missing turnId parameter' })
         }
 
-        // Get vote events for this turn
-        const filters: any = { eventType: 'vote_cast' }
+        // Get vote events for this turn using database-level filtering
+        const filters: any = { 
+          eventType: 'vote_cast',
+          turnId: turnId
+        }
         if (userId) filters.userId = userId
 
-        const events = this.db.getEvents(filters)
-        const turnVotes = events.filter(event => event.properties.turn_id === turnId)
+        const turnVotes = this.db.getEvents(filters)
         
         const totalVotes = turnVotes.length
         const positiveVotes = turnVotes.filter(e => e.properties.value > 0).length
