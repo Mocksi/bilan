@@ -3,10 +3,13 @@
 -- Author: Bilan v0.4.1 Development Team
 -- Date: 2024-01-18
 
+-- BEGIN TRANSACTION: Ensure all rollback steps are atomic
+BEGIN TRANSACTION;
+
 -- Log rollback start
 INSERT INTO events (event_id, user_id, event_type, timestamp, properties) 
 VALUES (
-  'migration_003_rollback_' || strftime('%s', 'now') || '_' || abs(random() % 1000),
+  'migration_003_rollback_' || hex(randomblob(8)) || '_' || strftime('%s%f', 'now'),
   'system',
   'user_action',
   strftime('%s', 'now') * 1000,
@@ -35,7 +38,7 @@ WHERE event_type = 'vote_cast';
 -- Log rollback completion
 INSERT INTO events (event_id, user_id, event_type, timestamp, properties) 
 VALUES (
-  'migration_003_rollback_complete_' || strftime('%s', 'now') || '_' || abs(random() % 1000),
+  'migration_003_rollback_complete_' || hex(randomblob(8)) || '_' || strftime('%s%f', 'now'),
   'system',
   'user_action',
   strftime('%s', 'now') * 1000,
@@ -59,4 +62,7 @@ SELECT
     ELSE 'ROLLBACK_FAILED' 
   END as rollback_status
 FROM events 
-WHERE event_type = 'vote_cast'; 
+WHERE event_type = 'vote_cast';
+
+-- COMMIT TRANSACTION: All rollback steps completed successfully
+COMMIT; 
