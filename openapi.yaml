@@ -523,6 +523,8 @@ paths:
       operationId: listEvents
       tags:
         - Events
+      security:
+        - BearerAuth: []
       parameters:
         - name: limit
           in: query
@@ -699,6 +701,8 @@ paths:
       operationId: getOverviewAnalytics
       tags:
         - Analytics
+      security:
+        - BearerAuth: []
       parameters:
         - name: timeRange
           in: query
@@ -730,6 +734,8 @@ paths:
       operationId: getVoteAnalytics
       tags:
         - Analytics
+      security:
+        - BearerAuth: []
       parameters:
         - name: timeRange
           in: query
@@ -761,6 +767,8 @@ paths:
       operationId: getTurnAnalytics
       tags:
         - Analytics
+      security:
+        - BearerAuth: []
       parameters:
         - name: timeRange
           in: query
