@@ -363,4 +363,109 @@ describe('v0.4.1 Database Migrations', () => {
       expect(correlation).toBeNull()
     })
   })
+
+  describe('Security - executeRaw Protection', () => {
+    const originalEnv = { ...process.env }
+
+    afterEach(() => {
+      // Restore original environment variables
+      process.env = { ...originalEnv }
+    })
+
+    it('should allow executeRaw in development environment', () => {
+      Object.defineProperty(process.env, 'NODE_ENV', {
+        value: 'development',
+        configurable: true,
+        writable: true,
+        enumerable: true
+      })
+      
+      expect(() => {
+        db.executeRaw('SELECT 1')
+      }).not.toThrow()
+    })
+
+    it('should allow executeRaw in test environment', () => {
+      Object.defineProperty(process.env, 'NODE_ENV', {
+        value: 'test',
+        configurable: true,
+        writable: true,
+        enumerable: true
+      })
+      
+      expect(() => {
+        db.executeRaw('SELECT 1')
+      }).not.toThrow()
+    })
+
+    it('should block executeRaw in production environment', () => {
+      Object.defineProperty(process.env, 'NODE_ENV', {
+        value: 'production',
+        configurable: true,
+        writable: true,
+        enumerable: true
+      })
+      
+      expect(() => {
+        db.executeRaw('SELECT 1')
+      }).toThrow('executeRaw() is disabled in production for security')
+    })
+
+    it('should block executeRaw on Vercel deployment', () => {
+      Object.defineProperty(process.env, 'NODE_ENV', {
+        value: undefined,
+        configurable: true,
+        writable: true,
+        enumerable: true
+      })
+      Object.defineProperty(process.env, 'VERCEL', {
+        value: '1',
+        configurable: true,
+        writable: true,
+        enumerable: true
+      })
+      
+      expect(() => {
+        db.executeRaw('SELECT 1')
+      }).toThrow('executeRaw() is disabled in hosted environments')
+    })
+
+    it('should block executeRaw on Railway deployment', () => {
+      Object.defineProperty(process.env, 'NODE_ENV', {
+        value: undefined,
+        configurable: true,
+        writable: true,
+        enumerable: true
+      })
+      Object.defineProperty(process.env, 'RAILWAY_ENVIRONMENT', {
+        value: 'production',
+        configurable: true,
+        writable: true,
+        enumerable: true
+      })
+      
+      expect(() => {
+        db.executeRaw('SELECT 1')
+      }).toThrow('executeRaw() is disabled in hosted environments')
+    })
+
+    it('should block executeRaw on Fly.io deployment', () => {
+      Object.defineProperty(process.env, 'NODE_ENV', {
+        value: undefined,
+        configurable: true,
+        writable: true,
+        enumerable: true
+      })
+      Object.defineProperty(process.env, 'FLY_APP_NAME', {
+        value: 'bilan-server',
+        configurable: true,
+        writable: true,
+        enumerable: true
+      })
+      
+      expect(() => {
+        db.executeRaw('SELECT 1')
+      }).toThrow('executeRaw() is disabled in hosted environments')
+    })
+  })
 }) 

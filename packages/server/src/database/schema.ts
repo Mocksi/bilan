@@ -175,6 +175,20 @@ export class BilanDatabase {
 
   // Raw SQL execution for testing purposes (bypasses validation)
   executeRaw(sql: string, params: any[] = []): void {
+    // Security: Only allow raw SQL execution in non-production environments
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(
+        'executeRaw() is disabled in production for security. This method bypasses validation and should only be used in development/testing environments.'
+      )
+    }
+
+    // Additional safety check for common production indicators
+    if (process.env.VERCEL || process.env.RAILWAY_ENVIRONMENT || process.env.FLY_APP_NAME) {
+      throw new Error(
+        'executeRaw() is disabled in hosted environments. This method is intended for local development and testing only.'
+      )
+    }
+
     this.db.prepare(sql).run(...params)
   }
 
