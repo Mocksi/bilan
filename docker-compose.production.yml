@@ -13,8 +13,8 @@ services:
       - BILAN_NODE_ENV=production
       - BILAN_PORT=3002
       - BILAN_DB_PATH=/app/data/bilan.db
-      # v0.4.1: REQUIRED - Set your secure API key
-      - BILAN_API_KEY=${BILAN_API_KEY}  # Set in .env file or environment
+      # v0.4.1: REQUIRED - Secure API key via Docker secrets
+      - BILAN_API_KEY_FILE=/run/secrets/bilan_api_key
       # CORS configuration for production
       - BILAN_CORS_ORIGIN="https://yourdomain.com,https://dashboard.yourdomain.com"
       - BILAN_CORS_CREDENTIALS=true
@@ -27,6 +27,8 @@ services:
     volumes:
       - bilan-data:/app/data
       - ./logs:/app/logs
+    secrets:
+      - bilan_api_key
     depends_on:
       - postgres
     healthcheck:
@@ -55,8 +57,10 @@ services:
     environment:
       - NODE_ENV=production
       - NEXT_PUBLIC_API_BASE_URL=https://api.yourdomain.com
-      # v0.4.1: REQUIRED - Dashboard API key (must match server BILAN_API_KEY)
-      - NEXT_PUBLIC_BILAN_API_KEY=${BILAN_API_KEY}
+      # v0.4.1: REQUIRED - Dashboard API key via Docker secrets
+      - NEXT_PUBLIC_BILAN_API_KEY_FILE=/run/secrets/bilan_api_key
+    secrets:
+      - bilan_api_key
     depends_on:
       - bilan-server
     restart: unless-stopped
@@ -75,12 +79,14 @@ services:
     environment:
       - POSTGRES_DB=bilan
       - POSTGRES_USER=bilan
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}  # Set secure password
+      - POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password
     # ports:
     #   - "5432:5432"  # SECURITY: Commented out to prevent external access
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./scripts/init-postgres.sql:/docker-entrypoint-initdb.d/init.sql
+    secrets:
+      - postgres_password
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U bilan -d bilan"]
       interval: 10s
@@ -132,6 +138,13 @@ services:
   #     - bilan-dashboard
   #   restart: unless-stopped
 
+# Docker Secrets - Secure credential management
+secrets:
+  bilan_api_key:
+    file: ./secrets/bilan_api_key.txt
+  postgres_password:
+    file: ./secrets/postgres_password.txt
+
 volumes:
   bilan-data:
     driver: local
@@ -146,9 +159,11 @@ networks:
 
 # Production deployment checklist:
 # 1. Copy this file to docker-compose.yml or use: docker-compose -f docker-compose.production.yml up
-# 2. Create .env file with: BILAN_API_KEY=<secure-key> POSTGRES_PASSWORD=<secure-password>
-# 3. Generate API key: openssl rand -hex 32
-# 4. Update CORS origins to match your domain
-# 5. Configure SSL/TLS termination (nginx, traefik, or cloud provider)
-# 6. Set up database backups
-# 7. Configure monitoring and alerting 
+# 2. Create secrets directory: mkdir -p secrets
+# 3. Generate API key: openssl rand -hex 32 > secrets/bilan_api_key.txt
+# 4. Generate PostgreSQL password: openssl rand -base64 32 > secrets/postgres_password.txt
+# 5. Secure secrets: chmod 600 secrets/*.txt && chown root:root secrets/*.txt
+# 6. Update CORS origins to match your domain
+# 7. Configure SSL/TLS termination (nginx, traefik, or cloud provider)
+# 8. Set up database backups
+# 9. Configure monitoring and alerting 
