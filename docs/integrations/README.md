@@ -201,6 +201,36 @@ if (promptAnalytics.averageScore > 0.8) {
 - ⚠️ Depends on provider
 - ❌ Not supported
 
+## Analytics API Authentication
+
+**🔒 Important**: As of v0.4.1, all analytics endpoints require Bearer token authentication:
+
+- `GET /api/events` - Requires API key
+- `GET /api/analytics/overview` - Requires API key  
+- `GET /api/analytics/votes` - Requires API key
+- `GET /api/analytics/turns` - Requires API key
+
+**Environment Variables:**
+```bash
+# Server-side (secure)
+BILAN_API_KEY=your-server-api-key-here
+
+# Client-side (dashboard)
+NEXT_PUBLIC_BILAN_API_KEY=your-client-api-key-here
+```
+
+**Direct API Usage:**
+```typescript
+const response = await fetch('/api/analytics/votes', {
+  headers: {
+    'Authorization': `Bearer ${process.env.BILAN_API_KEY}`,
+    'Content-Type': 'application/json'
+  }
+})
+```
+
+**SDK Usage:** The Bilan SDK handles authentication automatically when properly configured.
+
 ## Best Practices
 
 ### 1. **Always Generate Unique IDs**
