@@ -39,6 +39,7 @@ SET properties = properties
   ))
 WHERE 
   event_type = 'vote_cast' AND 
+  NOT (properties ? 'turn_id') AND
   (properties ? 'promptId' OR properties ? 'turnId');
 
 -- Clean up any remaining legacy turnId fields in vote events

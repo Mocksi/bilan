@@ -39,6 +39,7 @@ ALTER TABLE events UPDATE properties = JSONDelete(
   'promptId'
 )
 WHERE event_type = 'vote_cast' 
+  AND NOT JSONHas(properties, 'turn_id')
   AND (JSONHas(properties, 'promptId') OR JSONHas(properties, 'turnId'));
 
 -- Clean up any remaining promptId fields in vote events

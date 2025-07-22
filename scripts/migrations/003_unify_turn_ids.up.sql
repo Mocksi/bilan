@@ -40,6 +40,7 @@ SET properties = json_set(
 )
 WHERE 
   event_type = 'vote_cast' AND 
+  JSON_EXTRACT(properties, '$.turn_id') IS NULL AND
   (JSON_EXTRACT(properties, '$.promptId') IS NOT NULL OR 
    JSON_EXTRACT(properties, '$.turnId') IS NOT NULL);
 

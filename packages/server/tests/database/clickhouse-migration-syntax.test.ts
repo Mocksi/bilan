@@ -350,7 +350,7 @@ describe('ClickHouse Migration Syntax Validation', () => {
 
       db.insertEvents(voteEvents)
       
-      // Simulate the ClickHouse migration UPDATE logic
+      // Simulate the ClickHouse migration UPDATE logic (with idempotent WHERE clause)
       db.executeRaw(`
         UPDATE events 
         SET properties = json_set(
@@ -363,6 +363,7 @@ describe('ClickHouse Migration Syntax Validation', () => {
           END
         )
         WHERE event_type = 'vote_cast' 
+          AND JSON_EXTRACT(properties, '$.turn_id') IS NULL
           AND (JSON_EXTRACT(properties, '$.promptId') IS NOT NULL OR JSON_EXTRACT(properties, '$.turnId') IS NOT NULL)
       `)
       
@@ -398,6 +399,37 @@ describe('ClickHouse Migration Syntax Validation', () => {
           remaining_turnId: null 
         }
       ])
+
+      // Test idempotency: Running the migration again should not change anything
+      db.executeRaw(`
+        UPDATE events 
+        SET properties = json_set(
+          json_remove(properties, '$.promptId'),
+          '$.turn_id',
+          CASE 
+            WHEN JSON_EXTRACT(properties, '$.turnId') IS NOT NULL THEN properties->>'turnId'
+            WHEN JSON_EXTRACT(properties, '$.promptId') IS NOT NULL THEN properties->>'promptId'
+            ELSE 'unknown_turn_' || event_id
+          END
+        )
+        WHERE event_type = 'vote_cast' 
+          AND JSON_EXTRACT(properties, '$.turn_id') IS NULL
+          AND (JSON_EXTRACT(properties, '$.promptId') IS NOT NULL OR JSON_EXTRACT(properties, '$.turnId') IS NOT NULL)
+      `)
+
+      // Verify no changes occurred on second run (idempotent behavior)
+      const resultsAfterSecondRun = db.query(`
+        SELECT 
+          event_id,
+          properties->>'turn_id' as turn_id,
+          properties->>'promptId' as remaining_promptId,
+          properties->>'turnId' as remaining_turnId
+        FROM events 
+        WHERE event_type = 'vote_cast'
+        ORDER BY event_id
+      `)
+
+      expect(resultsAfterSecondRun).toEqual(results) // Should be identical
     })
 
     it('should validate safe turn_sequence casting migration logic', () => {
