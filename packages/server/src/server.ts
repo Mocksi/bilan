@@ -13,7 +13,7 @@ interface VoteCastEvent {
   timestamp: number
   userId: string
   properties: {
-    promptId: string
+    turn_id: string        // Updated from promptId to turn_id
     value: 1 | -1
     comment?: string
     responseTime?: number
@@ -663,24 +663,25 @@ export class BilanServer {
           .sort((a, b) => b.totalVotes - a.totalVotes)
           .slice(0, 10)
 
-        // Prompt performance analysis
-        const promptVotesMap = new Map<string, { positive: number; negative: number; total: number; promptText?: string }>()
+        // Turn performance analysis (updated from prompt performance)
+        const turnVotesMap = new Map<string, { positive: number; negative: number; total: number; promptText?: string }>()
         
         voteEvents.forEach(event => {
-          const promptId = event.properties.promptId || 'unknown'
-          const current = promptVotesMap.get(promptId) || { positive: 0, negative: 0, total: 0 }
+          const turnId = event.properties.turn_id || 'unknown' // Changed from promptId to turn_id  
+          const current = turnVotesMap.get(turnId) || { positive: 0, negative: 0, total: 0 }
           
           current.total++
           if (event.properties.value > 0) current.positive++
           else current.negative++
+          
           if (event.prompt_text) current.promptText = event.prompt_text
           
-          promptVotesMap.set(promptId, current)
+          turnVotesMap.set(turnId, current)
         })
 
-        const topPrompts = Array.from(promptVotesMap.entries())
-          .map(([promptId, stats]) => ({
-            promptId,
+        const topTurns = Array.from(turnVotesMap.entries())
+          .map(([turnId, stats]) => ({
+            turnId,
             promptText: stats.promptText,
             totalVotes: stats.total,
             positiveVotes: stats.positive,
@@ -717,7 +718,7 @@ export class BilanServer {
             averageRating: voteEvents.length > 0 ? voteEvents.reduce((sum, event) => sum + event.properties.value, 0) / voteEvents.length : 0,
             commentsCount,
             uniqueUsers: userVotesMap.size,
-            uniquePrompts: promptVotesMap.size
+            uniqueTurns: turnVotesMap.size
           },
           trends: {
             daily: dailyTrends,
@@ -732,13 +733,13 @@ export class BilanServer {
               oneTimeVoters: userVotes.filter(u => u.total === 1).length
             }
           },
-          promptPerformance: {
-            topPrompts,
+          turnPerformance: {
+            topTurns: topTurns,
             performanceMetrics: {
-              averagePositiveRate: topPrompts.length > 0 ? topPrompts.reduce((sum, p) => sum + p.positiveRate, 0) / topPrompts.length : 0,
-              bestPerformingPrompt: topPrompts.length > 0 ? topPrompts[0].promptId : '',
-              worstPerformingPrompt: topPrompts.length > 0 ? topPrompts[topPrompts.length - 1].promptId : '',
-              promptsWithoutVotes: 0 // We only track prompts that have votes
+              averagePositiveRate: topTurns.length > 0 ? topTurns.reduce((sum, p) => sum + p.positiveRate, 0) / topTurns.length : 0,
+              bestPerformingTurn: topTurns.length > 0 ? topTurns[0].turnId : '',
+              worstPerformingTurn: topTurns.length > 0 ? topTurns[topTurns.length - 1].turnId : '',
+              turnsWithoutVotes: 0 // We only track turns that have votes
             }
           },
           commentAnalysis: {
@@ -953,6 +954,152 @@ export class BilanServer {
       }
     })
 
+    // New Turn-Vote Correlation endpoint
+    this.fastify.get('/api/analytics/turn-vote-correlation', {
+      preHandler: this.authenticateApiKey.bind(this)
+    }, async (request, reply) => {
+      try {
+        const { timeRange = '30d', turnId } = request.query as { 
+          timeRange?: string
+          turnId?: string 
+        }
+
+        // Calculate date range
+        const now = new Date()
+        let startDate: Date
+        
+        switch (timeRange) {
+          case '24h':
+            startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+            break
+          case '7d':
+            startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+            break
+          case '30d':
+            startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+            break
+          case '90d':
+            startDate = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
+            break
+          default:
+            startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+        }
+
+        // Get turn events
+        const turnEvents = this.db.getEvents({
+          eventType: ['turn_completed', 'turn_failed'],
+          startTimestamp: startDate.getTime(),
+          limit: 10000
+        })
+
+        // Get vote events
+        const voteEvents = this.db.getEvents({
+          eventType: 'vote_cast',
+          startTimestamp: startDate.getTime(),
+          limit: 10000
+        })
+
+        // Create turn-vote correlation map
+        const correlationMap = new Map<string, {
+          turnData: any
+          votes: any[]
+          voteCount: number
+          positiveVotes: number
+          negativeVotes: number
+          averageRating: number
+        }>()
+
+        // Process turn events
+        turnEvents.forEach(turnEvent => {
+          const turnIdFromEvent = turnEvent.turn_id || turnEvent.properties.turnId
+          if (turnIdFromEvent) {
+            correlationMap.set(turnIdFromEvent, {
+              turnData: {
+                turnId: turnIdFromEvent,
+                eventType: turnEvent.event_type,
+                timestamp: turnEvent.timestamp,
+                userId: turnEvent.user_id,
+                promptText: turnEvent.prompt_text,
+                aiResponse: turnEvent.ai_response,
+                responseTime: turnEvent.properties.responseTime || turnEvent.properties.response_time,
+                modelUsed: turnEvent.properties.modelUsed || turnEvent.properties.model_used
+              },
+              votes: [],
+              voteCount: 0,
+              positiveVotes: 0,
+              negativeVotes: 0,
+              averageRating: 0
+            })
+          }
+        })
+
+        // Process vote events and correlate with turns
+        voteEvents.forEach(voteEvent => {
+          const turnIdFromVote = voteEvent.properties.turn_id
+          if (turnIdFromVote && correlationMap.has(turnIdFromVote)) {
+            const correlation = correlationMap.get(turnIdFromVote)!
+            const voteValue = voteEvent.properties.value
+            
+            correlation.votes.push({
+              voteId: voteEvent.event_id,
+              value: voteValue,
+              comment: voteEvent.properties.comment,
+              timestamp: voteEvent.timestamp,
+              userId: voteEvent.user_id
+            })
+            
+            correlation.voteCount++
+            if (voteValue > 0) correlation.positiveVotes++
+            else correlation.negativeVotes++
+            
+            // Recalculate average rating
+            const totalRating = correlation.votes.reduce((sum, vote) => sum + vote.value, 0)
+            correlation.averageRating = totalRating / correlation.votes.length
+          }
+        })
+
+        // Filter by specific turnId if provided
+        let correlations = Array.from(correlationMap.values())
+        if (turnId) {
+          correlations = correlations.filter(corr => corr.turnData.turnId === turnId)
+        }
+
+        // Sort by vote count (most voted turns first)
+        correlations.sort((a, b) => b.voteCount - a.voteCount)
+
+        // Calculate summary statistics
+        const totalTurns = correlations.length
+        const turnsWithVotes = correlations.filter(c => c.voteCount > 0).length
+        const totalVotes = correlations.reduce((sum, c) => sum + c.voteCount, 0)
+        const averageVotesPerTurn = totalTurns > 0 ? totalVotes / totalTurns : 0
+        
+        const response = {
+          summary: {
+            totalTurns,
+            turnsWithVotes,
+            turnsWithoutVotes: totalTurns - turnsWithVotes,
+            totalVotes,
+            averageVotesPerTurn,
+            correlationRate: totalTurns > 0 ? (turnsWithVotes / totalTurns) * 100 : 0
+          },
+          correlations: correlations.slice(0, 100), // Limit to top 100
+          timeRange: {
+            start: startDate.toISOString(),
+            end: now.toISOString()
+          }
+        }
+
+        return reply.send(response)
+
+      } catch (error) {
+        this.fastify.log.error('Error in GET /api/analytics/turn-vote-correlation:', error)
+        return reply.status(500).send({
+          error: 'Internal server error',
+          message: 'Failed to fetch turn-vote correlation data'
+        })
+      }
+    })
+
     // Overview analytics endpoint
     this.fastify.get('/api/analytics/overview', {
       preHandler: this.authenticateApiKey.bind(this)  // Add authentication
@@ -1049,6 +1196,44 @@ export class BilanServer {
       }
     })
 
+    // New turn-based stats endpoint 
+    this.fastify.get('/api/turns/:turnId/stats', async (request, reply) => {
+      try {
+        const { turnId } = request.params as { turnId: string }
+        const { userId } = request.query as { userId?: string }
+        
+        if (!turnId) {
+          return reply.status(400).send({ error: 'Missing turnId parameter' })
+        }
+
+        // Get vote events for this turn using database-level filtering
+        const filters: any = { 
+          eventType: 'vote_cast',
+          turnId: turnId
+        }
+        if (userId) filters.userId = userId
+
+        const turnVotes = this.db.getEvents(filters)
+        
+        const totalVotes = turnVotes.length
+        const positiveVotes = turnVotes.filter(e => e.properties.value > 0).length
+        const stats = {
+          turnId,
+          totalVotes,
+          positiveVotes,
+          negativeVotes: totalVotes - positiveVotes,
+          positiveRate: totalVotes > 0 ? (positiveVotes / totalVotes) * 100 : 0,
+          recentComments: turnVotes.filter(e => e.properties.comment).slice(0, 5).map(e => e.properties.comment)
+        }
+        
+        return stats
+      } catch (error) {
+        this.fastify.log.error('Error in GET /api/turns/:turnId/stats:', error)
+        return reply.status(500).send({ error: 'Internal server error' })
+      }
+    })
+
+    // Legacy promptId endpoint (kept for backward compatibility)
     this.fastify.get('/api/prompts/:promptId/stats', async (request, reply) => {
       try {
         const { promptId } = request.params as { promptId: string }
@@ -1058,12 +1243,12 @@ export class BilanServer {
           return reply.status(400).send({ error: 'Missing promptId parameter' })
         }
 
-        // Use simplified filtering
+        // Use simplified filtering - this now looks for turn_id instead of the old promptId
         const events = this.db.getVoteEvents({ promptId, userId })
         const totalVotes = events.length
         const positiveVotes = events.filter(e => e.value > 0).length
         const stats = {
-          promptId,
+          promptId, // Keep for backward compatibility
           totalVotes,
           positiveVotes,
           negativeVotes: totalVotes - positiveVotes,
@@ -1073,7 +1258,7 @@ export class BilanServer {
         
         return stats
       } catch (error) {
-        this.fastify.log.error(error)
+        this.fastify.log.error('Error in GET /api/prompts/:promptId/stats:', error)
         return reply.status(500).send({ error: 'Internal server error' })
       }
     })

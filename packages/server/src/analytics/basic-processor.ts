@@ -96,7 +96,7 @@ export class BasicAnalyticsProcessor {
       timestamp: event.timestamp,
       userId: event.user_id,
       properties: {
-        promptId: event.properties.prompt_id || event.properties.promptId,
+        promptId: event.properties.turn_id || event.properties.prompt_id || event.properties.promptId, // Prioritize turn_id
         value: event.properties.value,
         comment: event.properties.comment,
         ...event.properties

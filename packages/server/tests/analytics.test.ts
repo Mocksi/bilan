@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { BasicAnalyticsProcessor } from '../src/analytics/basic-processor.js'
 import { BilanDatabase, Event, EVENT_TYPES } from '../src/database/schema.js'
-import { createPromptId, createUserId } from '@mocksi/bilan-sdk'
+import { createUserId } from '@mocksi/bilan-sdk'
 
 describe('BasicAnalyticsProcessor', () => {
   let processor: BasicAnalyticsProcessor
@@ -41,7 +41,7 @@ describe('BasicAnalyticsProcessor', () => {
           user_id: createUserId('user-1'),
           event_type: EVENT_TYPES.VOTE_CAST,
           timestamp: 1000,
-          properties: { promptId: createPromptId('prompt-1'), value: 1 },
+          properties: { turn_id: 'turn-1', value: 1 },
           prompt_text: null,
           ai_response: null
         },
@@ -50,7 +50,7 @@ describe('BasicAnalyticsProcessor', () => {
           user_id: createUserId('user-1'),
           event_type: EVENT_TYPES.VOTE_CAST,
           timestamp: 2000,
-          properties: { promptId: createPromptId('prompt-1'), value: -1 },
+          properties: { turn_id: 'turn-1', value: -1 },
           prompt_text: null,
           ai_response: null
         },
@@ -59,7 +59,7 @@ describe('BasicAnalyticsProcessor', () => {
           user_id: createUserId('user-2'),
           event_type: EVENT_TYPES.VOTE_CAST,
           timestamp: 3000,
-          properties: { promptId: createPromptId('prompt-2'), value: 1 },
+          properties: { turn_id: 'turn-2', value: 1 },
           prompt_text: null,
           ai_response: null
         }
@@ -127,7 +127,7 @@ describe('BasicAnalyticsProcessor', () => {
           user_id: createUserId('user-1'),
           event_type: EVENT_TYPES.VOTE_CAST,
           timestamp: new Date('2023-01-01').getTime(),
-          properties: { promptId: createPromptId('prompt-1'), value: 1 },
+          properties: { turn_id: 'turn-1', value: 1 },
           prompt_text: null,
           ai_response: null
         },
@@ -136,7 +136,7 @@ describe('BasicAnalyticsProcessor', () => {
           user_id: createUserId('user-1'),
           event_type: EVENT_TYPES.VOTE_CAST,
           timestamp: new Date('2023-01-01').getTime(),
-          properties: { promptId: createPromptId('prompt-2'), value: -1 },
+          properties: { turn_id: 'turn-2', value: -1 },
           prompt_text: null,
           ai_response: null
         },
@@ -145,7 +145,7 @@ describe('BasicAnalyticsProcessor', () => {
           user_id: createUserId('user-2'),
           event_type: EVENT_TYPES.VOTE_CAST,
           timestamp: new Date('2023-01-02').getTime(),
-          properties: { promptId: createPromptId('prompt-3'), value: 1 },
+          properties: { turn_id: 'turn-3', value: 1 },
           prompt_text: null,
           ai_response: null
         }
@@ -170,7 +170,7 @@ describe('BasicAnalyticsProcessor', () => {
         user_id: createUserId('user-1'),
         event_type: EVENT_TYPES.VOTE_CAST,
         timestamp: 1000,
-        properties: { promptId: createPromptId('prompt-1'), value: 1 },
+        properties: { turn_id: 'turn-1', value: 1 },
         prompt_text: null,
         ai_response: null
       }
@@ -194,7 +194,7 @@ describe('BasicAnalyticsProcessor', () => {
           user_id: createUserId('user-1'),
           event_type: EVENT_TYPES.VOTE_CAST,
           timestamp: 1000,
-          properties: { promptId: createPromptId('prompt-1'), value: 1, comment: 'Great response!' },
+          properties: { turn_id: 'turn-1', value: 1, comment: 'Great response!' },
           prompt_text: null,
           ai_response: null
         },
@@ -203,7 +203,7 @@ describe('BasicAnalyticsProcessor', () => {
           user_id: createUserId('user-2'),
           event_type: EVENT_TYPES.VOTE_CAST,
           timestamp: 2000,
-          properties: { promptId: createPromptId('prompt-2'), value: -1, comment: 'Could be better' },
+          properties: { turn_id: 'turn-2', value: -1, comment: 'Could be better' },
           prompt_text: null,
           ai_response: null
         },
@@ -212,7 +212,7 @@ describe('BasicAnalyticsProcessor', () => {
           user_id: createUserId('user-3'),
           event_type: EVENT_TYPES.VOTE_CAST,
           timestamp: 3000,
-          properties: { promptId: createPromptId('prompt-3'), value: 1 },
+          properties: { turn_id: 'turn-3', value: 1 },
           prompt_text: null,
           ai_response: null
         }
@@ -236,7 +236,7 @@ describe('BasicAnalyticsProcessor', () => {
           user_id: createUserId('user-1'),
           event_type: EVENT_TYPES.VOTE_CAST,
           timestamp: 1000,
-          properties: { promptId: createPromptId('prompt-1'), value: 1 },
+          properties: { turn_id: 'turn-1', value: 1 },
           prompt_text: null,
           ai_response: null
         },
@@ -245,7 +245,7 @@ describe('BasicAnalyticsProcessor', () => {
           user_id: createUserId('user-2'),
           event_type: EVENT_TYPES.VOTE_CAST,
           timestamp: 2000,
-          properties: { promptId: createPromptId('prompt-2'), value: -1 },
+          properties: { turn_id: 'turn-2', value: -1 },
           prompt_text: null,
           ai_response: null
         },
@@ -254,7 +254,7 @@ describe('BasicAnalyticsProcessor', () => {
           user_id: createUserId('user-3'),
           event_type: EVENT_TYPES.VOTE_CAST,
           timestamp: 3000,
-          properties: { promptId: createPromptId('prompt-3'), value: 1 },
+          properties: { turn_id: 'turn-3', value: 1 },
           prompt_text: null,
           ai_response: null
         }
