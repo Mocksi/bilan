@@ -428,7 +428,9 @@ export class BilanServer {
     })
 
     // Enhanced events listing endpoint with pagination and filtering
-    this.fastify.get('/api/events', async (request, reply) => {
+    this.fastify.get('/api/events', {
+      preHandler: this.authenticateApiKey.bind(this)  // Add authentication
+    }, async (request, reply) => {
       try {
         const {
           limit = '50',
@@ -541,7 +543,9 @@ export class BilanServer {
     })
 
     // Vote analytics endpoint
-    this.fastify.get('/api/analytics/votes', async (request, reply) => {
+    this.fastify.get('/api/analytics/votes', {
+      preHandler: this.authenticateApiKey.bind(this)  // Add authentication
+    }, async (request, reply) => {
       try {
         const { timeRange = '30d' } = request.query as { timeRange?: string }
 
@@ -762,7 +766,9 @@ export class BilanServer {
     })
 
     // Turn analytics endpoint
-    this.fastify.get('/api/analytics/turns', async (request, reply) => {
+    this.fastify.get('/api/analytics/turns', {
+      preHandler: this.authenticateApiKey.bind(this)  // Add authentication
+    }, async (request, reply) => {
       try {
         const { timeRange = '30d' } = request.query as { timeRange?: string }
 
@@ -948,7 +954,9 @@ export class BilanServer {
     })
 
     // Overview analytics endpoint
-    this.fastify.get('/api/analytics/overview', async (request, reply) => {
+    this.fastify.get('/api/analytics/overview', {
+      preHandler: this.authenticateApiKey.bind(this)  // Add authentication
+    }, async (request, reply) => {
       try {
         const { timeRange = '30d' } = request.query as { timeRange?: string }
 
