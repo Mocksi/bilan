@@ -465,12 +465,11 @@ describe('ClickHouse Migration Syntax Validation', () => {
       db.executeRaw(`
         UPDATE events
         SET turn_sequence = CASE 
-          WHEN JSON_EXTRACT(properties, '$.turn_sequence') IS NOT NULL
-            AND trim(properties->>'turn_sequence') != ''
-            AND trim(properties->>'turn_sequence') GLOB '[0-9]*'
-            AND LENGTH(trim(properties->>'turn_sequence')) > 0
-            AND CAST(trim(properties->>'turn_sequence') AS INTEGER) > 0
-          THEN CAST(trim(properties->>'turn_sequence') AS INTEGER)
+          WHEN NULLIF(TRIM(properties->>'turn_sequence'), '') IS NOT NULL
+            AND LENGTH(NULLIF(TRIM(properties->>'turn_sequence'), '')) > 0
+            AND NULLIF(TRIM(properties->>'turn_sequence'), '') GLOB '[0-9]*'
+            AND CAST(NULLIF(TRIM(properties->>'turn_sequence'), '') AS INTEGER) > 0
+          THEN CAST(NULLIF(TRIM(properties->>'turn_sequence'), '') AS INTEGER)
           ELSE NULL
         END
         WHERE event_type IN ('turn_created', 'turn_completed', 'turn_failed')
