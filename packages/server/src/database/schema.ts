@@ -109,7 +109,7 @@ export function validateEvent(event: Event): { valid: boolean; errors: string[] 
 }
 
 /**
- * Unified event structure for flexible AI analytics
+ * Unified event structure for flexible AI analytics with v0.4.1 relationship support
  */
 export interface Event {
   event_id: string
@@ -119,6 +119,11 @@ export interface Event {
   properties: Record<string, any>
   prompt_text?: string | null
   ai_response?: string | null
+  // v0.4.1: Optional relationship fields for contextual analytics
+  journey_id?: string | null
+  conversation_id?: string | null
+  turn_sequence?: number | null
+  turn_id?: string | null
 }
 
 export class BilanDatabase {
@@ -143,7 +148,12 @@ export class BilanDatabase {
         timestamp BIGINT NOT NULL CHECK (timestamp > 0),
         properties TEXT NOT NULL DEFAULT '{}' CHECK (JSON_VALID(properties)),
         prompt_text TEXT,
-        ai_response TEXT
+        ai_response TEXT,
+        -- v0.4.1: Optional relationship fields for contextual analytics
+        journey_id TEXT,
+        conversation_id TEXT,
+        turn_sequence INTEGER,
+        turn_id TEXT
       );
       
       -- Create indexes separately for better SQLite compatibility
@@ -151,6 +161,10 @@ export class BilanDatabase {
       CREATE INDEX IF NOT EXISTS idx_events_event_type ON events(event_type, timestamp);
       CREATE INDEX IF NOT EXISTS idx_events_timestamp ON events(timestamp);
       CREATE INDEX IF NOT EXISTS idx_events_user_id ON events(user_id);
+      -- v0.4.1: Relationship indexes for contextual queries
+      CREATE INDEX IF NOT EXISTS idx_events_journey ON events(journey_id, timestamp);
+      CREATE INDEX IF NOT EXISTS idx_events_conversation ON events(conversation_id, turn_sequence, timestamp);
+      CREATE INDEX IF NOT EXISTS idx_events_turn_context ON events(turn_id, timestamp);
     `)
   }
 
@@ -159,13 +173,18 @@ export class BilanDatabase {
     return this.db.prepare(sql).all(...params)
   }
 
+  // Raw SQL execution for testing purposes (bypasses validation)
+  executeRaw(sql: string, params: any[] = []): void {
+    this.db.prepare(sql).run(...params)
+  }
+
   // Single row query
   queryOne(sql: string, params: any[] = []): any {
     return this.db.prepare(sql).get(...params)
   }
 
   /**
-   * Insert a new event into the unified events table
+   * Insert a new event into the unified events table with v0.4.1 relationship support
    */
   insertEvent(event: Event): void {
     // Validate event before insertion
@@ -175,8 +194,11 @@ export class BilanDatabase {
     }
 
     const stmt = this.db.prepare(`
-      INSERT INTO events (event_id, user_id, event_type, timestamp, properties, prompt_text, ai_response)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO events (
+        event_id, user_id, event_type, timestamp, properties, 
+        prompt_text, ai_response, journey_id, conversation_id, turn_sequence, turn_id
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
     
     stmt.run(
@@ -186,7 +208,11 @@ export class BilanDatabase {
       event.timestamp,
       JSON.stringify(event.properties || {}),
       event.prompt_text || null,
-      event.ai_response || null
+      event.ai_response || null,
+      event.journey_id || null,
+      event.conversation_id || null,
+      event.turn_sequence || null,
+      event.turn_id || null
     )
   }
 
@@ -205,8 +231,11 @@ export class BilanDatabase {
     }
 
     const stmt = this.db.prepare(`
-      INSERT INTO events (event_id, user_id, event_type, timestamp, properties, prompt_text, ai_response)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO events (
+        event_id, user_id, event_type, timestamp, properties, 
+        prompt_text, ai_response, journey_id, conversation_id, turn_sequence, turn_id
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `)
     
     const transaction = this.db.transaction((events: Event[]) => {
@@ -218,7 +247,11 @@ export class BilanDatabase {
           event.timestamp,
           JSON.stringify(event.properties || {}),
           event.prompt_text || null,
-          event.ai_response || null
+          event.ai_response || null,
+          event.journey_id || null,
+          event.conversation_id || null,
+          event.turn_sequence || null,
+          event.turn_id || null
         )
       }
     })
@@ -384,7 +417,12 @@ export class BilanDatabase {
       timestamp: row.timestamp,
       properties,
       prompt_text: row.prompt_text,
-      ai_response: row.ai_response
+      ai_response: row.ai_response,
+      // v0.4.1: Include relationship fields
+      journey_id: row.journey_id,
+      conversation_id: row.conversation_id,
+      turn_sequence: row.turn_sequence,
+      turn_id: row.turn_id
     }
   }
 
@@ -400,6 +438,125 @@ export class BilanDatabase {
       aiOutput: event.ai_response || undefined,
       modelUsed: event.properties.model_used,
       responseTime: event.properties.response_time
+    }
+  }
+
+  /**
+   * v0.4.1: Validate that the turn ID migration completed successfully
+   */
+  validateTurnIdMigration(): { success: boolean; details: any } {
+    try {
+      const results = this.db.prepare(`
+        SELECT 
+          COUNT(*) as total_votes,
+          COUNT(CASE WHEN JSON_EXTRACT(properties, '$.turn_id') IS NOT NULL THEN 1 END) as votes_with_turn_id,
+          COUNT(CASE WHEN JSON_EXTRACT(properties, '$.promptId') IS NOT NULL THEN 1 END) as votes_with_promptId_remaining,
+          COUNT(CASE WHEN JSON_EXTRACT(properties, '$.prompt_id') IS NOT NULL THEN 1 END) as votes_with_legacy_prompt_id
+        FROM events 
+        WHERE event_type = 'vote_cast'
+      `).get() as any
+
+      const success = (results?.votes_with_promptId_remaining || 0) === 0 && 
+                     (results?.votes_with_turn_id || 0) > 0
+
+      return {
+        success,
+        details: {
+          totalVotes: results?.total_votes || 0,
+          votesWithTurnId: results?.votes_with_turn_id || 0,
+          votesWithPromptIdRemaining: results?.votes_with_promptId_remaining || 0,
+          votesWithLegacyPromptId: results?.votes_with_legacy_prompt_id || 0,
+          migrationComplete: success
+        }
+      }
+    } catch (error) {
+      return {
+        success: false,
+        details: { error: (error as Error).message }
+      }
+    }
+  }
+
+  /**
+   * v0.4.1: Validate relationship data capture is working
+   */
+  validateRelationshipCapture(timeRangeHours: number = 24): { success: boolean; details: any } {
+    try {
+      const sinceTimestamp = Date.now() - (timeRangeHours * 60 * 60 * 1000)
+      
+      const results = this.db.prepare(`
+        SELECT 
+          event_type,
+          COUNT(*) as total_events,
+          COUNT(journey_id) as events_with_journey,
+          COUNT(conversation_id) as events_with_conversation,
+          COUNT(turn_sequence) as events_with_sequence,
+          COUNT(CASE WHEN journey_id IS NOT NULL OR conversation_id IS NOT NULL THEN 1 END) as events_with_relationships
+        FROM events 
+        WHERE timestamp >= ?
+        GROUP BY event_type
+        ORDER BY total_events DESC
+      `).all(sinceTimestamp)
+
+      const totalEvents = results.reduce((sum: number, row: any) => sum + (row.total_events || 0), 0)
+      const eventsWithRelationships = results.reduce((sum: number, row: any) => sum + (row.events_with_relationships || 0), 0)
+      
+      return {
+        success: true,
+        details: {
+          timeRangeHours,
+          totalEvents,
+          eventsWithRelationships,
+          relationshipCaptureRate: totalEvents > 0 ? (eventsWithRelationships / totalEvents) * 100 : 0,
+          byEventType: results
+        }
+      }
+    } catch (error) {
+      return {
+        success: false,
+        details: { error: (error as Error).message }
+      }
+    }
+  }
+
+  /**
+   * v0.4.1: Basic turn-vote correlation for debugging and validation
+   */
+  getTurnVoteCorrelation(turnId: string): any {
+    try {
+      const result = this.db.prepare(`
+        SELECT 
+          t.event_id as turn_event_id,
+          t.timestamp as turn_timestamp,
+          t.properties as turn_properties,
+          v.event_id as vote_event_id,
+          v.timestamp as vote_timestamp,
+          JSON_EXTRACT(v.properties, '$.value') as vote_value,
+          JSON_EXTRACT(v.properties, '$.comment') as vote_comment,
+          -- Optional relationship context
+          t.journey_id,
+          t.conversation_id,
+          t.turn_sequence
+        FROM events t
+        LEFT JOIN events v ON (
+          JSON_EXTRACT(t.properties, '$.turnId') = JSON_EXTRACT(v.properties, '$.turn_id') OR
+          JSON_EXTRACT(t.properties, '$.turn_id') = JSON_EXTRACT(v.properties, '$.turn_id')
+        ) AND v.event_type = 'vote_cast'
+        WHERE (
+          JSON_EXTRACT(t.properties, '$.turnId') = ? OR 
+          JSON_EXTRACT(t.properties, '$.turn_id') = ?
+        )
+        AND t.event_type IN ('turn_created', 'turn_completed', 'turn_failed')
+        ORDER BY t.timestamp DESC
+        LIMIT 1
+      `).get(turnId, turnId)
+
+      return result || null
+    } catch (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Failed to get turn-vote correlation:', error)
+      }
+      return null
     }
   }
 
