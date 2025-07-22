@@ -4,9 +4,9 @@
 -- Date: 2024-01-18
 
 -- Remove data skipping indexes first (ClickHouse-specific)
-ALTER TABLE events DROP INDEX IF EXISTS idx_journey_timestamp;
-ALTER TABLE events DROP INDEX IF EXISTS idx_conversation_sequence;
-ALTER TABLE events DROP INDEX IF EXISTS idx_turn_context;
+ALTER TABLE events DROP INDEX IF EXISTS idx_events_journey;
+ALTER TABLE events DROP INDEX IF EXISTS idx_events_conversation;
+ALTER TABLE events DROP INDEX IF EXISTS idx_events_turn_context;
 
 -- Remove the relationship columns (ClickHouse syntax)
 ALTER TABLE events DROP COLUMN IF EXISTS journey_id;

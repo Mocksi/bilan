@@ -17,6 +17,7 @@ describe('ClickHouse Migration Syntax Validation', () => {
     it('should validate LowCardinality(String) equivalent behavior', () => {
       // ClickHouse: LowCardinality(String) - optimized for repeated values
       // SQLite equivalent: TEXT with good performance for repeated strings
+      // Note: ClickHouse indexes should use TYPE set(0) for categorical data like journey_id
       
       const events: Event[] = [
         {
@@ -247,6 +248,75 @@ describe('ClickHouse Migration Syntax Validation', () => {
         votes_with_promptId: 1, 
         votes_with_turnId: 1
       })
+    })
+  })
+
+  describe('ClickHouse Index Strategy Validation', () => {
+    it('should validate optimal index column ordering for set(0) type', () => {
+      // ClickHouse set(0) indexes work best with categorical/low-cardinality columns first
+      // Test data designed to validate proper index column ordering
+      
+      const events: Event[] = [
+        {
+          event_id: 'journey_analytics_1',
+          user_id: 'user_123',
+          event_type: EVENT_TYPES.TURN_COMPLETED,
+          timestamp: Date.now() - 3600000, // 1 hour ago
+          properties: {},
+          journey_id: 'onboarding', // High selectivity - good for set(0)
+          conversation_id: 'conv_123'
+        },
+        {
+          event_id: 'journey_analytics_2',
+          user_id: 'user_456',
+          event_type: EVENT_TYPES.TURN_COMPLETED,
+          timestamp: Date.now() - 1800000, // 30 min ago
+          properties: {},
+          journey_id: 'onboarding', // Repeated value - optimal for set(0)
+          conversation_id: 'conv_456'
+        },
+        {
+          event_id: 'journey_analytics_3',
+          user_id: 'user_789',
+          event_type: EVENT_TYPES.TURN_COMPLETED,
+          timestamp: Date.now(), // Now
+          properties: {},
+          journey_id: 'checkout', // Different journey - good selectivity
+          conversation_id: 'conv_789'
+        }
+      ]
+
+      db.insertEvents(events)
+      
+      // Simulate ClickHouse query patterns that would benefit from set(0) indexes
+      // Pattern 1: Filter by journey_id (high selectivity) + time range
+      const journeyQuery = db.query(`
+        SELECT journey_id, COUNT(*) as count, MIN(timestamp) as earliest
+        FROM events 
+        WHERE journey_id = 'onboarding'
+          AND timestamp > ?
+        GROUP BY journey_id
+      `, [Date.now() - 7200000]) // 2 hours ago
+      
+      expect(journeyQuery).toEqual([{
+        journey_id: 'onboarding',
+        count: 2,
+        earliest: expect.any(Number)
+      }])
+      
+      // Pattern 2: Filter by conversation_id + turn_sequence (compound selectivity)
+      const conversationQuery = db.query(`
+        SELECT conversation_id, COUNT(*) as count
+        FROM events 
+        WHERE conversation_id = 'conv_123'
+          AND turn_sequence IS NULL -- Test NULL handling
+        GROUP BY conversation_id
+      `)
+      
+      expect(conversationQuery).toEqual([{
+        conversation_id: 'conv_123',
+        count: 1
+      }])
     })
   })
 

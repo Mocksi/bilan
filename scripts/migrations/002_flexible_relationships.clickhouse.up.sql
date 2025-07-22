@@ -38,16 +38,16 @@ WHERE event_type IN ('turn_created', 'turn_completed', 'turn_failed')
 
 -- Create indexes for relationship queries (ClickHouse MergeTree compatible)
 -- Note: ClickHouse indexes are created automatically based on ORDER BY in table definition
--- For existing tables, we can use data skipping indexes
+-- For existing tables, we can use data skipping indexes with set(0) type for better performance
 
--- Journey-based queries optimization
-ALTER TABLE events ADD INDEX idx_journey_timestamp journey_id TYPE minmax GRANULARITY 1;
+-- Journey-based queries optimization (most selective column first)
+ALTER TABLE events ADD INDEX IF NOT EXISTS idx_events_journey (journey_id, timestamp) TYPE set(0) GRANULARITY 1;
 
--- Conversation-based queries optimization  
-ALTER TABLE events ADD INDEX idx_conversation_sequence (conversation_id, turn_sequence) TYPE minmax GRANULARITY 1;
+-- Conversation-based queries optimization (most selective columns first)
+ALTER TABLE events ADD INDEX IF NOT EXISTS idx_events_conversation (conversation_id, turn_sequence, timestamp) TYPE set(0) GRANULARITY 1;
 
--- Turn context queries optimization
-ALTER TABLE events ADD INDEX idx_turn_context turn_id TYPE minmax GRANULARITY 1;
+-- Turn context queries optimization (most selective column first)  
+ALTER TABLE events ADD INDEX IF NOT EXISTS idx_events_turn_context (turn_id, timestamp) TYPE set(0) GRANULARITY 1;
 
 -- Verify relationship population (ClickHouse-compatible aggregation)
 SELECT 
