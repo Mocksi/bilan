@@ -341,11 +341,11 @@ describe('Migration Rollback Safety', () => {
         FROM events WHERE event_id = 'rollback_test_vote_1'
       `)
 
-             // Simulate a transaction that fails (one operation will cause an error)
-       // In SQLite, we need to explicitly handle the rollback
-       let errorOccurred = false
-       try {
-         db.executeRaw('BEGIN')
+      // Simulate a transaction that fails (one operation will cause an error)
+      // In SQLite, we need to explicitly handle the rollback
+      let errorOccurred = false
+      try {
+        db.executeRaw('BEGIN')
          
          // First operation succeeds
          db.executeRaw(`
@@ -453,7 +453,9 @@ describe('Migration Rollback Safety', () => {
          expect(id.length).toBeGreaterThan(70) // Should be quite long for uniqueness
        })
        
-       console.log(`Enhanced UUID-like approach: ${generatedIds.size}/${iterations} unique IDs (${iterations - generatedIds.size} collisions)`)
+       if (process.env.DEBUG_TESTS) {
+        console.log(`Enhanced UUID-like approach: ${generatedIds.size}/${iterations} unique IDs (${iterations - generatedIds.size} collisions)`)
+      }
      })
 
      it('should demonstrate the old collision-prone approach vs new approach', () => {
@@ -492,8 +494,10 @@ describe('Migration Rollback Safety', () => {
       expect(oldStyleIds.size).toBeLessThan(iterations) // Collisions occurred
       expect(newStyleIds.size).toBe(iterations) // No collisions
       
-      console.log(`Old approach: ${oldStyleIds.size}/${iterations} unique IDs (${iterations - oldStyleIds.size} collisions)`)
-      console.log(`New approach: ${newStyleIds.size}/${iterations} unique IDs (${iterations - newStyleIds.size} collisions)`)
+      if (process.env.DEBUG_TESTS) {
+        console.log(`Old approach: ${oldStyleIds.size}/${iterations} unique IDs (${iterations - oldStyleIds.size} collisions)`)
+        console.log(`New approach: ${newStyleIds.size}/${iterations} unique IDs (${iterations - newStyleIds.size} collisions)`)
+      }
     })
   })
 

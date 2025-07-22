@@ -470,8 +470,9 @@ export class BilanDatabase {
         WHERE event_type = 'vote_cast'
       `).get() as any
 
-      const success = (results?.votes_with_promptId_remaining || 0) === 0 && 
-                     (results?.votes_with_turn_id || 0) > 0
+      const success = (results?.total_votes || 0) > 0 &&
+                     (results?.votes_with_promptId_remaining || 0) === 0 && 
+                     (results?.votes_with_turn_id || 0) >= (results?.votes_with_legacy_prompt_id || 0)
 
       return {
         success,
@@ -553,8 +554,8 @@ export class BilanDatabase {
           t.turn_sequence
         FROM events t
         LEFT JOIN events v ON (
-          JSON_EXTRACT(t.properties, '$.turnId') = JSON_EXTRACT(v.properties, '$.turn_id') OR
-          JSON_EXTRACT(t.properties, '$.turn_id') = JSON_EXTRACT(v.properties, '$.turn_id')
+          COALESCE(JSON_EXTRACT(t.properties, '$.turnId'), JSON_EXTRACT(t.properties, '$.turn_id')) = 
+          JSON_EXTRACT(v.properties, '$.turn_id')
         ) AND v.event_type = 'vote_cast'
         WHERE (
           JSON_EXTRACT(t.properties, '$.turnId') = ? OR 

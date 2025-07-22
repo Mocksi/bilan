@@ -89,7 +89,6 @@ FROM migration_verification;
 -- Cleanup temp table
 DROP TABLE migration_verification;
 
--- Performance optimization: Suggest reordering for better compression
-/*
-OPTIMIZE TABLE events FINAL;
-*/ 
+-- Performance optimization: Improve compression after migration
+-- Uncomment for production deployments to improve query performance after large-scale property changes
+-- OPTIMIZE TABLE events FINAL; 
