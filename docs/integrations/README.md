@@ -31,55 +31,72 @@ Choose your integration based on your current setup:
 
 ### Already using Vercel AI SDK?
 ```typescript
-import { useChat } from 'ai/react'
-import { vote } from '@mocksi/bilan-sdk'
+import { trackTurn, vote } from '@mocksi/bilan-sdk'
 
-// Add feedback to your existing chat
-const handleFeedback = async (promptId: string, value: 1 | -1) => {
-  await vote(promptId, value)
-}
+// ✅ v0.4.1: Industry-standard event correlation
+const { result, turnId } = await trackTurn(
+  'Help me code',
+  () => streamText({ model: openai('gpt-4'), prompt })
+)
+await vote(turnId, 1, 'Helpful response!')
 ```
 **→ [Full Vercel AI SDK Guide](./vercel-ai-sdk.md)**
 
 ### Building with LangChain?
 ```typescript
-import { createQAChain } from '@/lib/chains/qa-chain'
-import { vote } from '@mocksi/bilan-sdk'
+import { trackTurn, vote } from '@mocksi/bilan-sdk'
 
-const chain = createQAChain()
-const response = await chain.invoke('Your question')
-await vote(response.promptId, 1, 'Helpful response!')
+// ✅ v0.4.1: Clean turn tracking with automatic correlation
+const { result: response, turnId } = await trackTurn(
+  'Your question',
+  () => createQAChain().invoke('Your question')
+)
+await vote(turnId, 1, 'Helpful response!')
 ```
 **→ [Full LangChain Guide](./langchain.md)**
 
 ### Using OpenAI directly?
 ```typescript
-import { createChatCompletion } from '@/lib/chat'
-import { vote } from '@mocksi/bilan-sdk'
+import { trackTurn, vote } from '@mocksi/bilan-sdk'
 
-const response = await createChatCompletion(messages)
-await vote(response.promptId, 1)
+// ✅ v0.4.1: Direct OpenAI integration with turn correlation
+const { result: response, turnId } = await trackTurn(
+  'Write an email',
+  () => openai.chat.completions.create({
+    model: 'gpt-4',
+    messages: [{ role: 'user', content: prompt }]
+  })
+)
+await vote(turnId, 1)
 ```
 **→ [Full OpenAI Guide](./openai-api.md)**
 
 ### Working with Claude?
 ```typescript
-import { createClaudeMessage } from '@/lib/claude-chat'
-import { vote } from '@mocksi/bilan-sdk'
+import { trackTurn, vote } from '@mocksi/bilan-sdk'
 
-const response = await createClaudeMessage(messages)
-await vote(response.promptId, 1)
+// ✅ v0.4.1: Claude integration with turn correlation
+const { result: response, turnId } = await trackTurn(
+  'Analyze this text',
+  () => anthropic.messages.create({
+    model: 'claude-3-sonnet-20240229',
+    messages: [{ role: 'user', content: prompt }]
+  })
+)
+await vote(turnId, 1)
 ```
 **→ [Full Anthropic Guide](./anthropic-api.md)**
 
 ### Custom or local models?
 ```typescript
-import { TrackedLLM } from '@/lib/llm-wrapper'
-import { OllamaProvider } from '@/lib/providers/ollama'
+import { trackTurn, vote } from '@mocksi/bilan-sdk'
 
-const llm = new TrackedLLM(new OllamaProvider())
-const response = await llm.generateResponse('Hello!')
-await llm.submitFeedback(response.promptId, 1)
+// ✅ v0.4.1: Custom model integration
+const { result: response, turnId } = await trackTurn(
+  'Generate content',
+  () => customModel.generate({ prompt, temperature: 0.7 })
+)
+await vote(turnId, 1)
 ```
 **→ [Full Custom LLM Guide](./custom-llm.md)**
 
@@ -89,27 +106,34 @@ await llm.submitFeedback(response.promptId, 1)
 All integrations follow this core pattern:
 
 ```typescript
-// 1. Generate response with tracked ID
-const response = await generateAIResponse(prompt)
-const { content, promptId } = response
+// ✅ v0.4.1: Standard event correlation pattern
+// 1. Track turn with automatic ID generation  
+const { result: response, turnId } = await trackTurn(
+  prompt,
+  () => generateAIResponse(prompt)
+)
 
-// 2. Show response to user with feedback buttons
+// 2. Collect user feedback using the same turnId
+const handleFeedback = async (value: 1 | -1) => {
+  await vote(turnId, value)
+}
+
+// 3. Add feedback UI
 <div>
-  <p>{content}</p>
-  <button onClick={() => vote(promptId, 1)}>👍</button>
-  <button onClick={() => vote(promptId, -1)}>👎</button>
+  <button onClick={() => vote(turnId, 1)}>👍</button>
+  <button onClick={() => vote(turnId, -1)}>👎</button>
 </div>
-
-// 3. Track trust score
-const stats = await getStats()
-console.log('Trust score:', stats.trustScore)
 ```
 
 ### 2. Streaming Pattern
 For real-time streaming responses:
 
 ```typescript
-const { stream, promptId } = await generateStreamingResponse(prompt)
+// ✅ v0.4.1: Streaming with turn correlation
+const { result: stream, turnId } = await trackTurn(
+  prompt,
+  () => generateStreamingResponse(prompt)
+)
 
 let fullContent = ''
 for await (const chunk of stream) {
@@ -117,22 +141,23 @@ for await (const chunk of stream) {
   // Update UI with streaming content
 }
 
-// Add feedback after streaming completes
-await vote(promptId, userFeedback)
+// Add feedback after streaming completes using the same turnId
+await vote(turnId, userFeedback)
 ```
 
 ### 3. Multi-step Pattern
 For complex workflows (chains, agents):
 
 ```typescript
+// ✅ v0.4.1: Multi-step tracking with individual turn correlation
 const steps = await executeMultiStepProcess(input)
 
-// Each step has its own promptId for granular feedback
+// Each step has its own turnId for granular feedback correlation
 steps.forEach(step => {
-  // Show step result with individual feedback
+  // Show step result with individual feedback linked to specific turnId
   <StepResult 
     content={step.result}
-    onFeedback={(value) => vote(step.promptId, value)}
+    onFeedback={(value) => vote(step.turnId, value)}
   />
 })
 ```
