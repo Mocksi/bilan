@@ -45,32 +45,21 @@ export const bilan = new Bilan({
 - `BILAN_PROJECT_ID` - Your Bilan project identifier
 - `BILAN_USER_ID` - Unique identifier for the current user
 
-### 2. Create a tracked chat completion function
+### 2. Create a tracked chat completion function (v0.4.1)
 
 ```typescript
 // lib/chat.ts
-import { openai, bilan } from './openai'
-
-// Cross-platform UUID generation
-function generateId(): string {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-    return crypto.randomUUID()
-  }
-  // Fallback for environments without crypto.randomUUID
-  return Math.random().toString(36).substring(2) + Date.now().toString(36)
-}
+import { openai } from './openai'
+import { trackTurn, vote } from '@mocksi/bilan-sdk'
 
 export interface TrackedChatResponse {
   content: string
   turnId: string
   conversationId: string
   model: string
-  usage: {
-    promptTokens: number
-    completionTokens: number
-    totalTokens: number
-  }
-  metadata: Record<string, any>
+  completion: any
+  // Helper method for user feedback
+  submitFeedback: (value: 1 | -1, comment?: string) => Promise<void>
 }
 
 export async function createChatCompletion(
@@ -80,79 +69,64 @@ export async function createChatCompletion(
     temperature?: number
     maxTokens?: number
     conversationId?: string
+    turnSequence?: number
   } = {}
 ): Promise<TrackedChatResponse> {
-  const turnId = generateId()
-  const conversationId = options.conversationId || generateId()
-  const model = options.model || 'gpt-3.5-turbo'
+  const conversationId = options.conversationId || `conv_${Date.now()}`
+  const model = options.model || 'gpt-4'
   
-  try {
-    // Track turn start
-    await bilan.track('turn_started', {
-      turn_id: turnId,
-      conversation_id: conversationId,
-      model,
-      provider: 'openai',
-      input_tokens: messages.reduce((sum, msg) => sum + msg.content.length, 0),
-      temperature: options.temperature || 0.7
-    })
-
-    const startTime = Date.now()
-    const completion = await openai.chat.completions.create({
+  // ✅ v0.4.1: Industry-standard event correlation with trackTurn
+  const { result: completion, turnId } = await trackTurn(
+    messages[messages.length - 1]?.content || 'OpenAI Chat Completion',
+    () => openai.chat.completions.create({
       model,
       messages,
       temperature: options.temperature || 0.7,
-      max_tokens: options.maxTokens || 1000
-    })
-
-    const response = completion.choices[0]
-    
-    if (!response.message.content) {
-      throw new Error('No content in response')
-    }
-
-    // Track turn completion
-    await bilan.track('turn_completed', {
-      turn_id: turnId,
+      max_tokens: options.maxTokens
+    }),
+    {
+      // Optional context for advanced analytics
       conversation_id: conversationId,
+      turn_sequence: options.turnSequence || 1,
       model,
       provider: 'openai',
-      input_tokens: completion.usage?.prompt_tokens || 0,
-      output_tokens: completion.usage?.completion_tokens || 0,
-      total_tokens: completion.usage?.total_tokens || 0,
-      finish_reason: response.finish_reason,
-      latency: Date.now() - startTime
-    })
-
-    return {
-      content: response.message.content,
-      turnId,
-      conversationId,
-      model,
-      usage: {
-        promptTokens: completion.usage?.prompt_tokens || 0,
-        completionTokens: completion.usage?.completion_tokens || 0,
-        totalTokens: completion.usage?.total_tokens || 0
-      },
-      metadata: {
-        finishReason: response.finish_reason,
-        timestamp: Date.now(),
-        temperature: options.temperature || 0.7
-      }
+      temperature: options.temperature || 0.7
     }
-  } catch (error) {
-    // Track turn failure
-    await bilan.track('turn_failed', {
-      turn_id: turnId,
-      conversation_id: conversationId,
-      model,
-      provider: 'openai',
-      error: error.message,
-      error_type: error.name
-    })
-    
-    console.error('OpenAI API error:', error)
-    throw error
+  )
+
+    const content = completion.choices[0]?.message?.content || ''
+
+  return {
+    content,
+    turnId,
+    conversationId,
+    model,
+    completion,
+    // Helper method for feedback using the turnId
+    async submitFeedback(value: 1 | -1, comment?: string) {
+      await vote(turnId, value, comment)
+    }
+  }
+}
+
+// Example usage with automatic correlation
+export async function handleUserQuery(
+  userMessage: string, 
+  conversationId?: string
+): Promise<string> {
+  const messages = [{ role: 'user', content: userMessage }]
+  
+  const response = await createChatCompletion(messages, { 
+    conversationId,
+    model: 'gpt-4'
+  })
+  
+  console.log('AI Response:', response.content)
+  
+  // User feedback automatically correlated to the turn
+  await response.submitFeedback(1, 'Helpful OpenAI response!')
+  
+    return response.content
   }
 }
 ```
