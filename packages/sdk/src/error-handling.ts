@@ -1,5 +1,4 @@
-import { InitConfig, PromptId } from './types'
-import { createPromptId } from './types'
+import { InitConfig } from './types'
 
 export class BilanError extends Error {
   public readonly code: string

@@ -48,9 +48,9 @@ class TelemetryService {
     return Math.abs(hash).toString(36)
   }
 
-  // Make hashString accessible for promptId hashing
-  public hashPromptId(promptId: string): string {
-    return this.hashString(promptId)
+  // Make hashString accessible for turnId hashing
+  public hashTurnId(turnId: string): string {
+    return this.hashString(turnId)
   }
 
   // Expose queue size for testing
@@ -152,12 +152,12 @@ export function trackEvent(event: Omit<TelemetryEvent, 'timestamp' | 'version' |
   telemetryService.track(event)
 }
 
-export function trackVote(promptId: string, value: 1 | -1, hasComment: boolean): void {
+export function trackVote(turnId: string, value: 1 | -1, hasComment: boolean): void {
   if (!telemetryService) return
   
   trackEvent({
     event: 'vote_recorded',
-    metadata: { value, hasComment, promptIdHash: telemetryService.hashPromptId(promptId) }
+    metadata: { value, hasComment, turnIdHash: telemetryService.hashTurnId(turnId) }
   })
 }
 

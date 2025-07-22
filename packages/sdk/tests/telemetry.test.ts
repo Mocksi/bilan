@@ -417,8 +417,8 @@ describe('Telemetry', () => {
         const events = body.events
         
         events.forEach((event: any) => {
-          if (event.event === 'vote_recorded' && event.metadata?.promptIdHash) {
-            capturedHashes.push(event.metadata.promptIdHash)
+          if (event.event === 'vote_recorded' && event.metadata?.turnIdHash) {
+            capturedHashes.push(event.metadata.turnIdHash)
           }
         })
         
@@ -437,9 +437,9 @@ describe('Telemetry', () => {
     })
 
     it('should produce consistent hashes for same input', async () => {
-      // Track the same prompt multiple times
-      trackVote('consistent-prompt', 1, true)
-      trackVote('consistent-prompt', -1, false)
+      // Track the same turn multiple times
+      trackVote('consistent-turn', 1, true)
+      trackVote('consistent-turn', -1, false)
       
       // Wait for async operations
       await new Promise(resolve => setTimeout(resolve, 0))
@@ -450,13 +450,13 @@ describe('Telemetry', () => {
     })
 
     it('should produce different hashes for different inputs', async () => {
-      trackVote('prompt-1', 1, true)
-      trackVote('prompt-2', 1, true)
+      trackVote('turn-1', 1, true)
+      trackVote('turn-2', 1, true)
       
       // Wait for async operations
       await new Promise(resolve => setTimeout(resolve, 0))
       
-      // Different prompts should have different hashes
+      // Different turns should have different hashes
       expect(capturedHashes.length).toBe(2)
       expect(capturedHashes[0]).not.toBe(capturedHashes[1])
     })

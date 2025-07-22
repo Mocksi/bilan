@@ -68,6 +68,20 @@ describe('TurnTracker', () => {
       })
     })
 
+    it('should expose turnId from last trackTurn call', async () => {
+      const mockAiCall = vi.fn().mockResolvedValue('AI response')
+
+      await turnTracker.trackTurn(
+        'Test prompt',
+        mockAiCall,
+        { conversationId: 'conv-123' }
+      )
+
+      const turnId = turnTracker.getLastTurnId()
+      expect(turnId).toMatch(/^turn_\d+_[a-z0-9]+$/)
+      expect(typeof turnId).toBe('string')
+    })
+
     it('should track failed AI turn', async () => {
       const mockError = new Error('API error')
       const mockAiCall = vi.fn().mockRejectedValue(mockError)
