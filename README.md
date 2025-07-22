@@ -119,7 +119,7 @@ npm install @mocksi/bilan-sdk
 #### **🚀 Effortless AI Tracking**
 
 ```typescript
-import { init, trackTurn, vote, startConversation, createUserId } from '@mocksi/bilan-sdk'
+import { init, trackTurn, vote, startConversation, trackJourneyStep, createUserId } from '@mocksi/bilan-sdk'
 
 // Initialize the SDK
 await init({
