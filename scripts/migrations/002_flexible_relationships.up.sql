@@ -27,12 +27,20 @@ SET journey_id = properties->>'journeyName'
 WHERE event_type = 'journey_step'
   AND JSON_EXTRACT(properties, '$.journeyName') IS NOT NULL;
 
--- Populate turn_sequence for turn events where available
+-- Populate turn_sequence for turn events where available (with safe casting)
 UPDATE events
-SET turn_sequence = CAST(properties->>'turn_sequence' AS INTEGER)
+SET turn_sequence = CASE 
+  WHEN NULLIF(TRIM(properties->>'turn_sequence'), '') GLOB '[0-9]*'
+   AND LENGTH(NULLIF(TRIM(properties->>'turn_sequence'), '')) > 0
+   AND CAST(NULLIF(TRIM(properties->>'turn_sequence'), '') AS INTEGER) > 0
+  THEN CAST(NULLIF(TRIM(properties->>'turn_sequence'), '') AS INTEGER)
+  ELSE NULL
+END
 WHERE event_type IN ('turn_created', 'turn_completed', 'turn_failed')
   AND JSON_EXTRACT(properties, '$.turn_sequence') IS NOT NULL
-  AND CAST(properties->>'turn_sequence' AS INTEGER) > 0;
+  AND NULLIF(TRIM(properties->>'turn_sequence'), '') IS NOT NULL
+  AND NULLIF(TRIM(properties->>'turn_sequence'), '') GLOB '[0-9]*'
+  AND LENGTH(NULLIF(TRIM(properties->>'turn_sequence'), '')) > 0;
 
 -- Verify relationship population
 SELECT 

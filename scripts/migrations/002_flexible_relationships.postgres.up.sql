@@ -27,12 +27,18 @@ SET journey_id = properties->>'journeyName'
 WHERE event_type = 'journey_step'
   AND properties ? 'journeyName';
 
--- Populate turn_sequence for turn events where available
+-- Populate turn_sequence for turn events where available (with safe casting)
 UPDATE events
-SET turn_sequence = (properties->>'turn_sequence')::INTEGER
+SET turn_sequence = CASE 
+  WHEN NULLIF(TRIM(properties->>'turn_sequence'), '') ~ '^[0-9]+$' 
+  THEN (NULLIF(TRIM(properties->>'turn_sequence'), ''))::INTEGER
+  ELSE NULL
+END
 WHERE event_type IN ('turn_created', 'turn_completed', 'turn_failed')
   AND properties ? 'turn_sequence'
-  AND (properties->>'turn_sequence')::INTEGER > 0;
+  AND NULLIF(TRIM(properties->>'turn_sequence'), '') IS NOT NULL
+  AND NULLIF(TRIM(properties->>'turn_sequence'), '') ~ '^[0-9]+$'
+  AND (NULLIF(TRIM(properties->>'turn_sequence'), ''))::INTEGER > 0;
 
 -- Verify relationship population
 SELECT 
