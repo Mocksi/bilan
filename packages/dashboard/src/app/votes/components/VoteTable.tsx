@@ -54,7 +54,7 @@ export const VoteTable: React.FC<VoteTableProps> = ({ votes, loading, onVoteClic
                 <tr>
                   <th>Rating</th>
                   <th>User</th>
-                  <th>Prompt</th>
+                  <th>Turn ID</th>
                   <th>Comment</th>
                   <th>Time</th>
                   <th></th>
@@ -113,7 +113,7 @@ export const VoteTable: React.FC<VoteTableProps> = ({ votes, loading, onVoteClic
               <tr>
                 <th>Rating</th>
                 <th>User</th>
-                <th>Prompt</th>
+                <th>Turn ID</th>
                 <th>Comment</th>
                 <th>Time</th>
                 <th></th>
@@ -147,7 +147,7 @@ export const VoteTable: React.FC<VoteTableProps> = ({ votes, loading, onVoteClic
                   <td>
                     <div>
                       <div className="fw-medium text-truncate" style={{ maxWidth: '200px' }}>
-                        {vote.promptId}
+                        {vote.turn_id || vote.promptId}
                       </div>
                       {vote.promptText && (
                         <small className="text-muted">

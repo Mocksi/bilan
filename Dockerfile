@@ -73,6 +73,11 @@ USER bilan
 ENV NODE_ENV=production
 ENV BILAN_PORT=3002
 ENV DB_PATH=/app/data/bilan.db
+# v0.4.1: Authentication configuration
+# Set BILAN_DEV_MODE=true for development (allows missing API key)
+# Set BILAN_API_KEY for production deployment
+ENV BILAN_DEV_MODE=false
+# ENV BILAN_API_KEY=your-secure-api-key-here
 
 # Create data directory
 RUN mkdir -p /app/data

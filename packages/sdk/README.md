@@ -5,7 +5,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue?style=flat-square)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 
-**TypeScript SDK for Bilan trust analytics** - Track user feedback on AI suggestions. Self-hostable, TypeScript-first, <2KB bundle.
+**TypeScript SDK for Bilan trust analytics** - Track user feedback on AI suggestions. Self-hostable, TypeScript-first, <6 KB bundle.
 
 ## Quick Start
 
@@ -13,8 +13,10 @@
 npm install @mocksi/bilan-sdk
 ```
 
+### ✨ v0.4.1: Industry-Standard Event Correlation
+
 ```typescript
-import { init, vote, getStats, createUserId, createPromptId } from '@mocksi/bilan-sdk'
+import { init, trackTurn, vote, createUserId } from '@mocksi/bilan-sdk'
 
 // Initialize the SDK
 await init({
@@ -22,13 +24,17 @@ await init({
   userId: createUserId('user-123')
 })
 
-// Track user feedback
-await vote(createPromptId('prompt-abc'), 1, 'Helpful suggestion!')
+// ✅ v0.4.1: trackTurn returns both result and turnId
+const { result, turnId } = await trackTurn(
+  'Help me write an email',
+  () => openai.chat.completions.create({
+    model: 'gpt-4',
+    messages: [{ role: 'user', content: prompt }]
+  })
+)
 
-// Get analytics
-const stats = await getStats()
-console.log(`Trust score: ${(stats.positiveRate * 100).toFixed(1)}%`)
-console.log(`Trend: ${stats.recentTrend}`) // 'improving' | 'declining' | 'stable'
+// Use the same turnId for feedback - automatic correlation
+await vote(turnId, 1, 'Helpful suggestion!')
 ```
 
 ### Conversation Tracking
@@ -36,15 +42,28 @@ console.log(`Trend: ${stats.recentTrend}`) // 'improving' | 'declining' | 'stabl
 Track AI conversation success and quality signals:
 
 ```typescript
-import { init, startConversation, addMessage, recordFeedback, endConversation } from '@mocksi/bilan-sdk'
+import { init, startConversation, vote, endConversation, createUserId } from '@mocksi/bilan-sdk'
 
 // Initialize the SDK
 await init({ mode: 'local', userId: createUserId('user-123') })
 
 // Track conversation flow
 const conversationId = await startConversation('user-123')
-await addMessage(conversationId)
-await recordFeedback(conversationId, 1)  // 1 for positive, -1 for negative
+
+// Track AI interactions within conversation
+const { result, turnId } = await trackTurn(
+  'Write an email',
+  () => callAI(prompt),
+  {
+    conversation_id: conversationId,
+    turn_sequence: 1
+  }
+)
+
+// Record feedback using turnId
+await vote(turnId, 1, 'Great response!')
+
+// End conversation
 await endConversation(conversationId, 'completed')  // or 'abandoned'
 ```
 
@@ -53,25 +72,80 @@ await endConversation(conversationId, 'completed')  // or 'abandoned'
 Track user progress through AI-powered workflows:
 
 ```typescript
-import { init, trackJourneyStep, completeJourney } from '@mocksi/bilan-sdk'
+import { init, trackTurn, trackJourneyStep, createUserId } from '@mocksi/bilan-sdk'
 
 // Initialize the SDK
 await init({ mode: 'local', userId: createUserId('user-123') })
 
-// Track user journey
-await trackJourneyStep('email-agent', 'query-sent', 'user-123')
-await trackJourneyStep('email-agent', 'response-received', 'user-123')
-await completeJourney('email-agent', 'user-123')
+// Track AI interaction within journey
+const { result, turnId } = await trackTurn(
+  'Generate email draft',
+  () => callAI(prompt),
+  {
+    journey_id: 'email-workflow'
+  }
+)
+
+// Track journey progress
+await trackJourneyStep('email-workflow', 'draft-created', 'user-123')
+await trackJourneyStep('email-workflow', 'ai-enhanced', 'user-123')
+await trackJourneyStep('email-workflow', 'completed', 'user-123')
+
+// Record feedback
+await vote(turnId, 1, 'Perfect email!')
 ```
 
 ## Features
 
-- **🚀 Lightweight**: 5.4KB gzipped bundle size
+- **🚀 Lightweight**: <6 KB gzipped bundle size
 - **🔒 Type Safe**: Full TypeScript support with branded types
 - **🏃‍♂️ Zero Dependencies**: Uses only native web APIs
 - **📱 Universal**: Works in browsers, Node.js, and edge environments
-- **🔧 Configurable**: Advanced trend analysis with customizable parameters
 - **🛡️ Robust**: Comprehensive error handling and graceful degradation
+- **🎯 Industry Standard**: Follows Amplitude/Mixpanel event correlation patterns
+
+## API Reference
+
+### Core Methods
+
+**`trackTurn<T>(prompt: string, aiCall: () => Promise<T>, context?: object): Promise<{ result: T, turnId: string }>`**
+Track an AI interaction and get both result and turnId for correlation.
+
+**`vote(turnId: string, value: 1 | -1, comment?: string): Promise<void>`**
+Record user feedback using turnId from trackTurn.
+
+**`startConversation(userId: string): Promise<string>`**
+Start a conversation session.
+
+**`endConversation(conversationId: string, status?: 'completed' | 'abandoned'): Promise<void>`**
+End a conversation with outcome.
+
+**`trackJourneyStep(journeyName: string, stepName: string, userId: string): Promise<void>`**
+Track progress through workflow steps.
+
+### Configuration
+
+```typescript
+interface InitConfig {
+  mode: 'local' | 'server'
+  userId: UserId
+  endpoint?: string        // Custom API endpoint
+  debug?: boolean         // Enable debug logging
+  privacyConfig?: {       // Privacy controls
+    defaultCaptureLevel: 'none' | 'metadata' | 'sanitized' | 'full'
+    captureLevels: {
+      prompts: 'none' | 'metadata' | 'sanitized' | 'full'
+      responses: 'none' | 'metadata' | 'sanitized' | 'full'
+      errors: 'none' | 'metadata' | 'sanitized' | 'full'
+      metadata: 'none' | 'metadata' | 'sanitized' | 'full'
+    }
+  }
+  telemetry?: {          // Optional usage telemetry
+    enabled?: boolean
+    endpoint?: string
+  }
+}
+```
 
 ## Documentation
 

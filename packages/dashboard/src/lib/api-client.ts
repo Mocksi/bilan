@@ -19,9 +19,37 @@ import {
 import { TimeRange } from '@/components/TimeRangeSelector'
 import { formatDateForAPI, getDateRange, getPreviousDateRange } from './time-utils'
 
+/**
+ * Read a secret from environment variable or file (Docker secrets support)
+ * Checks for VARNAME_FILE first, then falls back to VARNAME
+ * Browser-safe: only works in Node.js environments (server-side)
+ */
+function readSecret(varName: string): string | undefined {
+  // Skip file reading in browser environments
+  if (typeof window !== 'undefined') {
+    return process.env[varName]
+  }
+
+  const fileVar = `${varName}_FILE`
+  const filePath = process.env[fileVar]
+  
+  if (filePath) {
+    try {
+      // Dynamic import for Node.js environments only
+      const fs = require('fs')
+      return fs.readFileSync(filePath, 'utf8').trim()
+    } catch (error: any) {
+      console.error(`Failed to read secret from file ${filePath}:`, error)
+      return process.env[varName]
+    }
+  }
+  
+  return process.env[varName]
+}
+
 // API Configuration
 const API_BASE_URL = process.env.BILAN_PUBLIC_API_BASE_URL || 'http://localhost:3002'
-const API_KEY = process.env.NEXT_PUBLIC_BILAN_API_KEY || process.env.BILAN_API_KEY || null
+const API_KEY = readSecret('NEXT_PUBLIC_BILAN_API_KEY') || readSecret('BILAN_API_KEY') || null
 
 export interface DashboardDataWithComparison extends DashboardData {
   comparison?: {

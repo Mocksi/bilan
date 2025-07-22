@@ -2,6 +2,79 @@
 
 This guide provides comprehensive instructions for deploying Bilan in various environments using Docker.
 
+## 🆕 v0.4.1 Authentication Requirements
+
+**IMPORTANT**: Bilan v0.4.1 introduces API key authentication for analytics endpoints. Before deploying, ensure you understand the authentication requirements:
+
+### Development Mode (Default in Docker Compose)
+```env
+# Development - allows missing API key
+BILAN_DEV_MODE=true
+```
+
+### Production Mode (Required for Production)
+```env
+# Production - requires secure API key
+BILAN_API_KEY=your-secure-api-key-here
+NEXT_PUBLIC_BILAN_API_KEY=your-secure-api-key-here  # For dashboard
+
+# Generate secure API key:
+openssl rand -hex 32
+```
+
+**⚠️ Security Warning**: Never set `BILAN_DEV_MODE=true` in production. Always use a secure API key.
+
+### Docker Secrets (Enhanced Security)
+
+For production deployments, Bilan v0.4.1 supports Docker secrets to avoid exposing credentials in container metadata:
+
+#### **Environment Variables (Simple)**
+```yaml
+environment:
+  - BILAN_API_KEY=${BILAN_API_KEY}
+  - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+```
+
+#### **Docker Secrets (Recommended for Production)**
+```yaml
+environment:
+  - BILAN_API_KEY_FILE=/run/secrets/bilan_api_key
+  - POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password
+secrets:
+  - bilan_api_key
+  - postgres_password
+
+secrets:
+  bilan_api_key:
+    file: ./secrets/bilan_api_key.txt
+  postgres_password:
+    file: ./secrets/postgres_password.txt
+```
+
+#### **Setting Up Secrets**
+```bash
+# Create secrets directory
+mkdir -p secrets
+
+# Generate secure credentials
+openssl rand -hex 32 > secrets/bilan_api_key.txt
+openssl rand -base64 32 > secrets/postgres_password.txt
+
+# Secure file permissions
+chmod 600 secrets/*.txt
+chown root:root secrets/*.txt  # If running as root
+
+# Add to .gitignore
+echo "secrets/" >> .gitignore
+```
+
+#### **Benefits of Docker Secrets**
+- ✅ Credentials not visible in `docker inspect` output
+- ✅ Files mounted in memory (not on disk)  
+- ✅ Automatic rotation support
+- ✅ Swarm mode compatibility
+- ✅ Better security audit trail
+
 ## Quick Start
 
 For a quick deployment with default settings:
@@ -503,3 +576,56 @@ When reporting deployment issues, please include:
 ### Contributing
 
 Contributions to improve deployment documentation and scripts are welcome! Please see [CONTRIBUTING.md](../CONTRIBUTING.md) for guidelines. 
+
+## v0.4.1 Docker Secrets Setup
+
+### Secure Credential Management
+
+Bilan v0.4.1 supports Docker secrets for enhanced security in production:
+
+#### **Environment Variables (Simple)**
+```yaml
+environment:
+  - BILAN_API_KEY=${BILAN_API_KEY}
+  - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+```
+
+#### **Docker Secrets (Recommended for Production)**
+```yaml
+environment:
+  - BILAN_API_KEY_FILE=/run/secrets/bilan_api_key
+  - POSTGRES_PASSWORD_FILE=/run/secrets/postgres_password
+secrets:
+  - bilan_api_key
+  - postgres_password
+
+secrets:
+  bilan_api_key:
+    file: ./secrets/bilan_api_key.txt
+  postgres_password:
+    file: ./secrets/postgres_password.txt
+```
+
+#### **Setting Up Secrets**
+```bash
+# Create secrets directory
+mkdir -p secrets
+
+# Generate secure credentials
+openssl rand -hex 32 > secrets/bilan_api_key.txt
+openssl rand -base64 32 > secrets/postgres_password.txt
+
+# Secure file permissions
+chmod 600 secrets/*.txt
+chown root:root secrets/*.txt  # If running as root
+
+# Add to .gitignore
+echo "secrets/" >> .gitignore
+```
+
+#### **Benefits of Docker Secrets**
+- ✅ Credentials not visible in `docker inspect` output
+- ✅ Files mounted in memory (not on disk)  
+- ✅ Automatic rotation support
+- ✅ Swarm mode compatibility
+- ✅ Better security audit trail 
