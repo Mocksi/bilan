@@ -92,9 +92,8 @@ export interface UserActionEvent extends Event {
  */
 export interface VoteCastEvent extends Event {
   eventType: 'vote_cast'
-  turn_id: string           // Required - inherits from trackTurn
   properties: {
-    turn_id: string         // Use turn_id instead of promptId
+    turn_id: string         // Required - references the turn being voted on
     value: 1 | -1
     comment?: string
     timestamp: number
