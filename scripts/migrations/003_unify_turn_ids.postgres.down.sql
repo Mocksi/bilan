@@ -19,7 +19,7 @@ VALUES (
 );
 
 -- Restore vote events from backup if available
-CREATE TEMP TABLE events_temp AS SELECT * FROM events;
+-- Note: We only need to restore vote_cast events since non-vote events weren't modified
 
 -- Delete current vote events
 DELETE FROM events WHERE event_type = 'vote_cast';
@@ -29,14 +29,8 @@ INSERT INTO events
 SELECT * FROM vote_events_backup 
 WHERE event_type = 'vote_cast';
 
--- Restore non-vote events
-INSERT INTO events 
-SELECT * FROM events_temp 
-WHERE event_type != 'vote_cast' 
-  AND event_id NOT IN (SELECT event_id FROM vote_events_backup);
-
--- Cleanup temporary table
-DROP TABLE events_temp;
+-- Note: Non-vote events are already in the events table and don't need restoration
+-- since they were never modified during the forward migration
 
 -- Log rollback completion
 INSERT INTO events (event_id, user_id, event_type, timestamp, properties) 
