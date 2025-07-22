@@ -22,32 +22,74 @@
 
 ## What is Bilan?
 
-Bilan is an open source analytics tool that helps you understand how users interact with your AI-powered features. Track complete conversation flows, user journey completion, and quality signals - all running on your own infrastructure.
+Bilan is an open source analytics platform that helps you understand how users interact with your AI-powered features. Think "Google Analytics for AI" - track every turn, conversation, and user interaction with comprehensive event-based analytics running on your own infrastructure.
 
-**Perfect for:** Individual developers, startups, and teams who want to understand AI user experience without external dependencies.
+**Perfect for:** Individual developers, startups, and teams who want complete visibility into AI user experience without external dependencies.
 
-### Core Capabilities
+### ✨ **v0.4.0: Event-Based Architecture**
 
-#### 💬 Conversation Tracking
-Track complete AI conversation sessions from start to finish:
-- **Session Management**: Start, track messages, and end conversations
-- **Success Metrics**: Measure completion vs. abandonment rates
-- **Quality Signals**: Record frustration, regeneration, and feedback events
-- **Multi-turn Analysis**: Understand conversation patterns and user behavior
+Bilan v0.4.0 transforms AI analytics with a flexible, event-driven approach that automatically captures success rates, failure modes, and user behavior patterns with minimal integration effort.
 
-#### 🗺️ Journey Analytics  
-Monitor user progress through AI-powered workflows:
-- **Step Tracking**: Record progress through predefined journey steps
-- **Completion Rates**: Measure journey success and drop-off points
-- **Funnel Analysis**: Identify where users struggle or abandon tasks
-- **Workflow Optimization**: Data-driven insights for improving user flows
+#### 🚀 One-Line AI Tracking
+Wrap any AI call to automatically track success, failures, and performance:
 
-#### 👍 Feedback Collection
-Capture user sentiment and quality indicators:
-- **Explicit Feedback**: Traditional thumbs up/down with comments
-- **Implicit Signals**: Frustration and regeneration event detection
-- **Trust Metrics**: Aggregate feedback into actionable trust scores
-- **Trend Analysis**: Track improvement or decline over time
+```typescript
+// Before: Manual conversation management 
+const response = await openai.chat.completions.create({...})
+
+// After: Automatic turn tracking with failure detection
+const prompt = 'Help me write an email'
+const response = await bilan.trackTurn(
+  prompt,
+  () => openai.chat.completions.create({
+    model: 'gpt-4',
+    messages: [{ role: 'user', content: prompt }]
+  })
+)
+```
+
+**Automatically captures:**
+- ✅ Success rates and response times
+- ❌ Timeouts, rate limits, and API errors
+- 📊 Model performance metrics
+- 👤 User interaction patterns
+
+#### 🎯 Core Capabilities
+
+##### **🔄 Turn-Based Analytics**
+Every AI interaction is tracked as an atomic "turn" with comprehensive metrics:
+- **Success/Failure Tracking**: Automatic detection of timeouts, API errors, and cancellations
+- **Performance Metrics**: Response times, token usage, and model performance
+- **Error Classification**: Detailed error categorization (timeout, rate_limit, network, etc.)
+- **Privacy Controls**: Configurable prompt and response capture with PII sanitization
+
+##### **💬 Conversation Aggregation**  
+Turns automatically aggregate into conversation sessions:
+- **Session Management**: Automatic conversation grouping and lifecycle tracking
+- **Multi-turn Analysis**: Conversation flow patterns and user behavior insights
+- **Abandonment Detection**: Identify where users drop off or get frustrated
+- **Success Metrics**: Completion rates and conversation quality scores
+
+##### **🗺️ Journey Workflows**
+Track user progress through multi-step AI-powered workflows:
+- **Step Progression**: Monitor progress through predefined journey steps
+- **Funnel Analysis**: Identify optimization opportunities and drop-off points
+- **Completion Tracking**: Measure end-to-end workflow success rates
+- **User Path Analysis**: Understand how users navigate AI-powered experiences
+
+##### **👍 Enhanced Feedback Collection**
+Capture both explicit and implicit user signals:
+- **Explicit Feedback**: Traditional thumbs up/down with contextual comments
+- **Implicit Signals**: Automatic frustration and regeneration event detection
+- **Quality Indicators**: Aggregate feedback into actionable trust and satisfaction scores
+- **Trend Analysis**: Track improvement or decline over time with detailed insights
+
+##### **📊 Event-Based Flexibility**
+Built on a flexible event architecture that grows with your needs:
+- **Custom Events**: Track any AI-related interaction beyond built-in patterns
+- **Flexible Analytics**: Slice data by conversation, journey, user, or custom properties
+- **Schema Evolution**: Add new event types without breaking existing analytics
+- **API-First Design**: Full REST API for custom dashboards and integrations
 
 ### Platform Features
 
@@ -75,31 +117,68 @@ Capture user sentiment and quality indicators:
 npm install @mocksi/bilan-sdk
 ```
 
+#### **🚀 Effortless AI Tracking**
+
 ```typescript
-import { init, conversation, journey, vote, getStats, createUserId } from '@mocksi/bilan-sdk'
+import { init, trackTurn, vote, startConversation, trackJourneyStep, createUserId } from '@mocksi/bilan-sdk'
 
 // Initialize the SDK
 await init({
-  mode: 'local',  // or 'server' for self-hosted API
-  userId: createUserId('user-123')
+  apiKey: 'your-api-key',
+  userId: createUserId('user-123'),
+  // Privacy controls
+  capturePrompts: true,
+  captureResponses: false  // Default: privacy-first
 })
 
-// Track a complete conversation
-const conversationId = await conversation.start(createUserId('user-123'))
-await conversation.addMessage(conversationId)
-await conversation.recordFeedback(conversationId, 1, 'Great response!')
-await conversation.end(conversationId, 'completed')
+// Wrap any AI call for automatic tracking
+const response = await trackTurn(
+  'Help me write a professional email',
+  () => openai.chat.completions.create({
+    model: 'gpt-4',
+    messages: [{ role: 'user', content: prompt }]
+  }),
+  {
+    conversationId: 'conv-123',
+    systemPromptVersion: 'v2.1',
+    modelUsed: 'gpt-4'
+  }
+)
 
-// Track user journey progress
-await journey.trackStep('email-workflow', 'draft-composed', createUserId('user-123'))
-await journey.trackStep('email-workflow', 'ai-suggestions-applied', createUserId('user-123'))
-await journey.complete('email-workflow', createUserId('user-123'))
+// Capture user feedback
+await vote(promptId, 1, 'Very helpful!')
 
-// Get comprehensive analytics
-const stats = await getStats()
-console.log(`Conversation success rate: ${(stats.conversationSuccessRate * 100).toFixed(1)}%`)
-console.log(`Journey completion rate: ${(stats.journeyCompletionRate * 100).toFixed(1)}%`)
-console.log(`Trust score: ${(stats.trustScore * 100).toFixed(1)}%`)
+// Track user journeys
+await trackJourneyStep('email-workflow', 'draft-composed', createUserId('user-123'))
+await trackJourneyStep('email-workflow', 'ai-enhanced', createUserId('user-123'))
+```
+
+#### **📊 Complete Workflow Example**
+
+```typescript
+// Start a conversation
+const conversationId = await startConversation('user-123')
+
+// Track AI interactions with automatic failure detection
+const response1 = await trackTurn(
+  'Write an email subject line',
+  () => callOpenAI(prompt),
+  { conversationId }
+)
+
+const response2 = await trackTurn(
+  'Write the email body',
+  () => callOpenAI(bodyPrompt),  
+  { conversationId }
+)
+
+// Record user feedback
+await recordFeedback(conversationId, 1, 'Great suggestions!')
+
+// End conversation
+await endConversation(conversationId, 'completed')
+
+// Analytics are automatically available in your dashboard
 ```
 
 ### Advanced Configuration

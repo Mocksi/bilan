@@ -4,12 +4,12 @@
 Bilan is an open-source TypeScript SDK + managed analytics platform that helps teams monitor and improve user trust in AI features. Think "Sentry for AI" - real-time trust scoring, automatic model routing, and actionable insights.
 
 ## Tech Stack & Architecture
-- **Monorepo**: packages/* (SDK, types, examples) + apps/* (api, dashboard, workers)
+- **Monorepo**: packages/* (SDK, server, dashboard)
 - **SDK**: TypeScript, Rollup, Vitest, <5KB bundle size
-- **API**: Fastify, ClickHouse, Railway deployment
-- **Workers**: Cloudflare Workers + KV for scoring and routing
-- **Dashboard**: Next.js 14, Tailwind CSS, Vercel deployment
-- **Database**: ClickHouse Cloud for event storage and aggregation
+- **API**: Fastify, SQLite (better-sqlite3), Docker deployment
+- **Dashboard**: Next.js, Tailwind CSS, self-hosted
+- **Database**: SQLite with unified events table for analytics
+- **Deployment**: Docker + docker-compose, self-hosted
 
 ## Core Principles
 
@@ -55,12 +55,12 @@ Bilan is an open-source TypeScript SDK + managed analytics platform that helps t
 - Implement proper error handling with structured error responses
 - Use Bearer token authentication
 
-### Database (ClickHouse)
-- Use MergeTree engine for events table
-- Optimize for time-series queries
-- Use LowCardinality for enum-like fields
-- Implement proper partitioning by date
-- Use async inserts for performance
+### Database (SQLite)
+- Use better-sqlite3 for production performance
+- Unified events table with JSONB properties for flexible analytics
+- Proper indexing on user_id, event_type, and timestamp
+- Batch inserts for better performance
+- Event-based architecture supporting all analytics patterns
 
 ## File Structure & Naming
 
@@ -68,14 +68,9 @@ Bilan is an open-source TypeScript SDK + managed analytics platform that helps t
 ```
 packages/
 ├── sdk/          # @mocksi/bilan-sdk - Main TypeScript SDK
-├── types/        # Shared TypeScript types
+├── server/       # @bilan/server - Fastify API for event ingestion
+├── dashboard/    # @bilan/dashboard - Next.js analytics dashboard
 └── examples/     # Integration examples (nextjs, react, etc.)
-
-apps/
-├── api/          # Fastify API for event ingestion
-├── dashboard/    # Next.js analytics dashboard
-├── scoring-worker/ # Cloudflare Worker for trust scoring
-└── router/       # Cloudflare Worker for model routing
 ```
 
 ### Naming Conventions
@@ -169,10 +164,10 @@ apps/
 - Implement proper caching strategies
 
 ### API Performance
-- Use connection pooling for ClickHouse
-- Implement proper indexing strategies
-- Use async processing for heavy operations
-- Monitor query performance
+- Use SQLite WAL mode for concurrent reads/writes
+- Implement proper indexing strategies on events table
+- Use batch processing for event ingestion
+- Monitor query performance and response times
 
 ## Domain-Specific Guidelines
 
@@ -189,10 +184,10 @@ apps/
 - Handle out-of-order events
 
 ### AI Integration
-- Support multiple AI providers
-- Implement fallback strategies
-- Track model performance metrics
-- Support A/B testing scenarios
+- Support multiple AI providers (OpenAI, Anthropic, etc.)
+- Implement automatic failure detection and error classification
+- Track model performance metrics and response times
+- Support A/B testing scenarios with system prompt versioning
 
 ## Documentation Standards
 
@@ -268,7 +263,7 @@ interface ApiResponse<T> {
 - Squash feature branches before merging
 - Tag releases with semantic versioning
 - Use GitHub Actions for CI/CD
-- Deploy SDK to npm, services to respective platforms
+- Deploy SDK to npm, server via Docker containers
 
 ## Git Commit Best Practices
 
