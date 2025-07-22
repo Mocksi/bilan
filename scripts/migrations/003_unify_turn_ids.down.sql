@@ -9,7 +9,7 @@ BEGIN TRANSACTION;
 -- Log rollback start
 INSERT INTO events (event_id, user_id, event_type, timestamp, properties) 
 VALUES (
-  'migration_003_rollback_' || hex(randomblob(8)) || '_' || strftime('%s%f', 'now'),
+  'migration_003_rollback_' || hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-' || hex(randomblob(2)) || '-' || hex(randomblob(2)) || '-' || hex(randomblob(6)) || '_' || strftime('%s%f', 'now') || substr(hex(randomblob(2)), 1, 3),
   'system',
   'user_action',
   strftime('%s', 'now') * 1000,
@@ -38,7 +38,7 @@ WHERE event_type = 'vote_cast';
 -- Log rollback completion
 INSERT INTO events (event_id, user_id, event_type, timestamp, properties) 
 VALUES (
-  'migration_003_rollback_complete_' || hex(randomblob(8)) || '_' || strftime('%s%f', 'now'),
+  'migration_003_rollback_complete_' || hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-' || hex(randomblob(2)) || '-' || hex(randomblob(2)) || '-' || hex(randomblob(6)) || '_' || strftime('%s%f', 'now') || substr(hex(randomblob(2)), 1, 3),
   'system',
   'user_action',
   strftime('%s', 'now') * 1000,

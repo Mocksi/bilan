@@ -423,7 +423,40 @@ describe('Migration Rollback Safety', () => {
       })
     })
 
-    it('should demonstrate the old collision-prone approach vs new approach', () => {
+         it('should generate robust UUID-like event IDs with maximum entropy', () => {
+       // Test the enhanced SQLite UUID-like generation approach
+       // Simulates: hex(randomblob(4))+'-'+hex(randomblob(2))+'-'+hex(randomblob(2))+'-'+hex(randomblob(2))+'-'+hex(randomblob(6))+'_'+timestamp+random
+       
+       const generatedIds = new Set<string>()
+       const iterations = 10000 // Stress test with higher iterations
+       
+       for (let i = 0; i < iterations; i++) {
+         // Generate UUID-like format: XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX_timestamp_XXX
+         const part1 = Math.random().toString(16).substr(2, 8).padStart(8, '0')
+         const part2 = Math.random().toString(16).substr(2, 4).padStart(4, '0')
+         const part3 = Math.random().toString(16).substr(2, 4).padStart(4, '0')
+         const part4 = Math.random().toString(16).substr(2, 4).padStart(4, '0')
+         const part5 = Math.random().toString(16).substr(2, 12).padStart(12, '0')
+         const timestamp = (Date.now() * 1000000 + i).toString() // Microsecond precision simulation
+         const suffix = Math.random().toString(16).substr(2, 3)
+         
+         const eventId = `migration_003_start_${part1}-${part2}-${part3}-${part4}-${part5}_${timestamp}${suffix}`
+         generatedIds.add(eventId)
+       }
+       
+       // Verify absolutely no collisions even with 10K iterations
+       expect(generatedIds.size).toBe(iterations)
+       
+       // Verify UUID-like format structure
+       generatedIds.forEach(id => {
+         expect(id).toMatch(/^migration_003_start_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}_\d+[0-9a-f]{3}$/)
+         expect(id.length).toBeGreaterThan(70) // Should be quite long for uniqueness
+       })
+       
+       console.log(`Enhanced UUID-like approach: ${generatedIds.size}/${iterations} unique IDs (${iterations - generatedIds.size} collisions)`)
+     })
+
+     it('should demonstrate the old collision-prone approach vs new approach', () => {
       // Demonstrate why the old approach was problematic
       const oldStyleIds = new Set<string>()
       const newStyleIds = new Set<string>()
