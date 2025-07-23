@@ -26,6 +26,7 @@ npm install @mocksi/bilan-sdk @anthropic-ai/sdk
 // lib/anthropic.ts
 import Anthropic from '@anthropic-ai/sdk'
 import { Bilan } from '@mocksi/bilan-sdk'
+import { trackTurn } from '@mocksi/bilan-sdk'
 
 // Cross-platform UUID generation
 function generateId(): string {
@@ -52,6 +53,7 @@ export const bilan = new Bilan({
 ```typescript
 // lib/claude-chat.ts
 import { anthropic, bilan } from './anthropic'
+import { trackTurn } from '@mocksi/bilan-sdk'
 
 // Cross-platform UUID generation
 function generateId(): string {
@@ -168,15 +170,16 @@ export async function createClaudeMessage(
 // lib/claude-streaming.ts
 import { anthropic } from './anthropic'
 // Use the generateId function defined above instead of importing randomUUID
+import { trackTurn } from '@mocksi/bilan-sdk'
 
 export interface StreamingClaudeResponse {
-  promptId: string
+  turnId: string
   model: string
   stream: AsyncIterable<string>
   metadata: Record<string, any>
 }
 
-export async function createStreamingClaudeMessage(
+export async function createClaudeStreamCompletion(
   messages: Array<{ role: 'user' | 'assistant'; content: string }>,
   options: {
     model?: string
@@ -185,36 +188,46 @@ export async function createStreamingClaudeMessage(
     system?: string
   } = {}
 ): Promise<StreamingClaudeResponse> {
-  const promptId = generateId()
   const model = options.model || 'claude-3-haiku-20240307'
   
-  const stream = anthropic.messages.stream({
-    model,
-    max_tokens: options.maxTokens || 1000,
-    temperature: options.temperature || 0.7,
-    system: options.system,
-    messages: messages.map(msg => ({
-      role: msg.role,
-      content: msg.content
-    }))
-  })
+  // ✅ v0.4.1: Use trackTurn for automatic correlation
+  const { result, turnId } = await trackTurn(
+    messages[messages.length - 1]?.content || 'Claude streaming completion',
+    async () => {
+      const stream = anthropic.messages.stream({
+        model,
+        max_tokens: options.maxTokens || 1000,
+        temperature: options.temperature || 0.7,
+        system: options.system,
+        messages: messages.map(msg => ({
+          role: msg.role,
+          content: msg.content
+        }))
+      })
 
-  async function* streamContent() {
-    for await (const chunk of stream) {
-      if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
-        yield chunk.delta.text
+      async function* streamContent() {
+        for await (const chunk of stream) {
+          if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
+            yield chunk.delta.text
+          }
+        }
+      }
+
+      return {
+        stream: streamContent(),
+        metadata: {
+          timestamp: Date.now(),
+          temperature: options.temperature || 0.7
+        }
       }
     }
-  }
+  )
 
   return {
-    promptId,
+    turnId,  // Return turnId for vote correlation
     model,
-    stream: streamContent(),
-    metadata: {
-      timestamp: Date.now(),
-      temperature: options.temperature || 0.7
-    }
+    stream: result.stream,
+    metadata: result.metadata
   }
 }
 ```
@@ -228,6 +241,7 @@ export async function createStreamingClaudeMessage(
 import { useState } from 'react'
 import { createClaudeMessage, TrackedClaudeResponse } from '@/lib/claude-chat'
 import { bilan } from '@/lib/anthropic'
+import { trackTurn } from '@mocksi/bilan-sdk'
 
 interface Message {
   id: string
@@ -483,12 +497,13 @@ export default function ClaudeChat() {
 // lib/claude-analysis.ts
 import { anthropic } from './anthropic'
 // Use the generateId function defined above instead of importing randomUUID
+import { trackTurn } from '@mocksi/bilan-sdk'
 
 export interface DocumentAnalysis {
   summary: string
   keyPoints: string[]
   sentiment: 'positive' | 'negative' | 'neutral'
-  promptId: string
+  turnId: string
   metadata: Record<string, any>
 }
 
@@ -496,8 +511,6 @@ export async function analyzeDocument(
   document: string,
   analysisType: 'summary' | 'sentiment' | 'key_points' | 'comprehensive' = 'comprehensive'
 ): Promise<DocumentAnalysis> {
-  const promptId = generateId()
-  
   const systemPrompt = `You are an expert document analyzer. Provide clear, structured analysis of the given document.`
   
   let userPrompt = ''
@@ -524,38 +537,37 @@ ${document}`
       break
   }
 
-  try {
-    const response = await anthropic.messages.create({
+  // ✅ v0.4.1: Use trackTurn for automatic correlation
+  const { result: response, turnId } = await trackTurn(
+    userPrompt,
+    () => anthropic.messages.create({
       model: 'claude-3-sonnet-20240229',
       max_tokens: 2000,
       system: systemPrompt,
       messages: [{ role: 'user', content: userPrompt }]
     })
+  )
 
-    const content = response.content[0]
-    if (content.type !== 'text') {
-      throw new Error('Unexpected response type')
-    }
+  const content = response.content[0]
+  if (content.type !== 'text') {
+    throw new Error('Unexpected response type')
+  }
 
-    // Parse the response (simplified - you might want more sophisticated parsing)
-    const analysisText = content.text
-    
-    return {
-      summary: analysisText,
-      keyPoints: analysisText.split('\n').filter(line => line.trim().startsWith('•') || line.trim().startsWith('-')),
-      sentiment: analysisText.toLowerCase().includes('positive') ? 'positive' : 
-                analysisText.toLowerCase().includes('negative') ? 'negative' : 'neutral',
-      promptId,
-      metadata: {
-        analysisType,
-        documentLength: document.length,
-        timestamp: Date.now(),
-        model: 'claude-3-sonnet-20240229'
-      }
+  // Parse the response (simplified - you might want more sophisticated parsing)
+  const analysisText = content.text
+  
+  return {
+    summary: analysisText,
+    keyPoints: analysisText.split('\n').filter(line => line.trim().startsWith('•') || line.trim().startsWith('-')),
+    sentiment: analysisText.toLowerCase().includes('positive') ? 'positive' : 
+              analysisText.toLowerCase().includes('negative') ? 'negative' : 'neutral',
+    turnId,
+    metadata: {
+      analysisType,
+      documentLength: document.length,
+      timestamp: Date.now(),
+      model: 'claude-3-sonnet-20240229'
     }
-  } catch (error) {
-    console.error('Document analysis failed:', error)
-    throw error
   }
 }
 ```
@@ -566,6 +578,7 @@ ${document}`
 // lib/claude-conversation.ts
 import { anthropic } from './anthropic'
 // Use the generateId function defined above instead of importing randomUUID
+import { trackTurn } from '@mocksi/bilan-sdk'
 
 export interface ConversationContext {
   messages: Array<{ role: 'user' | 'assistant'; content: string }>
@@ -591,44 +604,41 @@ export class ClaudeConversation {
 
   async sendMessage(content: string): Promise<{
     response: string
-    promptId: string
+    turnId: string
     usage: { inputTokens: number; outputTokens: number }
   }> {
-    const promptId = generateId()
-    
     // Add user message to context
     this.context.messages.push({ role: 'user', content })
 
-    try {
-      const response = await anthropic.messages.create({
+    // ✅ v0.4.1: Use trackTurn for automatic correlation
+    const { result: response, turnId } = await trackTurn(
+      content,
+      () => anthropic.messages.create({
         model: this.model,
         max_tokens: 1000,
         system: this.context.systemPrompt,
         messages: this.context.messages
       })
+    )
 
-      const responseContent = response.content[0]
-      if (responseContent.type !== 'text') {
-        throw new Error('Unexpected response type')
+    const responseContent = response.content[0]
+    if (responseContent.type !== 'text') {
+      throw new Error('Unexpected response type')
+    }
+
+    // Add assistant response to context
+    this.context.messages.push({ 
+      role: 'assistant', 
+      content: responseContent.text 
+    })
+
+    return {
+      response: responseContent.text,
+      turnId,
+      usage: {
+        inputTokens: response.usage.input_tokens,
+        outputTokens: response.usage.output_tokens
       }
-
-      // Add assistant response to context
-      this.context.messages.push({ 
-        role: 'assistant', 
-        content: responseContent.text 
-      })
-
-      return {
-        response: responseContent.text,
-        promptId,
-        usage: {
-          inputTokens: response.usage.input_tokens,
-          outputTokens: response.usage.output_tokens
-        }
-      }
-    } catch (error) {
-      console.error('Conversation error:', error)
-      throw error
     }
   }
 
@@ -776,6 +786,7 @@ await bilan.track('turn_completed', {
 // lib/claude-tools.ts
 import { anthropic } from './anthropic'
 // Use the generateId function defined above instead of importing randomUUID
+import { trackTurn } from '@mocksi/bilan-sdk'
 
 const tools = [
   {
@@ -811,14 +822,16 @@ const tools = [
 export async function createToolMessage(
   messages: Array<{ role: 'user' | 'assistant'; content: string }>
 ) {
-  const promptId = generateId()
-  
-  const response = await anthropic.messages.create({
-    model: 'claude-3-sonnet-20240229',
-    max_tokens: 1000,
-    tools,
-    messages
-  })
+  // ✅ v0.4.1: Use trackTurn for automatic correlation
+  const { result: response, turnId } = await trackTurn(
+    messages[messages.length - 1]?.content || 'Tool-enabled Claude message',
+    () => anthropic.messages.create({
+      model: 'claude-3-sonnet-20240229',
+      max_tokens: 1000,
+      tools,
+      messages
+    })
+  )
 
   const content = response.content[0]
   
@@ -844,27 +857,25 @@ export async function createToolMessage(
           // 
           // 🔒 FOR PRODUCTION USE: Replace this with a vetted math expression parser 
           // like mathjs (https://mathjs.org/) which safely evaluates mathematical expressions:
-          // 
-          // import { evaluate } from 'mathjs'
-          // const result = evaluate(sanitized)
-          // toolResult = result.toString()
-          
-          // UNSAFE - DO NOT USE IN PRODUCTION
-          const result = Function(`"use strict"; return (${sanitized})`)()
-          toolResult = result.toString()
+          //   import { evaluate } from 'mathjs'
+          //   toolResult = String(evaluate(sanitized))
+          toolResult = String(Function(`"use strict"; return (${sanitized})`)())
         }
-      } catch {
-        toolResult = 'Invalid calculation'
+      } catch (error) {
+        toolResult = 'Error calculating expression'
       }
     }
 
-    // Get final response with tool result
+    // Follow up with tool result
     const finalResponse = await anthropic.messages.create({
       model: 'claude-3-sonnet-20240229',
       max_tokens: 1000,
       messages: [
         ...messages,
-        { role: 'assistant', content: response.content },
+        {
+          role: 'assistant',
+          content: [content]
+        },
         {
           role: 'user',
           content: [
@@ -885,7 +896,7 @@ export async function createToolMessage(
 
     return {
       content: finalContent.text,
-      promptId,
+      turnId,
       toolUsed: content.name,
       toolInput: content.input,
       toolResult,
@@ -899,7 +910,7 @@ export async function createToolMessage(
   if (content.type === 'text') {
     return {
       content: content.text,
-      promptId,
+      turnId,
       toolUsed: null,
       metadata: {
         timestamp: Date.now(),
@@ -911,86 +922,3 @@ export async function createToolMessage(
   throw new Error('Unexpected response type')
 }
 ```
-
-### Vision capabilities
-
-```typescript
-// lib/claude-vision.ts
-import { anthropic } from './anthropic'
-// Use the generateId function defined above instead of importing randomUUID
-
-export async function analyzeImage(
-  imageBase64: string,
-  prompt: string = 'Describe this image in detail'
-): Promise<{
-  description: string
-  promptId: string
-  metadata: Record<string, any>
-}> {
-  const promptId = generateId()
-  
-  const response = await anthropic.messages.create({
-    model: 'claude-3-sonnet-20240229',
-    max_tokens: 1000,
-    messages: [
-      {
-        role: 'user',
-        content: [
-          {
-            type: 'image',
-            source: {
-              type: 'base64',
-              media_type: 'image/jpeg',
-              data: imageBase64
-            }
-          },
-          {
-            type: 'text',
-            text: prompt
-          }
-        ]
-      }
-    ]
-  })
-
-  const content = response.content[0]
-  if (content.type !== 'text') {
-    throw new Error('Unexpected response type')
-  }
-
-  return {
-    description: content.text,
-    promptId,
-    metadata: {
-      timestamp: Date.now(),
-      model: 'claude-3-sonnet-20240229',
-      imageAnalysis: true
-    }
-  }
-}
-```
-
-## Next Steps
-
-- **[Server Mode](../server-mode.md)** - Scale for production
-- **[Advanced Analytics](../advanced-analytics.md)** - Track Claude performance
-- **[A/B Testing](../ab-testing.md)** - Compare different Claude models
-- **[Custom Storage](../custom-storage.md)** - Store conversation history
-
-## Common Issues
-
-**Q: API key not working?**
-A: Check that `ANTHROPIC_API_KEY` is set in your environment variables.
-
-**Q: Model not found error?**
-A: Ensure you're using the correct model name and have access to it.
-
-**Q: Token limit exceeded?**
-A: Monitor token usage and implement conversation truncation.
-
-**Q: Streaming not working?**
-A: Make sure you're using the latest Anthropic SDK version.
-
-## Example Repository
-
-See complete examples at: [bilan-claude-examples](https://github.com/mocksi/bilan-claude-examples) 
