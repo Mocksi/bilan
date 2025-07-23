@@ -45,7 +45,7 @@ Use server-generated tokens instead of exposing API keys to the client.
 ```typescript
 // lib/copilot-bilan.ts
 import { useCopilotChat } from '@copilotkit/react-core'
-import { init, vote } from '@mocksi/bilan-sdk'
+import { trackTurn, vote, track } from '@mocksi/bilan-sdk'
 import { useEffect, useState } from 'react'
 
 // Cross-platform UUID generation
@@ -58,55 +58,33 @@ function generateId(): string {
 }
 
 export function useCopilotChatWithBilan(options: any) {
-  const [bilan, setBilan] = useState<any>(null)
-  const [messagePromptIds, setMessagePromptIds] = useState<Record<string, string>>({})
+  const [messageTurnIds, setMessageTurnIds] = useState<Record<string, string>>({})
 
-  // Initialize Bilan - SECURE VERSION
-  useEffect(() => {
-    const initBilan = async () => {
-      const initOptions: any = {
-        mode: process.env.NEXT_PUBLIC_BILAN_MODE || 'local',
-        userId: process.env.NEXT_PUBLIC_BILAN_USER_ID || 'anonymous',
-        telemetry: { enabled: process.env.NEXT_PUBLIC_BILAN_TELEMETRY !== 'false' }
-      }
-
-      // 🔒 SECURITY: Only include apiKey if environment variable is set
-      // This prevents overriding token-based authentication
-      if (process.env.NEXT_PUBLIC_BILAN_API_KEY) {
-        initOptions.apiKey = process.env.NEXT_PUBLIC_BILAN_API_KEY
-      }
-      
-      // Option 2: Get token from your API route (recommended)
-      // if (!process.env.NEXT_PUBLIC_BILAN_API_KEY) {
-      //   initOptions.token = await getClientToken()
-      // }
-
-      const bilanInstance = await init(initOptions)
-      setBilan(bilanInstance)
-    }
-    initBilan()
-  }, [])
+  // ✅ v0.4.1: Initialize once - init() should be called at app level
+  // This pattern assumes init() was already called in _app.tsx or layout.tsx
 
   const chat = useCopilotChat({
     ...options,
     onMessage: (message: any) => {
-      // Auto-capture context when AI responds
-      if (message.role === 'assistant' && bilan) {
-        const promptId = generateId()
+      // Auto-capture context when AI responds  
+      if (message.role === 'assistant') {
+        // ✅ v0.4.1: Generate turnId for message correlation
+        const turnId = generateId()
         
-        // Store promptId for feedback
-        setMessagePromptIds(prev => ({
+        // Store turnId for feedback correlation
+        setMessageTurnIds(prev => ({
           ...prev,
-          [message.id]: promptId
+          [message.id]: turnId
         }))
 
-        // Track AI response automatically
-        console.log('AI Response tracked:', {
-          promptId,
-          messageId: message.id,
-          model: message.model || 'unknown',
-          responseTime: message.duration,
-          tokenCount: message.tokens
+        // Use track() to manually record the AI turn since CopilotKit doesn't expose the call
+        track('turn_completed', {
+          turn_id: turnId,
+          conversation_id: options.conversationId || 'copilotkit-session',
+          model: message.model || 'copilotkit-default',
+          response_time: message.duration,
+          token_count: message.tokens,
+          provider: 'copilotkit'
         })
       }
       
@@ -116,12 +94,12 @@ export function useCopilotChatWithBilan(options: any) {
   })
 
   const recordFeedback = async (messageId: string, feedback: { type: 'thumbs_up' | 'thumbs_down', comment?: string }) => {
-    const promptId = messagePromptIds[messageId]
-    if (!promptId || !bilan) return
+    const turnId = messageTurnIds[messageId]
+    if (!turnId) return
 
     try {
       const value = feedback.type === 'thumbs_up' ? 1 : -1
-      await vote(promptId, value, feedback.comment)
+      await vote(turnId, value, feedback.comment)
     } catch (error) {
       console.error('Failed to record feedback:', error)
     }
@@ -130,7 +108,7 @@ export function useCopilotChatWithBilan(options: any) {
   return {
     ...chat,
     recordFeedback,
-    messagePromptIds
+    messageTurnIds // Use consistent naming for v0.4.1
   }
 }
 ```
@@ -198,7 +176,7 @@ async function getClientToken(userId: string): Promise<string> {
 
 export function useCopilotChatWithBilan(options: any) {
   const [bilan, setBilan] = useState<any>(null)
-  const [messagePromptIds, setMessagePromptIds] = useState<Record<string, string>>({})
+  const [messageTurnIds, setMessageTurnIds] = useState<Record<string, string>>({})
 
   // Initialize Bilan with server-generated token
   useEffect(() => {
@@ -243,7 +221,7 @@ interface FeedbackState {
 }
 
 export default function CopilotChatWithBilan() {
-  const { messages, sendMessage, recordFeedback, messagePromptIds } = useCopilotChatWithBilan({
+  const { messages, sendMessage, recordFeedback, messageTurnIds } = useCopilotChatWithBilan({
     instructions: "You are a helpful AI assistant.",
   })
   
@@ -276,7 +254,7 @@ export default function CopilotChatWithBilan() {
               <p className="whitespace-pre-wrap">{message.content}</p>
               
               {/* Feedback buttons for AI responses */}
-              {message.role === 'assistant' && messagePromptIds[message.id] && (
+              {message.role === 'assistant' && messageTurnIds[message.id] && (
                 <div className="mt-2 flex gap-2">
                   <button
                     onClick={() => handleFeedback(message.id, 'thumbs_up')}
