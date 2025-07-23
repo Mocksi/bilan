@@ -129,3 +129,6 @@ next-env.d.ts
 
 #internal project docs
 docs/projects-gitignore
+
+# Database backups
+backups/
