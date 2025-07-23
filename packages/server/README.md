@@ -14,7 +14,7 @@
 - **🔒 Secure**: Rate limiting, CORS protection, and data validation
 - **📊 Analytics Ready**: REST API for dashboards and custom queries
 - **🐳 Docker Ready**: One-command deployment with Docker
-- **🛡️ Production Grade**: Comprehensive logging, error handling, and monitoring
+- **🛡️ Production Grade**: Comprehensive logging and error handling
 
 ## Quick Start
 
@@ -24,17 +24,22 @@
 # Install globally
 npm install -g @mocksi/bilan-server
 
-# Start server
-bilan start
+# Set required environment variables
+export BILAN_API_KEY="your-secure-api-key"
 
-# Server running at http://localhost:3001
+# Start server
+bilan
+
+# Server running at http://localhost:3002 (default port)
 ```
 
 ### Docker (Recommended)
 
 ```bash
 # Run with Docker
-docker run -p 3001:3001 -v $(pwd)/data:/app/data mocksi/bilan-server
+docker run -p 3002:3002 -v $(pwd)/data:/app/data \
+  -e BILAN_API_KEY=your-secure-api-key \
+  mocksi/bilan-server
 
 # Or with docker-compose
 version: '3.8'
@@ -42,12 +47,13 @@ services:
   bilan:
     image: mocksi/bilan-server
     ports:
-      - "3001:3001"
+      - "3002:3002"
     volumes:
       - ./data:/app/data
     environment:
-      - BILAN_PORT=3001
+      - BILAN_PORT=3002
       - BILAN_DB_PATH=/app/data/bilan.db
+      - BILAN_API_KEY=your-secure-api-key
 ```
 
 ### Programmatic Usage
@@ -57,64 +63,48 @@ npm install @mocksi/bilan-server
 ```
 
 ```typescript
-import { createServer } from '@mocksi/bilan-server'
+import { BilanServer } from '@mocksi/bilan-server'
 
-const server = await createServer({
-  port: 3001,
+const server = new BilanServer({
+  port: 3002,
   dbPath: './bilan.db',
-  cors: {
-    origin: ['http://localhost:3000']
-  }
+  apiKey: 'your-secure-api-key',
+  cors: true
 })
 
-await server.listen({ port: 3001, host: '0.0.0.0' })
-console.log('Bilan server running on http://localhost:3001')
+await server.start()
+console.log('Bilan server running on http://localhost:3002')
 ```
 
-## CLI Commands
+## Configuration
 
-### Start Server
+### Environment Variables
 
 ```bash
-bilan start [options]
+# Required
+BILAN_API_KEY=your-secure-api-key        # API key for authentication
 
-Options:
-  --port, -p       Port number (default: 3001)
-  --host          Host address (default: 0.0.0.0)
-  --db            Database path (default: ./bilan.db)
-  --cors          CORS origins (comma-separated)
-  --rate-limit    Rate limit per minute (default: 100)
-  --log-level     Log level (default: info)
+# Optional
+BILAN_PORT=3002                          # Port number (default: 3002)
+BILAN_DB_PATH=./bilan.db                 # Database file path
+BILAN_DEV_MODE=true                      # Skip API key requirement for development
+BILAN_CORS_ORIGIN=http://localhost:3000  # CORS origins (comma-separated)
+BILAN_CORS_CREDENTIALS=true              # Enable CORS credentials
+
+# Docker Secrets Support
+BILAN_API_KEY_FILE=/run/secrets/api_key  # Read API key from file
 ```
 
-### Database Management
+### Development Mode
+
+For development, you can skip the API key requirement:
 
 ```bash
-# Initialize database
-bilan init --db ./bilan.db
-
-# Backup database  
-bilan backup --db ./bilan.db --output ./backup.db
-
-# Show database stats
-bilan stats --db ./bilan.db
-
-# Run migrations
-bilan migrate --db ./bilan.db
+export BILAN_DEV_MODE=true
+bilan
 ```
 
-### Examples
-
-```bash
-# Development server
-bilan start --port 3001 --log-level debug
-
-# Production server with CORS
-bilan start --port 8080 --cors "https://yourdomain.com,https://app.yourdomain.com"
-
-# Custom database location
-bilan start --db /var/lib/bilan/analytics.db --port 3001
-```
+⚠️ **Never use development mode in production!**
 
 ## API Reference
 
@@ -125,15 +115,18 @@ The server provides a REST API for analytics data:
 ```bash
 # Track an event
 POST /api/events
+Authorization: Bearer your-api-key
 Content-Type: application/json
 
 {
-  "event_type": "turn_completed",
-  "user_id": "user-123",
-  "turn_id": "turn-456",
+  "eventId": "event-123",
+  "eventType": "turn_completed",
+  "userId": "user-123",
+  "timestamp": 1640995200000,
   "properties": {
+    "turnId": "turn-456",
     "model": "gpt-4",
-    "latency": 1200
+    "responseTime": 1200
   }
 }
 ```
@@ -141,75 +134,26 @@ Content-Type: application/json
 ### Analytics
 
 ```bash
-# Get analytics summary
-GET /api/analytics/summary?user_id=user-123&days=7
+# Get vote analytics
+GET /api/analytics/votes?timeRange=30d
+Authorization: Bearer your-api-key
 
 # Get turn analytics
-GET /api/analytics/turns?conversation_id=conv-456
+GET /api/analytics/turns?timeRange=7d
+Authorization: Bearer your-api-key
 
-# Get vote analytics
-GET /api/analytics/votes?start_date=2024-01-01&end_date=2024-01-31
+# Get overview analytics
+GET /api/analytics/overview?timeRange=24h
+Authorization: Bearer your-api-key
 ```
 
 ### Health Check
 
 ```bash
-# Server health
+# Server health (no auth required)
 GET /health
 
-# Database health  
-GET /health/db
-```
-
-## Configuration
-
-### Environment Variables
-
-```bash
-# Server Configuration
-BILAN_PORT=3001
-BILAN_HOST=0.0.0.0
-BILAN_DB_PATH=./bilan.db
-
-# Security
-BILAN_API_KEY=your-secret-key
-BILAN_CORS_ORIGINS=http://localhost:3000,https://yourdomain.com
-BILAN_RATE_LIMIT=100
-
-# Logging
-BILAN_LOG_LEVEL=info
-BILAN_LOG_FILE=./bilan.log
-
-# Database
-BILAN_DB_WAL_MODE=true
-BILAN_DB_BACKUP_INTERVAL=3600
-```
-
-### Configuration File
-
-Create `bilan.config.js`:
-
-```javascript
-export default {
-  port: 3001,
-  host: '0.0.0.0',
-  database: {
-    path: './bilan.db',
-    walMode: true,
-    backupInterval: 3600
-  },
-  cors: {
-    origin: ['http://localhost:3000']
-  },
-  rateLimit: {
-    max: 100,
-    timeWindow: '1 minute'
-  },
-  logging: {
-    level: 'info',
-    file: './bilan.log'
-  }
-}
+# Response: {"status":"ok","timestamp":"2024-01-01T00:00:00.000Z"}
 ```
 
 ## Client Integration
@@ -221,88 +165,33 @@ import { init } from '@mocksi/bilan-sdk'
 
 await init({
   mode: 'server',
-  endpoint: 'http://localhost:3001',
+  endpoint: 'http://localhost:3002',
   userId: 'user-123'
 })
 ```
 
-## Database Schema
+## Database
 
-SQLite schema with optimized indexes:
+The server uses SQLite with a unified events table:
 
 ```sql
--- Events table (unified analytics)
 CREATE TABLE events (
-  id TEXT PRIMARY KEY,
-  event_type TEXT NOT NULL,
+  event_id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL,
+  event_type TEXT NOT NULL,
   timestamp INTEGER NOT NULL,
   properties JSON,
-  
-  -- Indexes for fast queries
-  INDEX idx_events_user_timestamp (user_id, timestamp),
-  INDEX idx_events_type_timestamp (event_type, timestamp)
+  prompt_text TEXT,
+  ai_response TEXT
 );
-
--- Additional indexes for analytics
-CREATE INDEX idx_events_turn_id ON events(json_extract(properties, '$.turn_id'));
-CREATE INDEX idx_events_conversation_id ON events(json_extract(properties, '$.conversation_id'));
 ```
-
-## Monitoring
-
-### Health Checks
-
-```bash
-# Basic health
-curl http://localhost:3001/health
-
-# Detailed health with database stats
-curl http://localhost:3001/health/detailed
-```
-
-### Metrics
-
-```bash
-# Server metrics
-curl http://localhost:3001/metrics
-
-Response:
-{
-  "uptime": 3600,
-  "requests": 1250,
-  "database": {
-    "size": "2.5MB",
-    "events": 10000,
-    "users": 150
-  }
-}
-```
-
-### Logs
-
-```bash
-# View logs (if file logging enabled)
-tail -f bilan.log
-
-# Or with Docker
-docker logs -f <container-id>
-```
-
-## Performance
-
-- **Throughput**: 1000+ requests/second on modest hardware
-- **Latency**: <10ms P99 for event ingestion
-- **Storage**: ~1KB per tracked turn (depending on metadata)
-- **Concurrency**: SQLite WAL mode for concurrent reads/writes
 
 ## Security
 
-- **Rate Limiting**: Configurable per-IP rate limits
+- **API Key Required**: All protected endpoints require `Authorization: Bearer <key>`
+- **Rate Limiting**: 100 requests per minute per API key
 - **CORS Protection**: Configurable allowed origins
-- **Input Validation**: All API inputs validated and sanitized
-- **SQL Injection**: Protected via prepared statements
-- **Error Handling**: Secure error responses (no data leakage)
+- **Input Validation**: All inputs are validated and sanitized
 
 ## Deployment
 
@@ -314,8 +203,21 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci --only=production
 COPY . .
-EXPOSE 3001
+EXPOSE 3002
 CMD ["npm", "start"]
+```
+
+### Environment Variables for Production
+
+```bash
+# Required
+BILAN_API_KEY=your-secure-production-key
+
+# Recommended
+BILAN_PORT=3002
+BILAN_DB_PATH=/data/bilan.db
+BILAN_CORS_ORIGIN=https://yourdomain.com
+NODE_ENV=production
 ```
 
 ### Systemd Service
@@ -330,69 +232,58 @@ After=network.target
 Type=simple
 User=bilan
 WorkingDirectory=/opt/bilan
-ExecStart=/usr/bin/node /opt/bilan/dist/cli.js start --port 3001
+ExecStart=/usr/bin/node dist/cli.js
 Restart=always
 Environment=NODE_ENV=production
+Environment=BILAN_API_KEY=your-secure-key
+Environment=BILAN_PORT=3002
+Environment=BILAN_DB_PATH=/var/lib/bilan/bilan.db
 
 [Install]
 WantedBy=multi-user.target
 ```
 
-### Reverse Proxy (nginx)
+## Performance
 
-```nginx
-server {
-    listen 80;
-    server_name analytics.yourdomain.com;
-    
-    location / {
-        proxy_pass http://localhost:3001;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_cache_bypass $http_upgrade;
-    }
-}
-```
-
-## Requirements
-
-- **Node.js**: 14.17.0 or higher
-- **Memory**: 512MB minimum (2GB+ recommended for high traffic)
-- **Storage**: 10GB+ for database growth
-- **Network**: HTTP/HTTPS access for clients
+- **Throughput**: 1000+ requests/second on modest hardware
+- **Latency**: <10ms P99 for event ingestion
+- **Storage**: ~1KB per tracked turn (depending on metadata)
+- **Database**: SQLite with WAL mode for concurrent access
 
 ## Troubleshooting
 
 ### Common Issues
 
+**Missing API key error:**
+```bash
+# Set the required API key
+export BILAN_API_KEY="your-secure-key"
+# Or use development mode
+export BILAN_DEV_MODE=true
+```
+
 **Database locked error:**
 ```bash
 # Check for zombie processes
 ps aux | grep bilan
-# Ensure WAL mode is enabled
-bilan start --db ./bilan.db --wal-mode
-```
-
-**High memory usage:**
-```bash
-# Enable database vacuuming
-bilan vacuum --db ./bilan.db
-# Check log file size
-ls -la bilan.log
+# Check database permissions
+ls -la bilan.db
 ```
 
 **Connection refused:**
 ```bash
 # Check if port is in use
-lsof -i :3001
-# Verify host binding
-bilan start --host 0.0.0.0 --port 3001
+lsof -i :3002
+# Verify environment variables
+echo $BILAN_PORT $BILAN_DB_PATH
 ```
+
+## Requirements
+
+- **Node.js**: 14.17.0 or higher
+- **Memory**: 256MB minimum (1GB+ recommended for high traffic)
+- **Storage**: 1GB+ for database growth
+- **Network**: HTTP/HTTPS access for clients
 
 ## Contributing
 
