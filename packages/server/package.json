@@ -1,7 +1,7 @@
 {
   "name": "@mocksi/bilan-server",
-  "version": "0.4.0",
-  "description": "Self-hostable server for Bilan trust analytics",
+  "version": "0.4.1",
+  "description": "Self-hostable analytics server for AI trust tracking - Process events from Bilan SDK with SQLite storage and REST API",
   "main": "dist/index.js",
   "type": "module",
   "engines": {
@@ -10,6 +10,11 @@
   "bin": {
     "bilan": "dist/cli.js"
   },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "directories": {
     "test": "tests"
   },
@@ -17,16 +22,41 @@
     "build": "tsc",
     "dev": "tsx src/cli.ts",
     "start": "node dist/cli.js",
-    "test": "vitest"
+    "test": "vitest",
+    "prepublishOnly": "npm run build && npm test"
   },
   "keywords": [
     "bilan",
     "server",
     "analytics",
-    "sqlite"
+    "sqlite",
+    "ai-analytics",
+    "trust-analytics",
+    "self-hosted",
+    "fastify",
+    "event-processing",
+    "conversation-analytics",
+    "feedback-tracking",
+    "ai-monitoring",
+    "typescript",
+    "rest-api",
+    "docker"
   ],
-  "author": "",
+  "author": "Mocksi <hello@mocksi.ai>",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Mocksi/bilan.git",
+    "directory": "packages/server"
+  },
+  "homepage": "https://github.com/Mocksi/bilan#readme",
+  "bugs": {
+    "url": "https://github.com/Mocksi/bilan/issues"
+  },
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/Mocksi"
+  },
   "publishConfig": {
     "access": "public"
   },

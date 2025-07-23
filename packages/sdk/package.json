@@ -1,13 +1,14 @@
 {
   "name": "@mocksi/bilan-sdk",
-  "version": "0.4.0",
-  "description": "TypeScript SDK for Bilan trust analytics",
+  "version": "0.4.1",
+  "description": "TypeScript SDK for AI trust analytics - Track user feedback on AI interactions with industry-standard event correlation",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "type": "module",
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "LICENSE"
   ],
   "directories": {
     "test": "tests"
@@ -16,16 +17,27 @@
     "build": "rollup -c",
     "dev": "rollup -c --watch",
     "test": "vitest",
-    "test:ui": "vitest --ui"
+    "test:ui": "vitest --ui",
+    "prepublishOnly": "npm run build && npm test"
   },
   "keywords": [
     "ai",
     "trust",
     "analytics",
     "feedback",
-    "typescript"
+    "typescript",
+    "openai",
+    "anthropic",
+    "langchain",
+    "machine-learning",
+    "user-feedback",
+    "event-tracking",
+    "conversation-analytics",
+    "ai-monitoring",
+    "trust-scoring",
+    "self-hosted"
   ],
-  "author": "Mocksi",
+  "author": "Mocksi <hello@mocksi.ai>",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -35,6 +47,13 @@
   "homepage": "https://github.com/Mocksi/bilan#readme",
   "bugs": {
     "url": "https://github.com/Mocksi/bilan/issues"
+  },
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/Mocksi"
+  },
+  "engines": {
+    "node": ">=14.17.0"
   },
   "devDependencies": {
     "@rollup/plugin-terser": "^0.4.4",
