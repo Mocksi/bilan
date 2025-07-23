@@ -149,6 +149,7 @@ function generateId(): string {
 
 export interface StreamingChatResponse {
   turnId: string
+  conversationId?: string
   model: string
   stream: AsyncIterable<string>
   metadata: Record<string, any>
@@ -161,6 +162,7 @@ export async function createStreamingChat(
     temperature?: number
     maxTokens?: number
     signal?: AbortSignal
+    conversationId?: string
   } = {}
 ): Promise<StreamingChatResponse> {
   const model = options.model || 'gpt-3.5-turbo'
@@ -189,6 +191,7 @@ export async function createStreamingChat(
 
   return {
     turnId,
+    conversationId: options.conversationId,
     model,
     stream: streamContent(),
     metadata: {
@@ -453,6 +456,7 @@ export default function StreamingChat() {
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [feedbackStates, setFeedbackStates] = useState<Record<string, 1 | -1>>({})
+  const [submittingFeedback, setSubmittingFeedback] = useState<Record<string, boolean>>({})
   const abortControllerRef = useRef<AbortController | null>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -473,10 +477,12 @@ export default function StreamingChat() {
     abortControllerRef.current = new AbortController()
 
     try {
-      const conversationHistory = messages.map(msg => ({
-        role: msg.role as 'user' | 'assistant',
-        content: msg.content
-      }))
+      const conversationHistory = messages
+        .filter(msg => msg.role !== 'user' || msg.content.trim())
+        .map(msg => ({
+          role: msg.role as 'user' | 'assistant',
+          content: msg.content
+        }))
 
       conversationHistory.push({
         role: 'user',
@@ -521,15 +527,17 @@ export default function StreamingChat() {
       ))
 
     } catch (error) {
-      console.error('Streaming error:', error)
-      
-      const errorMessage = {
-        id: `error-${Date.now()}`,
-        role: 'assistant' as const,
-        content: 'Sorry, I encountered an error. Please try again.'
+      if (!abortControllerRef.current?.signal.aborted) {
+        console.error('Streaming failed:', error)
+        
+        const errorMessage = {
+          id: `error-${Date.now()}`,
+          role: 'assistant' as const,
+          content: 'Sorry, I encountered an error. Please try again.'
+        }
+        
+        setMessages(prev => [...prev, errorMessage])
       }
-      
-      setMessages(prev => [...prev, errorMessage])
     } finally {
       setIsLoading(false)
       abortControllerRef.current = null
@@ -544,11 +552,33 @@ export default function StreamingChat() {
   }
 
   const handleFeedback = async (turnId: string, value: 1 | -1) => {
+    // Prevent double-submission and rapid clicking
+    if (submittingFeedback[turnId] || feedbackStates[turnId]) {
+      return
+    }
+
+    setSubmittingFeedback(prev => ({ ...prev, [turnId]: true }))
+
     try {
       await vote(turnId, value)
       setFeedbackStates(prev => ({ ...prev, [turnId]: value }))
     } catch (error) {
       console.error('Failed to submit feedback:', error)
+    } finally {
+      // Keep the button disabled after successful submission
+      setSubmittingFeedback(prev => ({ ...prev, [turnId]: false }))
+    }
+  }
+
+  const handleDetailedFeedback = (turnId: string, conversationId: string, value: 1 | -1) => {
+    const comment = window.prompt(
+      value === 1 
+        ? 'What made this response helpful?' 
+        : 'How could this response be improved?'
+    )
+    
+    if (comment) {
+      handleFeedback(turnId, conversationId, value, comment)
     }
   }
 
@@ -577,23 +607,33 @@ export default function StreamingChat() {
                 <div className="mt-2 flex gap-2">
                   <button
                     onClick={() => handleFeedback(message.turnId!, 1)}
-                    className={`text-sm px-2 py-1 rounded ${
+                    disabled={submittingFeedback[message.turnId] || feedbackStates[message.turnId] !== undefined}
+                    className={`text-sm px-2 py-1 rounded transition-colors ${
                       feedbackStates[message.turnId] === 1
                         ? 'bg-green-500 text-white'
+                        : feedbackStates[message.turnId] === -1
+                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        : submittingFeedback[message.turnId]
+                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                         : 'bg-gray-100 hover:bg-gray-200'
                     }`}
                   >
-                    👍 Helpful
+                    👍 {submittingFeedback[message.turnId] ? 'Submitting...' : 'Helpful'}
                   </button>
                   <button
                     onClick={() => handleFeedback(message.turnId!, -1)}
-                    className={`text-sm px-2 py-1 rounded ${
+                    disabled={submittingFeedback[message.turnId] || feedbackStates[message.turnId] !== undefined}
+                    className={`text-sm px-2 py-1 rounded transition-colors ${
                       feedbackStates[message.turnId] === -1
                         ? 'bg-red-500 text-white'
+                        : feedbackStates[message.turnId] === 1
+                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        : submittingFeedback[message.turnId]
+                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                         : 'bg-gray-100 hover:bg-gray-200'
                     }`}
                   >
-                    👎 Not helpful
+                    👎 {submittingFeedback[message.turnId] ? 'Submitting...' : 'Not helpful'}
                   </button>
                 </div>
               )}
@@ -811,6 +851,15 @@ export async function createAdaptiveCompletion(
 import { openai } from './openai'
 import { trackTurn } from '@mocksi/bilan-sdk'
 
+// Cross-platform UUID generation
+function generateId(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID()
+  }
+  // Fallback for environments without crypto.randomUUID
+  return Math.random().toString(36).substring(2) + Date.now().toString(36)
+}
+
 export async function processBatch(
   prompts: string[],
   options: { model?: string; temperature?: number } = {}
@@ -852,7 +901,7 @@ export async function processBatch(
       })
     }
   }
-  
+
   return results
 }
 ```
