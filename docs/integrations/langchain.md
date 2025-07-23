@@ -156,7 +156,7 @@ interface Message {
   id: string
   role: 'user' | 'assistant'
   content: string
-  promptId?: string
+  turnId?: string
   feedback?: 1 | -1
 }
 
@@ -189,7 +189,7 @@ export default function LangChainChat() {
         id: `assistant-${Date.now()}`,
         role: 'assistant',
         content: response.answer,
-        promptId: response.promptId
+        turnId: response.turnId
       }
 
       setMessages(prev => [...prev, assistantMessage])
@@ -208,10 +208,10 @@ export default function LangChainChat() {
     }
   }
 
-  const handleFeedback = async (promptId: string, value: 1 | -1, comment?: string) => {
+  const handleFeedback = async (turnId: string, value: 1 | -1, comment?: string) => {
     try {
-      await vote(promptId, value, comment)
-      setFeedbackStates(prev => ({ ...prev, [promptId]: value }))
+      await vote(turnId, value, comment)
+      setFeedbackStates(prev => ({ ...prev, [turnId]: value }))
     } catch (error) {
       console.error('Failed to submit feedback:', error)
     }
@@ -230,12 +230,12 @@ export default function LangChainChat() {
               <p className="whitespace-pre-wrap">{message.content}</p>
               
               {/* Feedback for AI responses */}
-              {message.role === 'assistant' && message.promptId && (
+              {message.role === 'assistant' && message.turnId && (
                 <div className="mt-2 flex gap-2">
                   <button
-                    onClick={() => handleFeedback(message.promptId!, 1)}
+                    onClick={() => handleFeedback(message.turnId!, 1)}
                     className={`text-sm px-2 py-1 rounded ${
-                      feedbackStates[message.promptId] === 1
+                      feedbackStates[message.turnId] === 1
                         ? 'bg-green-500 text-white'
                         : 'bg-gray-100 hover:bg-gray-200'
                     }`}
@@ -243,9 +243,9 @@ export default function LangChainChat() {
                     👍 Helpful
                   </button>
                   <button
-                    onClick={() => handleFeedback(message.promptId!, -1)}
+                    onClick={() => handleFeedback(message.turnId!, -1)}
                     className={`text-sm px-2 py-1 rounded ${
-                      feedbackStates[message.promptId] === -1
+                      feedbackStates[message.turnId] === -1
                         ? 'bg-red-500 text-white'
                         : 'bg-gray-100 hover:bg-gray-200'
                     }`}
@@ -313,7 +313,7 @@ export interface ResearchChainResponse {
   steps: Array<{
     name: string
     result: string
-    promptId: string
+    turnId: string
   }>
   finalAnswer: string
   metadata: Record<string, any>
@@ -361,7 +361,7 @@ export const createResearchChain = () => {
       steps.push({
         name: 'Planning',
         result: plan,
-        promptId: planningId
+        turnId: planningId
       })
 
       // Step 2: Research sub-questions
@@ -376,7 +376,7 @@ export const createResearchChain = () => {
         steps.push({
           name: `Research: ${subQuestion.substring(0, 50)}...`,
           result: answer,
-          promptId: researchId
+          turnId: researchId
         })
         
         findings.push(`${subQuestion}\n${answer}`)
@@ -393,7 +393,7 @@ export const createResearchChain = () => {
       steps.push({
         name: 'Synthesis',
         result: finalAnswer,
-        promptId: synthesisId
+        turnId: synthesisId
       })
 
       return {
@@ -445,10 +445,10 @@ export default function ResearchChat() {
     }
   }
 
-  const handleStepFeedback = async (promptId: string, value: 1 | -1, stepName: string) => {
+  const handleStepFeedback = async (turnId: string, value: 1 | -1, stepName: string) => {
     try {
-      await vote(promptId, value, `Feedback for step: ${stepName}`)
-      setFeedbackStates(prev => ({ ...prev, [promptId]: value }))
+      await vote(turnId, value, `Feedback for step: ${stepName}`)
+      setFeedbackStates(prev => ({ ...prev, [turnId]: value }))
     } catch (error) {
       console.error('Failed to submit feedback:', error)
     }
@@ -494,9 +494,9 @@ export default function ResearchChat() {
                 <h3 className="font-medium text-gray-900">{step.name}</h3>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => handleStepFeedback(step.promptId, 1, step.name)}
+                    onClick={() => handleStepFeedback(step.turnId, 1, step.name)}
                     className={`text-sm px-3 py-1 rounded ${
-                      feedbackStates[step.promptId] === 1
+                      feedbackStates[step.turnId] === 1
                         ? 'bg-green-500 text-white'
                         : 'bg-white hover:bg-gray-100'
                     }`}
@@ -504,9 +504,9 @@ export default function ResearchChat() {
                     👍
                   </button>
                   <button
-                    onClick={() => handleStepFeedback(step.promptId, -1, step.name)}
+                    onClick={() => handleStepFeedback(step.turnId, -1, step.name)}
                     className={`text-sm px-3 py-1 rounded ${
-                      feedbackStates[step.promptId] === -1
+                      feedbackStates[step.turnId] === -1
                         ? 'bg-red-500 text-white'
                         : 'bg-white hover:bg-gray-100'
                     }`}
@@ -556,10 +556,19 @@ console.log('Research steps:', result.steps.length)
 ### 3. Verify feedback tracking
 
 ```typescript
-import { vote, getStats } from '@mocksi/bilan-sdk'
+import { trackTurn, vote, getStats } from '@mocksi/bilan-sdk'
 
 // Submit feedback
-await vote('prompt-id-123', 1, 'Great research step!')
+await trackTurn('Mock LangChain completion for feedback tracking', async () => {
+  // Mock a simple task
+  return {
+    answer: 'This is a mock answer for feedback tracking.',
+    context: [],
+    metadata: {
+      timestamp: Date.now()
+    }
+  }
+})
 
 // Check stats
 const stats = await getStats()
@@ -575,8 +584,9 @@ console.log('Trust score:', stats.trustScore)
 import { ChatOpenAI } from '@langchain/openai'
 import { MemoryVectorStore } from 'langchain/vectorstores/memory'
 import { OpenAIEmbeddings } from '@langchain/openai'
+import { trackTurn } from '@mocksi/bilan-sdk'
 
-export const createRAGChain = async (documents: string[]) => {
+export function createRAGChain(documents: string[]) {
   const embeddings = new OpenAIEmbeddings()
   const vectorStore = await MemoryVectorStore.fromTexts(
     documents,
@@ -588,115 +598,40 @@ export const createRAGChain = async (documents: string[]) => {
 
   return {
     async invoke(question: string) {
-      const promptId = generateId()
-      
-      // Retrieve relevant documents
-      const relevantDocs = await vectorStore.similaritySearch(question, 3)
-      
-      const context = relevantDocs.map(doc => doc.pageContent).join('\n\n')
-      
-      const prompt = `
-        Based on the following context, answer the question:
-        
-        Context:
-        ${context}
-        
-        Question: ${question}
-        Answer:
-      `
-      
-      const response = await model.invoke(prompt)
-      
-      return {
-        answer: response.content,
-        promptId,
-        context: relevantDocs,
-        metadata: {
-          documentsUsed: relevantDocs.length,
-          timestamp: Date.now()
-        }
-      }
-    }
-  }
-}
-```
-
-### Agent-based chains
-
-> **⚠️ SECURITY WARNING - NOT FOR PRODUCTION**  
-> The calculator tool below uses Function constructor for demonstration purposes only. This poses a security risk and should NOT be used in production. For production applications, use a proper math expression parser like [mathjs](https://mathjs.org/) or similar libraries.
-
-```typescript
-// lib/chains/agent-chain.ts
-import { ChatOpenAI } from '@langchain/openai'
-import { AgentExecutor, createOpenAIFunctionsAgent } from 'langchain/agents'
-import { DynamicTool } from '@langchain/core/tools'
-
-export const createAgentChain = () => {
-  const model = new ChatOpenAI({ modelName: 'gpt-4' })
-
-  const tools = [
-    new DynamicTool({
-      name: 'calculator',
-      description: 'Useful for mathematical calculations',
-      func: async (input: string) => {
-        // DEMO ONLY - NOT FOR PRODUCTION
-        // Safe calculator implementation - only allow basic math operations
-        try {
-          // Remove any non-math characters and validate input
-          const sanitized = input.replace(/[^0-9+\-*/().\s]/g, '')
+      // ✅ v0.4.1: Use trackTurn for automatic ID generation and correlation
+      const { result: response, turnId } = await trackTurn(
+        question,
+        async () => {
+          // Retrieve relevant documents
+          const relevantDocs = await vectorStore.similaritySearch(question, 3)
+          const context = relevantDocs.map(doc => doc.pageContent).join('\n\n')
           
-          // Simple validation for basic math expressions
-          if (!/^[0-9+\-*/().\s]+$/.test(sanitized)) {
-            return 'Invalid mathematical expression'
+          const prompt = `
+            Based on the following context, answer the question:
+            
+            Context:
+            ${context}
+            
+            Question: ${question}
+            Answer:
+          `
+          
+          const response = await model.invoke(prompt)
+          
+          return {
+            answer: response.content,
+            context: relevantDocs,
+            metadata: {
+              documentsUsed: relevantDocs.length,
+              timestamp: Date.now()
+            }
           }
-          
-          // Use Function constructor for safer evaluation (still not recommended for production)
-          // For production, use a proper math expression parser like mathjs
-          const result = Function(`"use strict"; return (${sanitized})`)()
-          
-          return result.toString()
-        } catch {
-          return 'Invalid calculation'
         }
-      }
-    }),
-    new DynamicTool({
-      name: 'weather',
-      description: 'Get current weather for a location',
-      func: async (location: string) => {
-        // Mock weather API call
-        return `The weather in ${location} is sunny and 72°F`
-      }
-    })
-  ]
-
-  return {
-    async invoke(input: string) {
-      const promptId = generateId()
-      
-      const agent = await createOpenAIFunctionsAgent({
-        llm: model,
-        tools,
-        prompt: 'You are a helpful assistant with access to tools.'
-      })
-
-      const agentExecutor = new AgentExecutor({
-        agent,
-        tools,
-        verbose: true
-      })
-
-      const result = await agentExecutor.invoke({ input })
+      )
       
       return {
-        output: result.output,
-        promptId,
-        toolsUsed: result.intermediateSteps?.length || 0,
-        metadata: {
-          timestamp: Date.now(),
-          model: 'gpt-4'
-        }
+        ...response,
+        turnId  // Include turnId for frontend vote correlation
       }
     }
   }
