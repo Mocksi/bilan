@@ -359,12 +359,12 @@ console.log('Current analytics:', analytics)
 ### Adding detailed feedback with comments
 
 ```typescript
-const handleDetailedFeedback = async (promptId: string, value: 1 | -1) => {
+const handleDetailedFeedback = async (turnId: string, value: 1 | -1) => {
   const comment = window.prompt(
     value === 1 ? 'What made this response helpful?' : 'How could this response be improved?'
   )
   
-  await vote(promptId, value, comment)
+  await vote(turnId, value, comment)
 }
 ```
 
@@ -399,7 +399,7 @@ export async function POST(req: Request) {
 }
 ```
 
-## Migration from v0.3.1 to v0.4.0
+## Migration from v0.3.1 to v0.4.1
 
 ### Before (v0.3.1) - Conversation-Centric
 
@@ -421,32 +421,32 @@ const stats = await getStats()
 console.log('Trust score:', stats.trustScore)
 ```
 
-### After (v0.4.0) - Event-Driven
+### After (v0.4.1) - Turn ID Unification
 
 ```typescript
-// New initialization
-import { Bilan } from '@mocksi/bilan-sdk'
+// ✅ v0.4.1: Industry-standard event correlation
+import { init, trackTurn, vote } from '@mocksi/bilan-sdk'
 
-const bilan = new Bilan({
-  apiKey: 'your-api-key',
-  projectId: 'your-project',
-  userId: 'user-123'
+await init({
+  mode: 'server',
+  userId: 'user-123',
+  endpoint: 'https://your-bilan-server.com'
 })
 
-// New event tracking
-await bilan.track('vote', {
-  turn_id: 'turn-123',
-  conversation_id: 'conv-456',
-  vote_type: 'up',
-  value: 1,
-  comment: 'Great response!'
-})
+// ✅ v0.4.1: trackTurn returns both result and turnId
+const { result, turnId } = await trackTurn(
+  'Generate streaming response',
+  () => streamText({
+    model: openai('gpt-4'),
+    messages: [{ role: 'user', content: prompt }]
+  })
+)
 
-// New analytics
-const analytics = await bilan.getAnalytics({
-  eventType: 'vote',
-  timeRange: '7d'
-})
+// ✅ v0.4.1: Use the same turnId for correlation
+await vote(turnId, 1, 'Great response!')
+
+// Analytics available through dashboard at /api/analytics/*
+// All endpoints require API key authentication
 ```
 
 ### Key Changes in Vercel AI SDK Integration
@@ -483,16 +483,13 @@ useEffect(() => {
 ## Common Issues
 
 **Q: Feedback buttons not working?**
-A: Make sure you're passing the correct `promptId` from the response headers.
+A: Make sure you're passing the correct `turnId` from the response headers (X-Turn-ID).
 
-**Q: Trust score not updating?**
-A: Check that votes are being recorded with `getStats()` in browser console.
+**Q: Analytics not updating?** 
+A: Check that votes are being recorded with the correct `turnId` from `trackTurn()`.
 
 **Q: Streaming responses not tracked?**
-A: Ensure you're using the `onResponse` callback to capture the `promptId`.
+A: Ensure you're using the `onFinish` callback to capture the turn completion and the `X-Turn-ID` header for frontend vote correlation.
 
-## Example Repository
-
-See a complete working example at: [bilan-vercel-ai-example](https://github.com/mocksi/bilan-vercel-ai-example)
-
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/mocksi/bilan-vercel-ai-example) 
+**Q: Turn-to-vote correlation missing?**
+A: Verify you're using the same `turnId` returned by `trackTurn()` when calling `vote()` for automatic correlation.
