@@ -173,8 +173,7 @@ export async function createStreamingChat(
       messages,
       temperature: options.temperature || 0.7,
       max_tokens: options.maxTokens || 1000,
-      stream: true
-    }, {
+      stream: true,
       signal: options.signal // Pass the abort signal to OpenAI request
     })
   )

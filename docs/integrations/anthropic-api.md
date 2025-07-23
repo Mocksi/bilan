@@ -722,6 +722,7 @@ console.log('Analytics:', analytics)
 import { anthropic } from './anthropic'
 // Use the generateId function defined above instead of importing randomUUID
 import { trackTurn } from '@mocksi/bilan-sdk'
+import { evaluate } from 'mathjs'
 
 const tools = [
   {
@@ -780,21 +781,15 @@ export async function createToolMessage(
     } else if (content.name === 'calculate') {
       const args = content.input as { expression: string }
       try {
-        // Safe calculator implementation - only allow basic math operations
+        // Safe calculator implementation using mathjs
         const sanitized = args.expression.replace(/[^0-9+\-*/().\s]/g, '')
         
         // Simple validation for basic math expressions
         if (!/^[0-9+\-*/().\s]+$/.test(sanitized)) {
           toolResult = 'Invalid mathematical expression'
         } else {
-          // ⚠️ SECURITY WARNING: The Function constructor below is UNSAFE and vulnerable to 
-          // remote code execution attacks. This is for demonstration purposes only.
-          // 
-          // 🔒 FOR PRODUCTION USE: Replace this with a vetted math expression parser 
-          // like mathjs (https://mathjs.org/) which safely evaluates mathematical expressions:
-          //   import { evaluate } from 'mathjs'
-          //   toolResult = String(evaluate(sanitized))
-          toolResult = String(Function(`"use strict"; return (${sanitized})`)())
+          // ✅ SECURE: Using mathjs evaluate function for safe mathematical expression evaluation
+          toolResult = String(evaluate(sanitized))
         }
       } catch (error) {
         toolResult = 'Error calculating expression'
