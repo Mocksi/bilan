@@ -150,7 +150,7 @@ export const createQAChain = () => {
 
 import { useState } from 'react'
 import { createQAChain, TrackedChainResponse } from '@/lib/chains/qa-chain'
-import { trackTurn, vote } from '@mocksi/bilan-sdk'
+import { vote } from '@mocksi/bilan-sdk'
 
 interface Message {
   id: string
@@ -418,7 +418,7 @@ export const createResearchChain = () => {
 
 import { useState } from 'react'
 import { createResearchChain, ResearchChainResponse } from '@/lib/chains/research-chain'
-import { trackTurn, vote } from '@mocksi/bilan-sdk'
+import { vote } from '@mocksi/bilan-sdk'
 
 export default function ResearchChat() {
   const [question, setQuestion] = useState('')
@@ -556,7 +556,7 @@ console.log('Research steps:', result.steps.length)
 ### 3. Verify feedback tracking
 
 ```typescript
-import { trackTurn, getStats } from '@mocksi/bilan-sdk'
+import { trackTurn, vote, getStats } from '@mocksi/bilan-sdk'
 
 // Submit feedback
 await trackTurn('Mock LangChain completion for feedback tracking', async () => {
@@ -632,96 +632,6 @@ export function createRAGChain(documents: string[]) {
       return {
         ...response,
         turnId  // Include turnId for frontend vote correlation
-      }
-    }
-  }
-}
-```
-
-### Agent-based chains
-
-> **⚠️ SECURITY WARNING - NOT FOR PRODUCTION**  
-> The calculator tool below uses Function constructor for demonstration purposes only. This poses a security risk and should NOT be used in production. For production applications, use a proper math expression parser like [mathjs](https://mathjs.org/) or similar libraries.
-
-```typescript
-// lib/chains/agent-chain.ts
-import { ChatOpenAI } from '@langchain/openai'
-import { AgentExecutor, createOpenAIFunctionsAgent } from 'langchain/agents'
-import { DynamicTool } from '@langchain/core/tools'
-
-export const createAgentChain = () => {
-  const model = new ChatOpenAI({ modelName: 'gpt-4' })
-
-  const tools = [
-    new DynamicTool({
-      name: 'calculator',
-      description: 'Useful for mathematical calculations',
-      func: async (input: string) => {
-        // DEMO ONLY - NOT FOR PRODUCTION
-        // Safe calculator implementation - only allow basic math operations
-        try {
-          // Remove any non-math characters and validate input
-          const sanitized = input.replace(/[^0-9+\-*/().\s]/g, '')
-          
-          // Simple validation for basic math expressions
-          if (!/^[0-9+\-*/().\s]+$/.test(sanitized)) {
-            return 'Invalid mathematical expression'
-          }
-          
-          // Use Function constructor for safer evaluation (still not recommended for production)
-          // For production, use a proper math expression parser like mathjs
-          const result = Function(`"use strict"; return (${sanitized})`)()
-          
-          return result.toString()
-        } catch {
-          return 'Invalid calculation'
-        }
-      }
-    }),
-    new DynamicTool({
-      name: 'weather',
-      description: 'Get current weather for a location',
-      func: async (location: string) => {
-        // Mock weather API call
-        return `The weather in ${location} is sunny and 72°F`
-      }
-    })
-  ]
-
-  return {
-    async invoke(input: string) {
-      // ✅ v0.4.1: Use trackTurn for automatic correlation
-      const { result, turnId } = await trackTurn(
-        input,
-        async () => {
-          const agent = await createOpenAIFunctionsAgent({
-            llm: model,
-            tools,
-            prompt: 'You are a helpful assistant with access to tools.'
-          })
-
-          const agentExecutor = new AgentExecutor({
-            agent,
-            tools,
-            verbose: true
-          })
-
-          const result = await agentExecutor.invoke({ input })
-          
-          return {
-            output: result.output,
-            toolsUsed: result.intermediateSteps?.length || 0,
-            metadata: {
-              timestamp: Date.now(),
-              inputLength: input.length
-            }
-          }
-        }
-      )
-      
-      return {
-        ...result,
-        turnId  // Include turnId for vote correlation
       }
     }
   }

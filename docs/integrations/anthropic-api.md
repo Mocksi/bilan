@@ -26,7 +26,6 @@ npm install @mocksi/bilan-sdk @anthropic-ai/sdk
 // lib/anthropic.ts
 import Anthropic from '@anthropic-ai/sdk'
 import { Bilan } from '@mocksi/bilan-sdk'
-import { trackTurn } from '@mocksi/bilan-sdk'
 
 // Cross-platform UUID generation
 function generateId(): string {
@@ -244,7 +243,6 @@ export async function createClaudeStreamCompletion(
 import { useState } from 'react'
 import { createClaudeMessage, TrackedClaudeResponse } from '@/lib/claude-chat'
 import { bilan } from '@/lib/anthropic'
-import { trackTurn } from '@mocksi/bilan-sdk'
 
 interface Message {
   id: string
