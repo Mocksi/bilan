@@ -285,6 +285,69 @@ echo $BILAN_PORT $BILAN_DB_PATH
 - **Storage**: 1GB+ for database growth
 - **Network**: HTTP/HTTPS access for clients
 
+## API Changelog
+
+### v0.4.0 - Current Version
+
+**REST API:**
+- ✅ Event ingestion: `POST /api/events`
+- ✅ Analytics endpoints: `/api/analytics/votes`, `/api/analytics/turns`, `/api/analytics/overview`
+- ✅ Health check: `GET /health`
+- ✅ Legacy compatibility: `/api/stats`, `/api/prompts/:promptId/stats`
+
+**Environment Variables:**
+- ✅ `BILAN_API_KEY` - Required for production
+- ✅ `BILAN_DEV_MODE` - Skip API key for development
+- ✅ `BILAN_PORT` - Server port (default: 3002)
+- ✅ `BILAN_DB_PATH` - Database file path
+- ✅ `BILAN_CORS_ORIGIN` - CORS allowed origins
+- ✅ `BILAN_API_KEY_FILE` - Docker secrets support
+
+**Database Schema:**
+- ✅ Unified `events` table with JSON properties
+- ✅ Support for all event types: `vote_cast`, `turn_completed`, `turn_failed`, etc.
+
+### v0.3.x → v0.4.0 Migration
+
+**Breaking Changes:**
+- 🔄 **Event Schema**: Migrated from separate tables to unified `events` table
+- 🔄 **Turn IDs**: Server now expects `turn_id` in vote events (was `promptId`)
+- 🔄 **API Keys**: Now required by default (set `BILAN_DEV_MODE=true` for development)
+
+**Migration Steps:**
+```bash
+# 1. Backup your database
+cp bilan.db bilan.db.backup
+
+# 2. Update environment variables
+export BILAN_API_KEY="your-secure-key"
+
+# 3. Start server - automatic schema migration will run
+bilan
+
+# 4. Update SDK to v0.4.0+ for turn_id compatibility
+npm update @mocksi/bilan-sdk
+```
+
+### v0.2.x → v0.3.x (Historical)
+
+**Breaking Changes:**
+- 🔄 **Database**: Added SQLite support (was in-memory only)
+- 🔄 **Events**: Added structured event types
+- ✅ **Backward Compatible**: Old vote endpoints still work
+
+### Future Versions
+
+**Planned for v0.5.0:**
+- 🔮 **Streaming Analytics**: Real-time event streaming via WebSocket
+- 🔮 **Advanced Filtering**: Query language for complex analytics
+- 🔮 **Multi-tenant**: Organization-level data isolation
+
+**Upgrade Policy:**
+- ✅ **Patch versions** (0.4.x): No breaking changes, safe to upgrade
+- ⚠️ **Minor versions** (0.x.0): May include breaking changes, check changelog
+- 🔄 **Major versions** (x.0.0): Significant breaking changes, migration guide provided
+
 ## Contributing
 
 We welcome contributions! Please see our [Contributing Guide](https://github.com/Mocksi/bilan/blob/main/CONTRIBUTING.md).
