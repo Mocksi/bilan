@@ -10,6 +10,10 @@
   "bin": {
     "bilan": "dist/cli.js"
   },
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "directories": {
     "test": "tests"
   },
