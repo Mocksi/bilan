@@ -28,7 +28,7 @@ npm install @mocksi/bilan-sdk
 
 ```typescript
 // lib/llm-wrapper.ts
-import { init } from '@mocksi/bilan-sdk'
+import { trackTurn } from '@mocksi/bilan-sdk'
 
 // Use crypto.randomUUID() for cross-platform compatibility
 function generateId(): string {
@@ -47,59 +47,37 @@ export interface LLMProvider {
 
 export interface TrackedLLMResponse {
   content: string
-  promptId: string
+  turnId: string
   provider: string
   metadata: Record<string, any>
 }
 
 export class TrackedLLM {
   private provider: LLMProvider
-  private bilan: any
-  private ready: Promise<void>
 
   constructor(provider: LLMProvider) {
     this.provider = provider
-    this.ready = this.initBilan()
-  }
-
-  private async initBilan(): Promise<void> {
-    this.bilan = await init({
-      mode: process.env.BILAN_MODE || 'local', // 'local' or 'server'
-      apiKey: process.env.BILAN_API_KEY, // Required for server mode
-      userId: process.env.BILAN_USER_ID || 'anonymous', // Your user identifier
-      telemetry: { 
-        enabled: process.env.BILAN_TELEMETRY !== 'false' // opt-in to usage analytics
-      }
-    })
   }
 
   async generateResponse(
     prompt: string,
     options: any = {}
   ): Promise<TrackedLLMResponse> {
-    await this.ready // Ensure initialization is complete
-    
-    const promptId = generateId()
-    const startTime = Date.now()
+    // ✅ v0.4.1: Use trackTurn for automatic correlation
+    const { result: content, turnId } = await trackTurn(
+      prompt,
+      () => this.provider.generateResponse(prompt, options)
+    )
 
-    try {
-      const content = await this.provider.generateResponse(prompt, options)
-      const endTime = Date.now()
-
-      return {
-        content,
-        promptId,
-        provider: this.provider.name,
-        metadata: {
-          prompt: prompt.substring(0, 100), // First 100 chars for context
-          responseTime: endTime - startTime,
-          timestamp: startTime,
-          options
-        }
+    return {
+      content,
+      turnId,
+      provider: this.provider.name,
+      metadata: {
+        prompt: prompt.substring(0, 100), // First 100 chars for context
+        timestamp: Date.now(),
+        options
       }
-    } catch (error) {
-      console.error(`${this.provider.name} error:`, error)
-      throw error
     }
   }
 
@@ -107,40 +85,37 @@ export class TrackedLLM {
     prompt: string,
     options: any = {}
   ): Promise<{
-    promptId: string
+    turnId: string
     provider: string
     stream: AsyncIterable<string>
     metadata: Record<string, any>
   }> {
-    await this.ready // Ensure initialization is complete
-    
     if (!this.provider.generateStreamingResponse) {
       throw new Error(`${this.provider.name} does not support streaming`)
     }
 
-    const promptId = generateId()
-    const startTime = Date.now()
-
-    const stream = this.provider.generateStreamingResponse(prompt, options)
+    // ✅ v0.4.1: Use trackTurn for streaming responses
+    const { result: stream, turnId } = await trackTurn(
+      prompt,
+      () => this.provider.generateStreamingResponse!(prompt, options)
+    )
 
     return {
-      promptId,
+      turnId,
       provider: this.provider.name,
       stream,
       metadata: {
         prompt: prompt.substring(0, 100),
-        timestamp: startTime,
+        timestamp: Date.now(),
         options,
         streaming: true
       }
     }
   }
 
-  async submitFeedback(promptId: string, value: 1 | -1, comment?: string) {
-    await this.ready // Ensure initialization is complete
-    
+  async submitFeedback(turnId: string, value: 1 | -1, comment?: string) {
     const { vote } = await import('@mocksi/bilan-sdk')
-    return vote(promptId, value, comment)
+    return vote(turnId, value, comment)
   }
 }
 ```
@@ -403,7 +378,7 @@ interface Message {
   id: string
   role: 'user' | 'assistant'
   content: string
-  promptId?: string
+  turnId?: string
   provider?: string
   metadata?: Record<string, any>
 }
@@ -470,7 +445,7 @@ export default function CustomLLMChat() {
         id: `assistant-${Date.now()}`,
         role: 'assistant',
         content: response.content,
-        promptId: response.promptId,
+        turnId: response.turnId,
         provider: response.provider,
         metadata: response.metadata
       }
@@ -491,12 +466,12 @@ export default function CustomLLMChat() {
     }
   }
 
-  const handleFeedback = async (promptId: string, value: 1 | -1, comment?: string) => {
+  const handleFeedback = async (turnId: string, value: 1 | -1, comment?: string) => {
     if (!llmInstance) return
 
     try {
-      await llmInstance.submitFeedback(promptId, value, comment)
-      setFeedbackStates(prev => ({ ...prev, [promptId]: value }))
+      await llmInstance.submitFeedback(turnId, value, comment)
+      setFeedbackStates(prev => ({ ...prev, [turnId]: value }))
     } catch (error) {
       console.error('Failed to submit feedback:', error)
     }
@@ -545,12 +520,12 @@ export default function CustomLLMChat() {
               )}
               
               {/* Feedback buttons */}
-              {message.role === 'assistant' && message.promptId && (
+              {message.role === 'assistant' && message.turnId && (
                 <div className="mt-2 flex gap-2">
                   <button
-                    onClick={() => handleFeedback(message.promptId!, 1)}
+                    onClick={() => handleFeedback(message.turnId!, 1)}
                     className={`text-sm px-2 py-1 rounded ${
-                      feedbackStates[message.promptId] === 1
+                      feedbackStates[message.turnId] === 1
                         ? 'bg-green-500 text-white'
                         : 'bg-gray-100 hover:bg-gray-200'
                     }`}
@@ -558,9 +533,9 @@ export default function CustomLLMChat() {
                     👍 Good
                   </button>
                   <button
-                    onClick={() => handleFeedback(message.promptId!, -1)}
+                    onClick={() => handleFeedback(message.turnId!, -1)}
                     className={`text-sm px-2 py-1 rounded ${
-                      feedbackStates[message.promptId] === -1
+                      feedbackStates[message.turnId] === -1
                         ? 'bg-red-500 text-white'
                         : 'bg-gray-100 hover:bg-gray-200'
                     }`}
@@ -778,7 +753,7 @@ export class PromptEngineer {
   ): Promise<Array<{
     variation: string
     response: string
-    promptId: string
+    turnId: string
   }>> {
     const results = []
 
@@ -790,7 +765,7 @@ export class PromptEngineer {
         results.push({
           variation,
           response: response.content,
-          promptId: response.promptId
+          turnId: response.turnId
         })
       } catch (error) {
         console.error(`Failed to test variation: ${variation}`, error)
