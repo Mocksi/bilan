@@ -274,11 +274,16 @@ Deploy your own Bilan analytics server:
 # Install server package
 npm install -g @mocksi/bilan-server
 
+# Set required environment variables
+export BILAN_API_KEY="your-secure-api-key"
+
 # Start server
-bilan start --port 3001 --db ./bilan.db
+bilan
 
 # Or with Docker
-docker run -p 3001:3001 -v $(pwd)/data:/data mocksi/bilan-server
+docker run -p 3002:3002 -v $(pwd)/data:/data \
+  -e BILAN_API_KEY=your-secure-api-key \
+  mocksi/bilan-server
 ```
 
 Then configure the SDK to use your server:
@@ -286,9 +291,88 @@ Then configure the SDK to use your server:
 ```typescript
 await init({
   mode: 'server',
-  endpoint: 'http://localhost:3001'
+  endpoint: 'http://localhost:3002'
 })
 ```
+
+## Environment Variables
+
+The SDK can be configured using environment variables, which is useful for deployment automation and CI/CD pipelines:
+
+### Client-Side Environment Variables
+
+**Note:** These are primarily for server-side usage (Node.js) or build-time configuration. Never expose API keys in client-side code.
+
+| Variable | Purpose | Default | Example |
+|----------|---------|---------|---------|
+| `BILAN_ENDPOINT` | Default server endpoint URL | `undefined` | `https://analytics.yourapp.com` |
+| `BILAN_MODE` | Default SDK mode | `'local'` | `'server'` or `'local'` |
+| `BILAN_DEBUG` | Enable debug logging | `false` | `true` |
+| `BILAN_USER_ID` | Default user ID for tracking | `undefined` | `user-123` |
+
+### Server Environment Variables
+
+When running your own Bilan server, configure these variables:
+
+| Variable | Purpose | Required | Default | Example |
+|----------|---------|----------|---------|---------|
+| `BILAN_API_KEY` | Authentication key for server | Yes* | `undefined` | `abc123...` |
+| `BILAN_DEV_MODE` | Skip API key requirement | No | `false` | `true` |
+| `BILAN_PORT` | Server port number | No | `3002` | `8080` |
+| `BILAN_DB_PATH` | Database file path | No | `./bilan.db` | `/data/analytics.db` |
+| `BILAN_CORS_ORIGIN` | Allowed CORS origins | No | `localhost:3000,localhost:3002` | `https://yourapp.com` |
+| `BILAN_CORS_CREDENTIALS` | Enable CORS credentials | No | `false` | `true` |
+
+*Required in production, optional in development with `BILAN_DEV_MODE=true`
+
+### Usage Examples
+
+**Node.js server configuration:**
+```typescript
+// Set environment variables before importing
+process.env.BILAN_ENDPOINT = 'https://analytics.yourapp.com'
+process.env.BILAN_DEBUG = 'true'
+
+import { init, trackTurn } from '@mocksi/bilan-sdk'
+
+// SDK will automatically use environment variables
+await init({
+  mode: 'server',
+  userId: 'server-user'
+  // endpoint and debug will be read from environment
+})
+```
+
+**Docker deployment:**
+```bash
+# Client application
+docker run -e BILAN_ENDPOINT=https://analytics.yourapp.com \
+           -e BILAN_DEBUG=true \
+           your-app:latest
+
+# Bilan server
+docker run -e BILAN_API_KEY=your-secure-key \
+           -e BILAN_PORT=3002 \
+           -e BILAN_CORS_ORIGIN=https://yourapp.com \
+           -p 3002:3002 \
+           mocksi/bilan-server
+```
+
+**CI/CD pipeline:**
+```yaml
+# GitHub Actions example
+env:
+  BILAN_ENDPOINT: ${{ secrets.BILAN_ENDPOINT }}
+  BILAN_API_KEY: ${{ secrets.BILAN_API_KEY }}
+  BILAN_DEBUG: false
+```
+
+### Security Notes
+
+- **Never expose `BILAN_API_KEY` in client-side code** - only use in server environments
+- **Use `BILAN_DEV_MODE=true`** only for development/testing
+- **Store sensitive values** in your deployment platform's secret management
+- **Rotate API keys regularly** for production deployments
 
 ## Browser Support
 
