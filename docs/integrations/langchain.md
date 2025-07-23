@@ -559,7 +559,7 @@ console.log('Research steps:', result.steps.length)
 import { trackTurn, getStats } from '@mocksi/bilan-sdk'
 
 // Submit feedback
-await trackTurn('prompt-id-123', async () => {
+await trackTurn('Mock LangChain completion for feedback tracking', async () => {
   // Mock a simple task
   return {
     answer: 'This is a mock answer for feedback tracking.',
@@ -567,7 +567,7 @@ await trackTurn('prompt-id-123', async () => {
     metadata: {
       timestamp: Date.now()
     }
-  })
+  }
 })
 
 // Check stats

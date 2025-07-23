@@ -28,7 +28,7 @@ npm install @mocksi/bilan-sdk
 
 ```typescript
 // lib/llm-wrapper.ts
-import { trackTurn } from '@mocksi/bilan-sdk'
+import { trackTurn, vote } from '@mocksi/bilan-sdk'
 
 // Use crypto.randomUUID() for cross-platform compatibility
 function generateId(): string {
@@ -114,7 +114,6 @@ export class TrackedLLM {
   }
 
   async submitFeedback(turnId: string, value: 1 | -1, comment?: string) {
-    const { vote } = await import('@mocksi/bilan-sdk')
     return vote(turnId, value, comment)
   }
 }

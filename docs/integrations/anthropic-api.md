@@ -207,9 +207,12 @@ export async function createClaudeStreamCompletion(
 
       async function* streamContent() {
         for await (const chunk of stream) {
+          // Only yield text content deltas - tool calls, stop messages, etc. are filtered out
           if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
             yield chunk.delta.text
           }
+          // Note: Other chunk types (tool_use, message_stop, etc.) are ignored
+          // Add custom handling here if you need to expose tool calls or other events
         }
       }
 
@@ -708,75 +711,7 @@ const analytics = await bilan.getAnalytics()
 console.log('Analytics:', analytics)
 ```
 
-## Migration from v0.3.1 to v0.4.0
 
-### Before (v0.3.1) - Conversation-Centric
-
-```typescript
-// Old initialization
-import { init, vote } from '@mocksi/bilan-sdk'
-
-const bilan = await init({
-  mode: 'local',
-  userId: 'user-123',
-  telemetry: { enabled: true }
-})
-
-// Old voting
-await vote('prompt-id-123', 1, 'Great Claude response!')
-```
-
-### After (v0.4.0) - Event-Driven
-
-```typescript
-// New initialization
-import { Bilan } from '@mocksi/bilan-sdk'
-
-const bilan = new Bilan({
-  apiKey: 'your-api-key',
-  projectId: 'your-project',
-  userId: 'user-123'
-})
-
-// New event tracking
-await bilan.track('vote', {
-  turn_id: 'turn-123',
-  conversation_id: 'conv-456',
-  vote_type: 'up',
-  value: 1,
-  comment: 'Great Claude response!'
-})
-
-// Track full conversation lifecycle
-await bilan.track('conversation_started', {
-  conversation_id: 'conv-456',
-  title: 'Claude Chat Session'
-})
-
-await bilan.track('turn_started', {
-  turn_id: 'turn-123',
-  conversation_id: 'conv-456',
-  model: 'claude-3-haiku-20240307',
-  provider: 'anthropic'
-})
-
-await bilan.track('turn_completed', {
-  turn_id: 'turn-123',
-  conversation_id: 'conv-456',
-  model: 'claude-3-haiku-20240307',
-  provider: 'anthropic',
-  input_tokens: 50,
-  output_tokens: 100
-})
-```
-
-### Key Changes
-
-1. **Initialization**: `init()` → `new Bilan()`
-2. **Feedback**: `vote()` → `track('vote', properties)`
-3. **Provider Tracking**: Automatic provider='anthropic' tracking
-4. **Turn Management**: Full turn lifecycle tracking
-5. **Analytics**: `getStats()` → `getAnalytics()`
 
 ## Advanced Features
 

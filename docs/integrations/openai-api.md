@@ -136,6 +136,7 @@ export async function handleUserQuery(
 ```typescript
 // lib/streaming-chat.ts
 import { openai } from './openai'
+import { trackTurn } from '@mocksi/bilan-sdk'
 
 // Cross-platform UUID generation
 function generateId(): string {
@@ -147,7 +148,7 @@ function generateId(): string {
 }
 
 export interface StreamingChatResponse {
-  promptId: string
+  turnId: string
   model: string
   stream: AsyncIterable<string>
   metadata: Record<string, any>
@@ -162,18 +163,21 @@ export async function createStreamingChat(
     signal?: AbortSignal
   } = {}
 ): Promise<StreamingChatResponse> {
-  const promptId = generateId()
   const model = options.model || 'gpt-3.5-turbo'
   
-  const stream = await openai.chat.completions.create({
-    model,
-    messages,
-    temperature: options.temperature || 0.7,
-    max_tokens: options.maxTokens || 1000,
-    stream: true
-  }, {
-    signal: options.signal // Pass the abort signal to OpenAI request
-  })
+  // ✅ v0.4.1: Use trackTurn for automatic correlation
+  const { result: stream, turnId } = await trackTurn(
+    messages[messages.length - 1]?.content || 'OpenAI Streaming Chat',
+    () => openai.chat.completions.create({
+      model,
+      messages,
+      temperature: options.temperature || 0.7,
+      max_tokens: options.maxTokens || 1000,
+      stream: true
+    }, {
+      signal: options.signal // Pass the abort signal to OpenAI request
+    })
+  )
 
   async function* streamContent() {
     for await (const chunk of stream) {
@@ -185,12 +189,13 @@ export async function createStreamingChat(
   }
 
   return {
-    promptId,
+    turnId,
     model,
     stream: streamContent(),
     metadata: {
       timestamp: Date.now(),
-      temperature: options.temperature || 0.7
+      temperature: options.temperature || 0.7,
+      maxTokens: options.maxTokens || 1000
     }
   }
 }
@@ -443,7 +448,7 @@ export default function StreamingChat() {
     id: string
     role: 'user' | 'assistant'
     content: string
-    promptId?: string
+    turnId?: string
     isStreaming?: boolean
   }>>([])
   const [input, setInput] = useState('')
@@ -488,7 +493,7 @@ export default function StreamingChat() {
         id: `assistant-${Date.now()}`,
         role: 'assistant' as const,
         content: '',
-        promptId: response.promptId,
+        turnId: response.turnId, // v0.4.1: Use turnId for feedback correlation
         isStreaming: true
       }
 
@@ -539,10 +544,10 @@ export default function StreamingChat() {
     }
   }
 
-  const handleFeedback = async (promptId: string, value: 1 | -1) => {
+  const handleFeedback = async (turnId: string, value: 1 | -1) => {
     try {
-      await vote(promptId, value)
-      setFeedbackStates(prev => ({ ...prev, [promptId]: value }))
+      await vote(turnId, value)
+      setFeedbackStates(prev => ({ ...prev, [turnId]: value }))
     } catch (error) {
       console.error('Failed to submit feedback:', error)
     }
@@ -569,12 +574,12 @@ export default function StreamingChat() {
               )}
               
               {/* Feedback buttons */}
-              {message.role === 'assistant' && message.promptId && !message.isStreaming && (
+              {message.role === 'assistant' && message.turnId && !message.isStreaming && (
                 <div className="mt-2 flex gap-2">
                   <button
-                    onClick={() => handleFeedback(message.promptId!, 1)}
+                    onClick={() => handleFeedback(message.turnId!, 1)}
                     className={`text-sm px-2 py-1 rounded ${
-                      feedbackStates[message.promptId] === 1
+                      feedbackStates[message.turnId] === 1
                         ? 'bg-green-500 text-white'
                         : 'bg-gray-100 hover:bg-gray-200'
                     }`}
@@ -582,9 +587,9 @@ export default function StreamingChat() {
                     👍 Helpful
                   </button>
                   <button
-                    onClick={() => handleFeedback(message.promptId!, -1)}
+                    onClick={() => handleFeedback(message.turnId!, -1)}
                     className={`text-sm px-2 py-1 rounded ${
-                      feedbackStates[message.promptId] === -1
+                      feedbackStates[message.turnId] === -1
                         ? 'bg-red-500 text-white'
                         : 'bg-gray-100 hover:bg-gray-200'
                     }`}
@@ -674,73 +679,7 @@ const analytics = await bilan.getAnalytics()
 console.log('Analytics:', analytics)
 ```
 
-## Migration from v0.3.1 to v0.4.0
 
-### Before (v0.3.1) - Conversation-Centric
-
-```typescript
-// Old initialization
-import { init, vote } from '@mocksi/bilan-sdk'
-
-const bilan = await init({
-  mode: 'local',
-  userId: 'user-123',
-  telemetry: { enabled: true }
-})
-
-// Old voting
-await vote('prompt-id-123', 1, 'Great response!')
-```
-
-### After (v0.4.0) - Event-Driven
-
-```typescript
-// New initialization
-import { Bilan } from '@mocksi/bilan-sdk'
-
-const bilan = new Bilan({
-  apiKey: 'your-api-key',
-  projectId: 'your-project',
-  userId: 'user-123'
-})
-
-// New event tracking
-await bilan.track('vote', {
-  turn_id: 'turn-123',
-  conversation_id: 'conv-456',
-  vote_type: 'up',
-  value: 1,
-  comment: 'Great response!'
-})
-
-// Track full conversation lifecycle
-await bilan.track('conversation_started', {
-  conversation_id: 'conv-456',
-  title: 'OpenAI Chat Session'
-})
-
-await bilan.track('turn_started', {
-  turn_id: 'turn-123',
-  conversation_id: 'conv-456',
-  model: 'gpt-4'
-})
-
-await bilan.track('turn_completed', {
-  turn_id: 'turn-123',
-  conversation_id: 'conv-456',
-  model: 'gpt-4',
-  input_tokens: 50,
-  output_tokens: 100
-})
-```
-
-### Key Changes
-
-1. **Initialization**: `init()` → `new Bilan()`
-2. **Feedback**: `vote()` → `track('vote', properties)`
-3. **Event System**: Single events table with flexible properties
-4. **Conversation Tracking**: Full lifecycle from start to completion
-5. **Analytics**: `getStats()` → `getAnalytics()`
 
 ## Advanced Features
 
@@ -749,6 +688,7 @@ await bilan.track('turn_completed', {
 ```typescript
 // lib/function-calling.ts
 import { openai } from './openai'
+import { trackTurn } from '@mocksi/bilan-sdk'
 
 const functions = [
   {
@@ -770,14 +710,16 @@ const functions = [
 export async function createFunctionCall(
   messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>
 ) {
-  const promptId = generateId()
-  
-  const response = await openai.chat.completions.create({
-    model: 'gpt-3.5-turbo',
-    messages,
-    functions,
-    function_call: 'auto'
-  })
+  // ✅ v0.4.1: Use trackTurn for automatic correlation
+  const { result: response, turnId } = await trackTurn(
+    messages[messages.length - 1]?.content || 'OpenAI Function Call',
+    () => openai.chat.completions.create({
+      model: 'gpt-3.5-turbo',
+      messages,
+      functions,
+      function_call: 'auto'
+    })
+  )
 
   const message = response.choices[0].message
   
@@ -811,7 +753,7 @@ export async function createFunctionCall(
 
     return {
       content: finalResponse.choices[0].message.content,
-      promptId,
+      turnId, // v0.4.1: Use turnId consistently
       functionUsed: functionName,
       functionArgs,
       functionResult,
@@ -824,7 +766,7 @@ export async function createFunctionCall(
 
   return {
     content: message.content,
-    promptId,
+    turnId,
     functionUsed: null,
     metadata: {
       timestamp: Date.now(),
@@ -868,6 +810,7 @@ export async function createAdaptiveCompletion(
 ```typescript
 // lib/batch-processing.ts
 import { openai } from './openai'
+import { trackTurn } from '@mocksi/bilan-sdk'
 
 export async function processBatch(
   prompts: string[],
@@ -876,19 +819,21 @@ export async function processBatch(
   const results = []
   
   for (const prompt of prompts) {
-    const promptId = generateId()
-    
     try {
-      const response = await openai.chat.completions.create({
-        model: options.model || 'gpt-3.5-turbo',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: options.temperature || 0.7
-      })
+      // ✅ v0.4.1: Use trackTurn for automatic correlation
+      const { result: response, turnId } = await trackTurn(
+        prompt,
+        () => openai.chat.completions.create({
+          model: options.model || 'gpt-3.5-turbo',
+          messages: [{ role: 'user', content: prompt }],
+          temperature: options.temperature || 0.7
+        })
+      )
 
       results.push({
         prompt,
         response: response.choices[0].message.content,
-        promptId,
+        turnId,
         success: true,
         metadata: {
           model: options.model || 'gpt-3.5-turbo',
@@ -899,7 +844,7 @@ export async function processBatch(
       results.push({
         prompt,
         response: null,
-        promptId,
+        turnId: generateId(), // Generate turnId for error tracking
         success: false,
         error: error.message,
         metadata: {

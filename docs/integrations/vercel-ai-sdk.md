@@ -18,6 +18,15 @@ npm install @mocksi/bilan-sdk ai
 // lib/bilan.ts
 import { Bilan } from '@mocksi/bilan-sdk'
 
+// Cross-platform UUID generation
+export function generateId(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID()
+  }
+  // Fallback for environments without crypto.randomUUID
+  return Math.random().toString(36).substring(2) + Date.now().toString(36)
+}
+
 export const bilan = new Bilan({
   apiKey: process.env.BILAN_API_KEY,
   projectId: process.env.BILAN_PROJECT_ID,
@@ -36,16 +45,7 @@ export const bilan = new Bilan({
 // app/api/chat/route.ts
 import { openai } from '@ai-sdk/openai'
 import { streamText } from 'ai'
-import { bilan } from '@/lib/bilan'
-
-// Cross-platform UUID generation
-function generateId(): string {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-    return crypto.randomUUID()
-  }
-  // Fallback for environments without crypto.randomUUID
-  return Math.random().toString(36).substring(2) + Date.now().toString(36)
-}
+import { bilan, generateId } from '@/lib/bilan'
 
 export async function POST(req: Request) {
   const { messages, conversationId } = await req.json()
@@ -55,36 +55,30 @@ export async function POST(req: Request) {
   const actualConversationId = conversationId || generateId()
   const model = 'gpt-4'
   
-  try {
-    // Track turn start
-    await bilan.track('turn_started', {
-      turn_id: turnId,
-      conversation_id: actualConversationId,
-      model,
-      provider: 'openai',
-      input_tokens: messages.reduce((sum, msg) => sum + msg.content.length, 0),
-      temperature: 0.7
-    })
-
-    const startTime = Date.now()
-    const result = await streamText({
+  // ✅ v0.4.1: Use trackTurn for automatic correlation
+  const { result, turnId } = await trackTurn(
+    messages[messages.length - 1]?.content || 'Vercel AI SDK completion',
+    () => streamText({
       model: openai(model),
       messages,
       onFinish: async (completion) => {
-        // Track turn completion
-        await bilan.track('turn_completed', {
+        // Additional context tracking (trackTurn handles the core turn lifecycle)
+        await bilan.track('turn_context', {
           turn_id: turnId,
           conversation_id: actualConversationId,
-          model,
-          provider: 'openai',
-          input_tokens: completion.usage?.promptTokens || 0,
-          output_tokens: completion.usage?.completionTokens || 0,
-          total_tokens: completion.usage?.totalTokens || 0,
-          finish_reason: completion.finishReason,
-          latency: Date.now() - startTime
+          completion_tokens: completion.usage?.completionTokens,
+          prompt_tokens: completion.usage?.promptTokens,
+          finish_reason: completion.finishReason
         })
       }
-    })
+    }),
+    {
+      conversation_id: actualConversationId,
+      model,
+      provider: 'openai',
+      temperature: 0.7
+    }
+  )
     
     // Add turn and conversation IDs to response headers
     return result.toDataStreamResponse({
@@ -399,85 +393,11 @@ export async function POST(req: Request) {
 }
 ```
 
-## Migration from v0.3.1 to v0.4.1
-
-### Before (v0.3.1) - Conversation-Centric
-
-```typescript
-// Old initialization
-import { init, vote } from '@mocksi/bilan-sdk'
-
-const bilan = await init({
-  mode: 'local',
-  userId: 'user-123',
-  telemetry: { enabled: true }
-})
-
-// Old voting
-await vote('prompt-id-123', 1, 'Great response!')
-
-// Old trust score
-const stats = await getStats()
-console.log('Trust score:', stats.trustScore)
-```
-
-### After (v0.4.1) - Turn ID Unification
-
-```typescript
-// ✅ v0.4.1: Industry-standard event correlation
-import { init, trackTurn, vote } from '@mocksi/bilan-sdk'
-
-await init({
-  mode: 'server',
-  userId: 'user-123',
-  endpoint: 'https://your-bilan-server.com'
-})
-
-// ✅ v0.4.1: trackTurn returns both result and turnId
-const { result, turnId } = await trackTurn(
-  'Generate streaming response',
-  () => streamText({
-    model: openai('gpt-4'),
-    messages: [{ role: 'user', content: prompt }]
-  })
-)
-
-// ✅ v0.4.1: Use the same turnId for correlation
-await vote(turnId, 1, 'Great response!')
-
-// Analytics available through dashboard at /api/analytics/*
-// All endpoints require API key authentication
-```
-
-### Key Changes in Vercel AI SDK Integration
-
-1. **Headers**: `X-Prompt-ID` → `X-Turn-ID` + `X-Conversation-ID`
-2. **Feedback**: `vote()` → `track('vote', properties)`
-3. **Analytics**: `getStats()` → `getAnalytics()`
-4. **Turn Tracking**: Automatic start/complete/failed tracking
-5. **Conversation Context**: Persistent conversation ID across turns
-
-### Real-time analytics updates
-
-```typescript
-// components/TrustScore.tsx - Add real-time updates
-useEffect(() => {
-  const eventSource = new EventSource('/api/trust-score-stream')
-  
-  eventSource.onmessage = (event) => {
-    const newScore = JSON.parse(event.data).trustScore
-    setTrustScore(newScore)
-  }
-  
-  return () => eventSource.close()
-}, [])
-```
-
 ## Next Steps
 
-- **[Dashboard Setup](../dashboard.md)** - View detailed analytics
-- **[Server Mode](../server-mode.md)** - Scale beyond local storage
-- **[A/B Testing](../ab-testing.md)** - Test different AI models
+- **[Server Mode](../server-mode.md)** - Scale for production
+- **[Advanced Analytics](../advanced-analytics.md)** - Track streaming performance
+- **[A/B Testing](../ab-testing.md)** - Test different models
 - **[Custom Storage](../custom-storage.md)** - Integrate with your database
 
 ## Common Issues

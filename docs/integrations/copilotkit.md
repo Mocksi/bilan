@@ -78,14 +78,14 @@ export function useCopilotChatWithBilan(options: any) {
         }))
 
         // Use track() to manually record the AI turn since CopilotKit doesn't expose the call
-        track('turn_completed', {
+        void track('turn_completed', {
           turn_id: turnId,
           conversation_id: options.conversationId || 'copilotkit-session',
           model: message.model || 'copilotkit-default',
           response_time: message.duration,
           token_count: message.tokens,
           provider: 'copilotkit'
-        })
+        }).catch(console.error)
       }
       
       // Call original onMessage if provided
