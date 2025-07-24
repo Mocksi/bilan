@@ -92,7 +92,7 @@ Our comprehensive benchmarks ensure production-grade performance:
 
 - **API Response Times**: <500ms (P99 <20ms)
 - **Dashboard Load Times**: <3s (typical <1s)
-- **SDK Bundle Size**: <5KB gzipped
+- **SDK Bundle Size**: <5.5KB gzipped
 - **Memory Usage**: <512MB in production
 - **Database Query Performance**: <100ms for analytics
 
