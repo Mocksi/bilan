@@ -1,7 +1,12 @@
 #!/usr/bin/env node
+import { config as dotenvConfig } from 'dotenv'
 import { BilanServer } from './server.js'
 import fs from 'fs'
 import path from 'path'
+
+// Load environment variables from .env files
+dotenvConfig({ path: '.env.local' })
+dotenvConfig({ path: '.env' })
 
 /**
  * Read a secret from environment variable or file (Docker secrets support)

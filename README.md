@@ -406,7 +406,11 @@ npm install
 
 # Set up environment
 cp .env.example .env
-# Edit .env with your database settings
+# Edit .env with your configuration:
+# - NEXT_PUBLIC_BILAN_API_BASE_URL: Client-side API base URL (accessible to browser)
+# - BILAN_API_BASE_URL: Server-side API base URL (server-side only)
+# - BILAN_API_KEY: API key for authentication
+# - Database settings and other configuration
 
 # Start the server
 npm run dev

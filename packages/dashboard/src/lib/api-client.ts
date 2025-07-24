@@ -25,18 +25,19 @@ import { formatDateForAPI, getDateRange, getPreviousDateRange } from './time-uti
  * Browser-safe: only works in Node.js environments (server-side)
  */
 function readSecret(varName: string): string | undefined {
-  // Skip file reading in browser environments
+  // Browser environments: only use environment variables
   if (typeof window !== 'undefined') {
     return process.env[varName]
   }
 
+  // Server-side environments: support both env vars and secret files
   const fileVar = `${varName}_FILE`
   const filePath = process.env[fileVar]
   
-  if (filePath) {
+  if (filePath && typeof require !== 'undefined') {
     try {
-      // Dynamic import for Node.js environments only
-      const fs = require('fs')
+      // Dynamic require only in Node.js environments
+      const fs = eval('require')('fs')
       return fs.readFileSync(filePath, 'utf8').trim()
     } catch (error: any) {
       console.error(`Failed to read secret from file ${filePath}:`, error)
@@ -47,9 +48,14 @@ function readSecret(varName: string): string | undefined {
   return process.env[varName]
 }
 
-// API Configuration
-const API_BASE_URL = process.env.BILAN_PUBLIC_API_BASE_URL || 'http://localhost:3002'
-const API_KEY = readSecret('NEXT_PUBLIC_BILAN_API_KEY') || readSecret('BILAN_API_KEY') || null
+// API Configuration - Direct environment variable access for browser compatibility
+const API_BASE_URL = typeof window !== 'undefined' 
+  ? (process.env.NEXT_PUBLIC_BILAN_API_BASE_URL || 'http://localhost:3002')
+  : (process.env.BILAN_API_BASE_URL || 'http://localhost:3002')
+
+const API_KEY = typeof window !== 'undefined'
+  ? (process.env.NEXT_PUBLIC_BILAN_API_KEY || null)
+  : (readSecret('BILAN_API_KEY') || null)
 
 export interface DashboardDataWithComparison extends DashboardData {
   comparison?: {
