@@ -46,6 +46,7 @@
     "@fastify/rate-limit": "10.3.0",
     "@mocksi/bilan-sdk": "file:../sdk",
     "better-sqlite3": "12.2.0",
+    "dotenv": "^17.2.0",
     "fastify": "5.4.0"
   }
 }

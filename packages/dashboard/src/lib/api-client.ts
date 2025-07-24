@@ -51,11 +51,11 @@ function readSecret(varName: string): string | undefined {
 // API Configuration - Direct environment variable access for browser compatibility
 const API_BASE_URL = typeof window !== 'undefined' 
   ? (process.env.NEXT_PUBLIC_BILAN_API_BASE_URL || 'http://localhost:3002')
-  : (process.env.BILAN_PUBLIC_API_BASE_URL || 'http://localhost:3002')
+  : (process.env.BILAN_API_BASE_URL || 'http://localhost:3002')
 
 const API_KEY = typeof window !== 'undefined'
   ? (process.env.NEXT_PUBLIC_BILAN_API_KEY || null)
-  : (readSecret('NEXT_PUBLIC_BILAN_API_KEY') || readSecret('BILAN_API_KEY') || null)
+  : (readSecret('BILAN_API_KEY') || null)
 
 export interface DashboardDataWithComparison extends DashboardData {
   comparison?: {
