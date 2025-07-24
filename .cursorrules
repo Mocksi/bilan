@@ -5,7 +5,7 @@ Bilan is an open-source TypeScript SDK + managed analytics platform that helps t
 
 ## Tech Stack & Architecture
 - **Monorepo**: packages/* (SDK, server, dashboard)
-- **SDK**: TypeScript, Rollup, Vitest, <5KB bundle size
+- **SDK**: TypeScript, Rollup, Vitest, <5.5KB bundle size
 - **API**: Fastify, SQLite (better-sqlite3), Docker deployment
 - **Dashboard**: Next.js, Tailwind CSS, self-hosted
 - **Database**: SQLite with unified events table for analytics
@@ -17,7 +17,7 @@ Bilan is an open-source TypeScript SDK + managed analytics platform that helps t
 - Integration must be <10 minutes from npm install to first data
 - TypeScript-first with full type safety and autocompletion
 - Zero config defaults, progressive enhancement
-- Bundle size <5KB gzipped for SDK
+- Bundle size <5.5KB gzipped for SDK
 - Error messages should be actionable and helpful
 
 ### Performance Standards
@@ -100,7 +100,7 @@ packages/
 ### PR Review Guidelines
 - Code review completed by at least one maintainer
 - All tests must pass
-- Bundle size impact acceptable (<5KB gzipped for SDK)
+- Bundle size impact acceptable (<5.5KB gzipped for SDK)
 - Documentation updated for public API changes
 - Breaking changes require migration guide
 

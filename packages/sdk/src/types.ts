@@ -109,6 +109,7 @@ export interface InitConfig {
   mode: 'local' | 'server'
   userId: UserId
   endpoint?: string
+  apiKey?: string
   debug?: boolean
   storage?: StorageAdapter
 

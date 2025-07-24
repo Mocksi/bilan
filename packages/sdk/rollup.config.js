@@ -22,15 +22,15 @@ export default [
       }),
       terser({
         compress: {
-          drop_console: ['log', 'info', 'warn'],
+          drop_console: false, // Keep console for debug functionality
           drop_debugger: true,
-          pure_funcs: ['console.log', 'console.info', 'console.warn'],
-          passes: 3,
-          unsafe: true,
-          unsafe_comps: true,
-          unsafe_math: true,
-          unsafe_proto: true,
-          unsafe_regexp: true,
+          passes: 1, // Safer default for build stability
+          unsafe: false, // Disable unsafe optimizations
+          unsafe_comps: false,
+          unsafe_math: false,
+          unsafe_proto: false,
+          unsafe_regexp: false,
+          // Removed unsafe_arrows and unsafe_methods
           booleans_as_integers: true,
           collapse_vars: true,
           dead_code: true,
@@ -38,7 +38,7 @@ export default [
           hoist_funs: true,
           hoist_props: true,
           hoist_vars: true,
-          inline: true,
+          inline: true, // Back to safe default
           join_vars: true,
           loops: true,
           negate_iife: true,

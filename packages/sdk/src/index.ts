@@ -21,6 +21,21 @@ class BilanSDK {
     this.storage = new LocalStorageAdapter()
   }
 
+  private async sendEventsToServer(events: any[], c: InitConfig) {
+    if (c.mode === 'server' && c.endpoint && events.length) {
+      try {
+        const r = await fetch(c.endpoint + '/api/events', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + c.apiKey },
+          body: JSON.stringify({ events })
+        })
+        !r.ok ? console.error('Bilan:', r.status) : c.debug && console.log('Bilan:', events.length)
+      } catch (e) {
+        console.error('Bilan:', e)
+      }
+    }
+  }
+
   /**
    * Lazy load event system components
    */
@@ -54,12 +69,10 @@ class BilanSDK {
         const eventQueue = new EventQueueManager(
           config,
           this.storage,
-          async (events) => {
-            // Handle event flushing - for now just log in debug mode
-            if (config.debug) {
-              console.log('Bilan: Flushing events:', events)
-            }
-          }
+                  async (events) => {
+          config.debug && console.log('Bilan:', events.length)
+          await this.sendEventsToServer(events, config)
+        }
         )
         
         this.turnTracker = new turnTracker(
@@ -83,18 +96,10 @@ class BilanSDK {
   /**
    * Validate configuration options.
    */
-  private validateConfig(config: InitConfig) {
-    if (!config.mode || !['local', 'server'].includes(config.mode)) {
-      throw new Error('Invalid mode. Must be "local" or "server".')
-    }
-
-    if (!config.userId) {
-      throw new Error('userId is required.')
-    }
-
-    if (config.mode === 'server' && !config.endpoint) {
-      throw new Error('endpoint is required for server mode.')
-    }
+  private validateConfig(c: InitConfig) {
+    if (!c.mode || !['local', 'server'].includes(c.mode)) throw new Error('Invalid mode')
+    if (!c.userId) throw new Error('userId required')
+    if (c.mode === 'server' && (!c.endpoint || !c.apiKey)) throw new Error('endpoint/apiKey required')
   }
 
   /**
@@ -121,9 +126,11 @@ class BilanSDK {
         this.config!,
         this.storage,
         async (events) => {
-          // Handle event flushing - for now just log in debug mode
           if (this.config?.debug) {
             console.log('Bilan: Flushing events:', events)
+          }
+          if (this.config) {
+            await this.sendEventsToServer(events, this.config)
           }
         }
       )
@@ -161,7 +168,6 @@ class BilanSDK {
     maxRetries: number = 3
   ): Promise<{ result: T, turnId: string }> {
     if (!this.isInitialized) {
-      // Graceful degradation - just execute the AI function without tracking
       const result = await aiCall()
       return { result, turnId: '' }
     }
@@ -175,9 +181,11 @@ class BilanSDK {
         this.config!,
         this.storage,
         async (events) => {
-          // Handle event flushing - for now just log in debug mode
           if (this.config?.debug) {
             console.log('Bilan: Flushing events:', events)
+          }
+          if (this.config) {
+            await this.sendEventsToServer(events, this.config)
           }
         }
       )

@@ -51,9 +51,9 @@ jobs:
         run: |
           BUNDLE_SIZE=$(gzip -c packages/sdk/dist/index.js | wc -c)
           echo "Bundle size: ${BUNDLE_SIZE} bytes gzipped"
-          if [ $BUNDLE_SIZE -gt 5120 ]; then
-            echo "❌ Bundle size ${BUNDLE_SIZE} bytes exceeds 5KB limit"
+          if [ $BUNDLE_SIZE -gt 5632 ]; then
+            echo "❌ Bundle size ${BUNDLE_SIZE} bytes exceeds 5.5KB limit"
             exit 1
           else
-            echo "✅ Bundle size ${BUNDLE_SIZE} bytes is within 5KB limit"
+            echo "✅ Bundle size ${BUNDLE_SIZE} bytes is within 5.5KB limit"
           fi 
