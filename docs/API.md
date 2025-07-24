@@ -119,6 +119,7 @@ await init({
   mode: 'server',
   userId: createUserId('user-123'),
   endpoint: 'https://your-api.com',
+  apiKey: 'your-api-key',
   debug: true,
   trendConfig: {
     sensitivity: 0.15,
@@ -465,6 +466,7 @@ async function setupBilan() {
       mode: 'server',
       userId: createUserId('user-123'),
       endpoint: 'https://api.example.com',
+      apiKey: 'your-api-key',
       debug: process.env.NODE_ENV === 'development',
       telemetry: {
         enabled: process.env.NODE_ENV === 'production',

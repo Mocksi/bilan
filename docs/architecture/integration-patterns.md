@@ -40,7 +40,7 @@ import { bilan } from '@mocksi/bilan-sdk'
 // Initialize SDK
 await bilan.init({
   userId: 'user-123',
-  mode: 'local', // or 'server'
+  mode: 'local', // or 'server' (requires apiKey)
   privacy: {
     capturePrompts: true,
     captureResponses: false

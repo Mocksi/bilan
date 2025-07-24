@@ -1,7 +1,7 @@
 # @mocksi/bilan-sdk
 
 [![NPM Version](https://img.shields.io/npm/v/@mocksi/bilan-sdk?style=flat-square)](https://www.npmjs.com/package/@mocksi/bilan-sdk)
-[![Bundle Size](https://img.shields.io/badge/Bundle%20Size-5.1KB%20gzipped-green?style=flat-square)](https://bundlephobia.com/package/@mocksi/bilan-sdk)
+[![Bundle Size](https://img.shields.io/badge/Bundle%20Size-5.5KB%20gzipped-green?style=flat-square)](https://bundlephobia.com/package/@mocksi/bilan-sdk)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue?style=flat-square)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://opensource.org/licenses/MIT)
 
@@ -9,7 +9,7 @@
 
 ## Features
 
-- **🚀 Lightweight**: 5.1KB gzipped, zero dependencies
+- **🚀 Lightweight**: 5.5KB gzipped, zero dependencies
 - **🔒 Type Safe**: Full TypeScript support with branded types  
 - **📱 Universal**: Works in browsers, Node.js, React Native, and edge environments
 - **🛡️ Production Ready**: Comprehensive error handling and graceful degradation
@@ -49,6 +49,7 @@ import { init, trackTurn, vote } from '@mocksi/bilan-sdk'
 await init({
   mode: 'server',                    // or 'local' for offline mode
   endpoint: 'https://your-api.com',   // your self-hosted endpoint
+  apiKey: 'your-api-key',             // required for server mode
   userId: 'user-123',
   debug: process.env.NODE_ENV === 'development'
 })
@@ -228,6 +229,7 @@ import { init, trackTurn, vote } from '@mocksi/bilan-sdk'
 await init({
   mode: 'server',
   endpoint: process.env.BILAN_ENDPOINT,
+  apiKey: process.env.BILAN_API_KEY,
   userId: 'server-user'
 })
 
@@ -244,10 +246,47 @@ app.post('/ai-chat', async (req, res) => {
 
 ## Configuration Options
 
+### Local vs Server Mode
+
+The SDK supports two modes of operation:
+
+#### Local Mode (Offline)
+```typescript
+await init({
+  mode: 'local',
+  userId: 'user-123',
+  debug: true
+})
+```
+- **Use case**: Development, offline applications, privacy-first setups
+- **Data storage**: Browser localStorage or Node.js file system
+- **Network**: No external requests made
+- **Requirements**: None - works immediately
+
+#### Server Mode (Analytics)
+```typescript
+await init({
+  mode: 'server',
+  endpoint: 'https://your-analytics-server.com',
+  apiKey: 'your-secure-api-key',
+  userId: 'user-123',
+  debug: true
+})
+```
+- **Use case**: Production analytics, team dashboards, data aggregation
+- **Data storage**: Remote analytics server
+- **Network**: Events sent via HTTP POST to `/api/events`
+- **Requirements**: Running Bilan server, valid API key
+
+⚠️ **Breaking Change in v0.4.2**: Server mode now requires the `apiKey` parameter. Previous versions silently failed to send events.
+
+## Full Configuration Interface
+
 ```typescript
 interface InitConfig {
   mode: 'local' | 'server'
   endpoint?: string
+  apiKey?: string                     // required when mode is 'server'
   userId?: string
   debug?: boolean
   privacyConfig?: {
@@ -291,7 +330,8 @@ Then configure the SDK to use your server:
 ```typescript
 await init({
   mode: 'server',
-  endpoint: 'http://localhost:3002'
+  endpoint: 'http://localhost:3002',
+  apiKey: 'your-secure-api-key'        // must match server's BILAN_API_KEY
 })
 ```
 
@@ -306,6 +346,7 @@ The SDK can be configured using environment variables, which is useful for deplo
 | Variable | Purpose | Default | Example |
 |----------|---------|---------|---------|
 | `BILAN_ENDPOINT` | Default server endpoint URL | `undefined` | `https://analytics.yourapp.com` |
+| `BILAN_API_KEY` | API key for server mode | `undefined` | `your-secure-api-key` |
 | `BILAN_MODE` | Default SDK mode | `'local'` | `'server'` or `'local'` |
 | `BILAN_DEBUG` | Enable debug logging | `false` | `true` |
 | `BILAN_USER_ID` | Default user ID for tracking | `undefined` | `user-123` |
@@ -331,6 +372,7 @@ When running your own Bilan server, configure these variables:
 ```typescript
 // Set environment variables before importing
 process.env.BILAN_ENDPOINT = 'https://analytics.yourapp.com'
+process.env.BILAN_API_KEY = 'your-secure-api-key'
 process.env.BILAN_DEBUG = 'true'
 
 import { init, trackTurn } from '@mocksi/bilan-sdk'
@@ -339,7 +381,7 @@ import { init, trackTurn } from '@mocksi/bilan-sdk'
 await init({
   mode: 'server',
   userId: 'server-user'
-  // endpoint and debug will be read from environment
+  // endpoint, apiKey, and debug will be read from environment
 })
 ```
 
@@ -347,6 +389,7 @@ await init({
 ```bash
 # Client application
 docker run -e BILAN_ENDPOINT=https://analytics.yourapp.com \
+           -e BILAN_API_KEY=your-secure-api-key \
            -e BILAN_DEBUG=true \
            your-app:latest
 
@@ -413,7 +456,11 @@ const vote: VoteValue = 1
 **Optimization Tips:**
 ```typescript
 // ✅ Good: Initialize once at app startup
-await init({ mode: 'server', endpoint: 'https://analytics.yourapp.com' })
+await init({ 
+  mode: 'server', 
+  endpoint: 'https://analytics.yourapp.com',
+  apiKey: 'your-api-key'
+})
 
 // ✅ Good: Use local mode for development
 await init({ mode: 'local' }) // No network requests
@@ -432,6 +479,7 @@ await init({ mode: 'local' }) // No network requests
 await init({
   mode: 'server',
   endpoint: 'https://your-server.com', // Must be accessible
+  apiKey: 'your-api-key',              // required for server mode
   debug: true // Enable debug logging
 })
 ```
@@ -447,20 +495,29 @@ await init({
 const { result, turnId } = await trackTurn('prompt', aiCall)
 
 // ✅ Correct: Wait for init to complete
-await init({ mode: 'server', endpoint: 'https://your-server.com' })
+await init({ 
+  mode: 'server', 
+  endpoint: 'https://your-server.com',
+  apiKey: 'your-api-key'
+})
 const { result, turnId } = await trackTurn('prompt', aiCall)
 ```
 
 **"Invalid API key" / 401 errors:**
 ```typescript
-// Check your server's BILAN_API_KEY matches client expectations
-// Server logs will show: "Invalid API key" or "Missing API key"
+// Ensure your SDK apiKey matches the server's BILAN_API_KEY
+await init({
+  mode: 'server',
+  endpoint: 'https://your-server.com',
+  apiKey: 'your-api-key'  // Must match server's BILAN_API_KEY
+})
 ```
 
 **Solution:**
 - Verify server environment: `echo $BILAN_API_KEY`
 - Check server logs for authentication errors
 - Use development mode for testing: `BILAN_DEV_MODE=true`
+- Ensure SDK apiKey parameter matches server configuration
 
 **Events not appearing in dashboard:**
 ```typescript
@@ -468,6 +525,7 @@ const { result, turnId } = await trackTurn('prompt', aiCall)
 await init({ 
   mode: 'server',
   endpoint: 'https://your-server.com',
+  apiKey: 'your-api-key',
   debug: true // Will log all events to console
 })
 ```
@@ -529,7 +587,33 @@ const { result, turnId } = await trackTurn('test prompt', () => Promise.resolve(
 
 ## API Changelog
 
-### v0.4.1 - Current Version
+### v0.4.2 - Current Version
+
+**🚨 Critical Fix:**
+- ✅ **Server Mode Working**: Fixed broken server mode - events now actually sent to analytics server
+- 🔑 **API Key Required**: Added required `apiKey` parameter for server mode authentication  
+- 📈 **Bundle Size**: Increased to 5.5KB gzipped to accommodate essential HTTP functionality
+- 🔧 **Better Errors**: Clear validation messages when `apiKey` is missing
+
+**Breaking Changes:**
+```typescript
+// ❌ v0.4.1 (broken - no events sent)
+await init({
+  mode: 'server',
+  endpoint: 'https://api.com',
+  userId: 'user-123'
+})
+
+// ✅ v0.4.2 (working)
+await init({
+  mode: 'server',
+  endpoint: 'https://api.com', 
+  apiKey: 'your-api-key',  // NEW: Required
+  userId: 'user-123'
+})
+```
+
+### v0.4.1
 
 **Breaking Changes:**
 - 🔄 **`trackTurn()` return value**: Now returns `{ result, turnId }` instead of just result

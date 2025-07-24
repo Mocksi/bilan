@@ -1,6 +1,6 @@
 /**
  * Performance benchmarks for Bilan SDK
- * Tests SDK overhead (<50ms), bundle size (<5KB), and runtime performance
+ * Tests SDK overhead (<50ms), bundle size (<5.5KB), and runtime performance
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
