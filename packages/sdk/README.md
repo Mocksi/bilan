@@ -406,7 +406,6 @@ docker run -e BILAN_API_KEY=your-secure-key \
 # GitHub Actions example
 env:
   BILAN_ENDPOINT: ${{ secrets.BILAN_ENDPOINT }}
-        BILAN_API_KEY: ${{ secrets.BILAN_API_KEY }}
   BILAN_API_KEY: ${{ secrets.BILAN_API_KEY }}
   BILAN_DEBUG: false
 ```
