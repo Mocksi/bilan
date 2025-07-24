@@ -2,7 +2,7 @@
   <h1>📊</h1>
   <h1>Bilan</h1>
   <p><strong>Open Source Trust Analytics for AI Products</strong></p>
-  <p>Track user feedback on AI suggestions. Self-hostable, TypeScript-first, <5KB bundle.</p>
+  <p>Track user feedback on AI suggestions. Self-hostable, TypeScript-first, <5.5KB bundle.</p>
 </div>
 
 <div align="center">
@@ -107,7 +107,7 @@ Built on a flexible event architecture that grows with your needs:
 ### Platform Features
 
 #### SDK
-- **🚀 Lightweight**: <5KB gzipped bundle size
+- **🚀 Lightweight**: <5.5KB gzipped bundle size
 - **🔒 Type Safe**: Full TypeScript support with branded types
 - **🏃‍♂️ Zero Dependencies**: Uses only native web APIs
 - **📱 Universal**: Works in browsers, Node.js, and edge environments
@@ -432,7 +432,7 @@ Bilan follows a modern, scalable architecture:
                        └─────────────────┘
 ```
 
-- **SDK**: <5KB TypeScript client with privacy controls
+- **SDK**: <5.5KB TypeScript client with privacy controls
 - **API**: High-performance Fastify server (<20ms P99)
 - **Dashboard**: Real-time Next.js analytics interface
 - **Database**: SQLite for simple deployments, PostgreSQL for scale

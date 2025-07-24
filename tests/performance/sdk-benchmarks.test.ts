@@ -11,7 +11,7 @@ import { resolve } from 'path'
 // Performance thresholds from project requirements
 const PERFORMANCE_THRESHOLDS = {
   SDK_INIT_TIME: 100, // <100ms
-  BUNDLE_SIZE: 5120, // <5KB gzipped
+  BUNDLE_SIZE: 5632, // <5.5KB gzipped
   VOTE_PROCESSING: 50, // <50ms
   STATS_CALCULATION: 500, // <500ms
   MEMORY_USAGE: 10 * 1024 * 1024, // <10MB

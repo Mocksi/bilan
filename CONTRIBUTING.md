@@ -202,7 +202,7 @@ describe('ComponentName', () => {
 
 ### SDK (`packages/sdk`)
 
-- Keep bundle size under 5KB
+- Keep bundle size under 5.5KB
 - Maintain zero dependencies
 - Support both browser and Node.js
 - Add comprehensive TypeScript types

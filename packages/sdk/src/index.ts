@@ -21,19 +21,15 @@ class BilanSDK {
     this.storage = new LocalStorageAdapter()
   }
 
-  private async sendEventsToServer(events: any[], config: InitConfig) {
-    if (config.mode === 'server' && config.endpoint && events.length) {
+  private async sendEventsToServer(events: any[], c: InitConfig) {
+    if (c.mode === 'server' && c.endpoint && events.length) {
       try {
-        const r = await fetch(config.endpoint + '/api/events', {
+        const r = await fetch(c.endpoint + '/api/events', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + config.apiKey
-          },
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + c.apiKey },
           body: JSON.stringify({ events })
         })
-        
-        !r.ok ? console.error('Bilan:', r.status) : config.debug && console.log('Bilan:', events.length)
+        !r.ok ? console.error('Bilan:', r.status) : c.debug && console.log('Bilan:', events.length)
       } catch (e) {
         console.error('Bilan:', e)
       }
@@ -73,10 +69,10 @@ class BilanSDK {
         const eventQueue = new EventQueueManager(
           config,
           this.storage,
-          async (events) => {
-            config.debug && console.log('Bilan: Flushing events:', events)
-            await this.sendEventsToServer(events, config)
-          }
+                  async (events) => {
+          config.debug && console.log('Bilan:', events.length)
+          await this.sendEventsToServer(events, config)
+        }
         )
         
         this.turnTracker = new turnTracker(
@@ -100,23 +96,10 @@ class BilanSDK {
   /**
    * Validate configuration options.
    */
-  private validateConfig(config: InitConfig) {
-    if (!config.mode || !['local', 'server'].includes(config.mode)) {
-      throw new Error('Invalid mode')
-    }
-
-    if (!config.userId) {
-      throw new Error('userId required')
-    }
-
-    if (config.mode === 'server') {
-      if (!config.endpoint) {
-        throw new Error('endpoint required')
-      }
-      if (!config.apiKey) {
-        throw new Error('apiKey required')
-      }
-    }
+  private validateConfig(c: InitConfig) {
+    if (!c.mode || !['local', 'server'].includes(c.mode)) throw new Error('Invalid mode')
+    if (!c.userId) throw new Error('userId required')
+    if (c.mode === 'server' && (!c.endpoint || !c.apiKey)) throw new Error('endpoint/apiKey required')
   }
 
   /**
