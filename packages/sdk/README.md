@@ -588,7 +588,33 @@ const { result, turnId } = await trackTurn('test prompt', () => Promise.resolve(
 
 ## API Changelog
 
-### v0.4.1 - Current Version
+### v0.4.2 - Current Version
+
+**🚨 Critical Fix:**
+- ✅ **Server Mode Working**: Fixed broken server mode - events now actually sent to analytics server
+- 🔑 **API Key Required**: Added required `apiKey` parameter for server mode authentication  
+- 📈 **Bundle Size**: Increased to 5.5KB gzipped to accommodate essential HTTP functionality
+- 🔧 **Better Errors**: Clear validation messages when `apiKey` is missing
+
+**Breaking Changes:**
+```typescript
+// ❌ v0.4.1 (broken - no events sent)
+await init({
+  mode: 'server',
+  endpoint: 'https://api.com',
+  userId: 'user-123'
+})
+
+// ✅ v0.4.2 (working)
+await init({
+  mode: 'server',
+  endpoint: 'https://api.com', 
+  apiKey: 'your-api-key',  // NEW: Required
+  userId: 'user-123'
+})
+```
+
+### v0.4.1
 
 **Breaking Changes:**
 - 🔄 **`trackTurn()` return value**: Now returns `{ result, turnId }` instead of just result
