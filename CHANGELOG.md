@@ -5,6 +5,47 @@ All notable changes to the Bilan SDK will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.2] - 2024-12-19
+
+### 🚨 Critical Fix
+- **FIXED**: Server mode now actually sends HTTP requests to analytics server (was completely broken in v0.4.1)
+- **BREAKING**: Added required `apiKey` parameter for server mode authentication
+
+### Added
+- `apiKey` field to `InitConfig` interface for server mode authentication
+- HTTP request functionality with Bearer token authentication
+- Proper error handling and validation for server mode configuration
+- Clear error messages when `apiKey` is missing in server mode
+
+### Changed  
+- **Bundle Size**: Increased from <5KB to 5.26KB gzipped (+268 bytes) to accommodate essential HTTP functionality
+- **Performance Budget**: Raised bundle size limit to 5.5KB for production analytics capability
+- **Documentation**: Comprehensive update across all integration guides and examples
+
+### Migration Guide
+```typescript
+// v0.4.1 (broken - no events sent)
+await init({
+  mode: 'server',
+  endpoint: 'https://api.com',
+  userId: 'user-123'
+})
+
+// v0.4.2 (working)
+await init({
+  mode: 'server',
+  endpoint: 'https://api.com',
+  apiKey: 'your-api-key',  // NEW: Required
+  userId: 'user-123'
+})
+```
+
+### Technical Details
+- Replaced no-op `onFlush` callbacks with actual `fetch()` calls to `/api/events`
+- Added private `sendEventsToServer()` method to eliminate code duplication
+- Enhanced validation to require both `endpoint` and `apiKey` for server mode
+- Implemented proper HTTP error handling with debug logging
+
 ## [0.4.1] - 2024-01-28
 
 ### 🎯 **MAJOR FEATURE: Turn ID Unification - Industry Standard Event Linking**
