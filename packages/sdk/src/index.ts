@@ -55,9 +55,30 @@ class BilanSDK {
           config,
           this.storage,
           async (events) => {
-            // Handle event flushing - for now just log in debug mode
             if (config.debug) {
               console.log('Bilan: Flushing events:', events)
+            }
+            
+            // Send to server in server mode
+            if (config.mode === 'server' && config.endpoint && events.length > 0) {
+              try {
+                const response = await fetch(`${config.endpoint}/api/events`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${config.apiKey}`
+                  },
+                  body: JSON.stringify({ events })
+                })
+                
+                if (!response.ok) {
+                  console.error(`Bilan: Server returned ${response.status}`)
+                } else if (config.debug) {
+                  console.log(`Bilan: Sent ${events.length} events successfully`)
+                }
+              } catch (error) {
+                console.error('Bilan: Failed to send events:', error)
+              }
             }
           }
         )
@@ -92,8 +113,13 @@ class BilanSDK {
       throw new Error('userId is required.')
     }
 
-    if (config.mode === 'server' && !config.endpoint) {
-      throw new Error('endpoint is required for server mode.')
+    if (config.mode === 'server') {
+      if (!config.endpoint) {
+        throw new Error('endpoint is required for server mode.')
+      }
+      if (!config.apiKey) {
+        throw new Error('apiKey is required for server mode.')
+      }
     }
   }
 
@@ -121,9 +147,30 @@ class BilanSDK {
         this.config!,
         this.storage,
         async (events) => {
-          // Handle event flushing - for now just log in debug mode
           if (this.config?.debug) {
             console.log('Bilan: Flushing events:', events)
+          }
+          
+          // Send to server in server mode
+          if (this.config?.mode === 'server' && this.config?.endpoint && events.length > 0) {
+            try {
+              const response = await fetch(`${this.config.endpoint}/api/events`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${this.config.apiKey}`
+                },
+                body: JSON.stringify({ events })
+              })
+              
+              if (!response.ok) {
+                console.error(`Bilan: Server returned ${response.status}`)
+              } else if (this.config.debug) {
+                console.log(`Bilan: Sent ${events.length} events successfully`)
+              }
+            } catch (error) {
+              console.error('Bilan: Failed to send events:', error)
+            }
           }
         }
       )
@@ -175,9 +222,30 @@ class BilanSDK {
         this.config!,
         this.storage,
         async (events) => {
-          // Handle event flushing - for now just log in debug mode
           if (this.config?.debug) {
             console.log('Bilan: Flushing events:', events)
+          }
+          
+          // Send to server in server mode
+          if (this.config?.mode === 'server' && this.config?.endpoint && events.length > 0) {
+            try {
+              const response = await fetch(`${this.config.endpoint}/api/events`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${this.config.apiKey}`
+                },
+                body: JSON.stringify({ events })
+              })
+              
+              if (!response.ok) {
+                console.error(`Bilan: Server returned ${response.status}`)
+              } else if (this.config.debug) {
+                console.log(`Bilan: Sent ${events.length} events successfully`)
+              }
+            } catch (error) {
+              console.error('Bilan: Failed to send events:', error)
+            }
           }
         }
       )
