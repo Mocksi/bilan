@@ -21,28 +21,21 @@ class BilanSDK {
     this.storage = new LocalStorageAdapter()
   }
 
-  /**
-   * Send events to server in server mode
-   */
   private async sendEventsToServer(events: any[], config: InitConfig) {
-    if (config.mode === 'server' && config.endpoint && events.length > 0) {
+    if (config.mode === 'server' && config.endpoint && events.length) {
       try {
-        const response = await fetch(`${config.endpoint}/api/events`, {
+        const r = await fetch(config.endpoint + '/api/events', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${config.apiKey}`
+            'Authorization': 'Bearer ' + config.apiKey
           },
           body: JSON.stringify({ events })
         })
         
-        if (!response.ok) {
-          console.error(`Bilan: Server returned ${response.status}`)
-        } else if (config.debug) {
-          console.log(`Bilan: Sent ${events.length} events successfully`)
-        }
-      } catch (error) {
-        console.error('Bilan: Failed to send events:', error)
+        !r.ok ? console.error('Bilan:', r.status) : config.debug && console.log('Bilan:', events.length)
+      } catch (e) {
+        console.error('Bilan:', e)
       }
     }
   }
@@ -81,9 +74,7 @@ class BilanSDK {
           config,
           this.storage,
           async (events) => {
-            if (config.debug) {
-              console.log('Bilan: Flushing events:', events)
-            }
+            config.debug && console.log('Bilan: Flushing events:', events)
             await this.sendEventsToServer(events, config)
           }
         )
@@ -111,19 +102,19 @@ class BilanSDK {
    */
   private validateConfig(config: InitConfig) {
     if (!config.mode || !['local', 'server'].includes(config.mode)) {
-      throw new Error('Invalid mode. Must be "local" or "server".')
+      throw new Error('Invalid mode')
     }
 
     if (!config.userId) {
-      throw new Error('userId is required.')
+      throw new Error('userId required')
     }
 
     if (config.mode === 'server') {
       if (!config.endpoint) {
-        throw new Error('endpoint is required for server mode.')
+        throw new Error('endpoint required')
       }
       if (!config.apiKey) {
-        throw new Error('apiKey is required for server mode.')
+        throw new Error('apiKey required')
       }
     }
   }
@@ -194,7 +185,6 @@ class BilanSDK {
     maxRetries: number = 3
   ): Promise<{ result: T, turnId: string }> {
     if (!this.isInitialized) {
-      // Graceful degradation - just execute the AI function without tracking
       const result = await aiCall()
       return { result, turnId: '' }
     }

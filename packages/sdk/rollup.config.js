@@ -22,15 +22,16 @@ export default [
       }),
       terser({
         compress: {
-          drop_console: ['log', 'info', 'warn'],
+          drop_console: false, // Keep console for debug functionality
           drop_debugger: true,
-          pure_funcs: ['console.log', 'console.info', 'console.warn'],
-          passes: 3,
+          passes: 5,
           unsafe: true,
           unsafe_comps: true,
           unsafe_math: true,
           unsafe_proto: true,
           unsafe_regexp: true,
+          unsafe_arrows: true,
+          unsafe_methods: true,
           booleans_as_integers: true,
           collapse_vars: true,
           dead_code: true,
@@ -38,7 +39,7 @@ export default [
           hoist_funs: true,
           hoist_props: true,
           hoist_vars: true,
-          inline: true,
+          inline: 3,
           join_vars: true,
           loops: true,
           negate_iife: true,
