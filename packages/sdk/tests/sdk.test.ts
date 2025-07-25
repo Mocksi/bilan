@@ -31,7 +31,7 @@ import {
 const mockFetch = vi.fn()
 global.fetch = mockFetch
 
-describe('Bilan SDK v0.4.1', () => {
+describe('Bilan SDK v0.4.2', () => {
   beforeEach(() => {
     // Clear localStorage before each test
     ;(window as any).localStorage.data = {}
