@@ -598,7 +598,7 @@ export function createRAGChain(documents: string[]) {
 
   return {
     async invoke(question: string) {
-      // ✅ v0.4.1: Use trackTurn for automatic ID generation and correlation
+      // ✅ v0.4.2: Use trackTurn for automatic ID generation and correlation
       const { result: response, turnId } = await trackTurn(
         question,
         async () => {
