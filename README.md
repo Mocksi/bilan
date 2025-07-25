@@ -42,13 +42,13 @@ Bilan is an open source analytics platform that helps you understand how users i
 
 **Perfect for:** Individual developers, startups, and teams who want complete visibility into AI user experience without external dependencies.
 
-### ✨ **v0.4.1: Turn ID Unification**
+### ✨ **v0.4.2: Critical Server Mode Fix + Turn ID Unification**
 
-Bilan v0.4.1 simplifies AI analytics with industry-standard event linking that follows proven patterns from Amplitude and Mixpanel. No more confusing dual-ID systems - just clean, correlated analytics.
+Bilan v0.4.2 fixes critical server mode functionality (events now actually sent!) and includes v0.4.1's industry-standard event linking that follows proven patterns from Amplitude and Mixpanel. No more confusing dual-ID systems - just clean, correlated analytics.
 
 #### 🚀 Industry-Standard Event Correlation
 ```typescript
-// ✅ v0.4.1: Clean event linking with shared identifier
+// ✅ v0.4.2: Clean event linking with shared identifier + working server mode
 const { result, turnId } = await bilan.trackTurn(
   'Help me write an email',
   () => openai.chat.completions.create({
@@ -149,7 +149,7 @@ await init({
   }
 })
 
-// ✅ v0.4.1: Industry-standard event correlation
+// ✅ v0.4.2: Industry-standard event correlation
 const { result, turnId } = await trackTurn(
   'Help me write a professional email',
   () => openai.chat.completions.create({
@@ -296,7 +296,7 @@ interface AnalyticsStats {
 **`init(config: InitConfig): Promise<void>`**
 Initialize the SDK with configuration.
 
-**Turn Tracking Methods (v0.4.1)**
+**Turn Tracking Methods (v0.4.2)**
 
 **`trackTurn<T>(prompt: string, aiCall: () => Promise<T>, context?: object): Promise<{ result: T, turnId: string }>`**
 Track an AI interaction and return both the result and turnId for event correlation.
@@ -324,13 +324,13 @@ const { result, turnId } = await trackTurn(
 )
 ```
 
-**Feedback Methods (v0.4.1)**
+**Feedback Methods (v0.4.2)**
 
 **`vote(turnId: string, value: 1 | -1, comment?: string): Promise<void>`**
 Record user feedback using the turnId from trackTurn for automatic correlation.
 
 ```typescript
-// ✅ v0.4.1: Use turnId from trackTurn for automatic correlation
+// ✅ v0.4.2: Use turnId from trackTurn for automatic correlation
 const { result, turnId } = await trackTurn('Generate code', aiCall)
 await vote(turnId, 1, 'Perfect code generation!')
 ```

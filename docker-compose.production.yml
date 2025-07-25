@@ -1,6 +1,6 @@
 version: '3.8'
 
-# Production Docker Compose configuration for Bilan v0.4.1
+# Production Docker Compose configuration for Bilan v0.4.2
 # Copy this file and customize for your production deployment
 
 services:
@@ -13,7 +13,7 @@ services:
       - BILAN_NODE_ENV=production
       - BILAN_PORT=3002
       - BILAN_DB_PATH=/app/data/bilan.db
-      # v0.4.1: REQUIRED - Secure API key via Docker secrets
+      # v0.4.2: REQUIRED - Secure API key via Docker secrets
       - BILAN_API_KEY_FILE=/run/secrets/bilan_api_key
       # CORS configuration for production
       - BILAN_CORS_ORIGIN="https://yourdomain.com,https://dashboard.yourdomain.com"
@@ -57,7 +57,7 @@ services:
     environment:
       - NODE_ENV=production
       - NEXT_PUBLIC_API_BASE_URL=https://api.yourdomain.com
-      # v0.4.1: REQUIRED - Dashboard API key via Docker secrets
+      # v0.4.2: REQUIRED - Dashboard API key via Docker secrets
       - NEXT_PUBLIC_BILAN_API_KEY_FILE=/run/secrets/bilan_api_key
     secrets:
       - bilan_api_key

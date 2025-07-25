@@ -45,7 +45,7 @@ export const bilan = new Bilan({
 - `BILAN_PROJECT_ID` - Your Bilan project identifier
 - `BILAN_USER_ID` - Unique identifier for the current user
 
-### 2. Create a tracked chat completion function (v0.4.1)
+### 2. Create a tracked chat completion function (v0.4.2)
 
 ```typescript
 // lib/chat.ts
@@ -75,7 +75,7 @@ export async function createChatCompletion(
   const conversationId = options.conversationId || `conv_${Date.now()}`
   const model = options.model || 'gpt-4'
   
-  // ✅ v0.4.1: Industry-standard event correlation with trackTurn
+  // ✅ v0.4.2: Industry-standard event correlation with trackTurn
   const { result: completion, turnId } = await trackTurn(
     messages[messages.length - 1]?.content || 'OpenAI Chat Completion',
     () => openai.chat.completions.create({
@@ -167,7 +167,7 @@ export async function createStreamingChat(
 ): Promise<StreamingChatResponse> {
   const model = options.model || 'gpt-3.5-turbo'
   
-  // ✅ v0.4.1: Use trackTurn for automatic correlation
+  // ✅ v0.4.2: Use trackTurn for automatic correlation
   const { result: stream, turnId } = await trackTurn(
     messages[messages.length - 1]?.content || 'OpenAI Streaming Chat',
     () => openai.chat.completions.create({
@@ -498,7 +498,7 @@ export default function StreamingChat() {
         id: `assistant-${Date.now()}`,
         role: 'assistant' as const,
         content: '',
-        turnId: response.turnId, // v0.4.1: Use turnId for feedback correlation
+        turnId: response.turnId, // v0.4.2: Use turnId for feedback correlation
         isStreaming: true
       }
 
@@ -749,7 +749,7 @@ const functions = [
 export async function createFunctionCall(
   messages: Array<{ role: 'system' | 'user' | 'assistant'; content: string }>
 ) {
-  // ✅ v0.4.1: Use trackTurn for automatic correlation
+  // ✅ v0.4.2: Use trackTurn for automatic correlation
   const { result: response, turnId } = await trackTurn(
     messages[messages.length - 1]?.content || 'OpenAI Function Call',
     () => openai.chat.completions.create({
@@ -792,7 +792,7 @@ export async function createFunctionCall(
 
     return {
       content: finalResponse.choices[0].message.content,
-      turnId, // v0.4.1: Use turnId consistently
+      turnId, // v0.4.2: Use turnId consistently
       functionUsed: functionName,
       functionArgs,
       functionResult,
@@ -868,7 +868,7 @@ export async function processBatch(
   
   for (const prompt of prompts) {
     try {
-      // ✅ v0.4.1: Use trackTurn for automatic correlation
+      // ✅ v0.4.2: Use trackTurn for automatic correlation
       const { result: response, turnId } = await trackTurn(
         prompt,
         () => openai.chat.completions.create({

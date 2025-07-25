@@ -4,7 +4,7 @@ info:
   description: |
     REST API for Bilan - Open Source Trust Analytics for AI Products
 
-    **v0.4.1: Turn ID Unification** - Industry-standard event correlation with enhanced security.
+    **v0.4.2: Server Mode Fix** - Fixed critical server mode HTTP functionality with required API key authentication.
     Simplified analytics platform with automatic turn-to-vote correlation following Amplitude/Mixpanel patterns.
 
     ## Core Features
@@ -32,7 +32,7 @@ info:
     ## Error Handling
     All errors follow standard HTTP status codes with structured JSON error responses
     including actionable error codes and detailed error messages.
-  version: 0.4.1
+  version: 0.4.2
   contact:
     name: Bilan Project
     url: https://github.com/Mocksi/bilan

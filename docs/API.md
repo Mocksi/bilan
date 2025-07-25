@@ -16,9 +16,9 @@
 npm install @mocksi/bilan-sdk
 ```
 
-## Authentication (v0.4.1 Update)
+## Authentication (v0.4.2 Update)
 
-**🔒 Security Enhancement**: As of v0.4.1, analytics endpoints require authentication:
+**🔒 Security Enhancement**: As of v0.4.1, analytics endpoints require authentication. v0.4.2 fixes critical server mode functionality:
 
 - `GET /api/events` - Bearer token required
 - `GET /api/analytics/*` - Bearer token required

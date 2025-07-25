@@ -10,7 +10,7 @@ services:
       - BILAN_NODE_ENV=development
       - BILAN_PORT=3002
       - BILAN_DB_PATH=/app/data/bilan.db
-      # v0.4.1: Authentication configuration
+      # v0.4.2: Authentication configuration
       # SECURITY: Uncomment BILAN_DEV_MODE=true for local development only
       # - BILAN_DEV_MODE=true  # Allow running without API key in development
       # For production deployment, set a secure API key instead:
@@ -45,7 +45,7 @@ services:
   #   environment:
   #     - NEXT_PUBLIC_API_BASE_URL=http://localhost:3002
   #     - NODE_ENV=development
-  #     # v0.4.1: Dashboard authentication
+  #     # v0.4.2: Dashboard authentication
   #     # - NEXT_PUBLIC_BILAN_API_KEY=your-secure-api-key-here  # Must match BILAN_API_KEY
   #   depends_on:
   #     - bilan-server
