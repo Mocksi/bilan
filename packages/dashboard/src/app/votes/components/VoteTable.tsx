@@ -161,10 +161,10 @@ export const VoteTable: React.FC<VoteTableProps> = ({ votes, loading, onVoteClic
                       {vote.comment ? (
                         <div>
                           <div className="text-truncate">
-                            {truncateText(vote.comment, 100)}
+                            {truncateText(typeof vote.comment === 'string' ? vote.comment : JSON.stringify(vote.comment), 100)}
                           </div>
                           <small className="text-muted">
-                            {vote.comment.length} characters
+                            {typeof vote.comment === 'string' ? vote.comment.length : JSON.stringify(vote.comment).length} characters
                           </small>
                         </div>
                       ) : (

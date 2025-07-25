@@ -45,20 +45,25 @@ export class BasicAnalyticsProcessor {
   }
 
   async calculateDashboardData(startDate?: Date, endDate?: Date): Promise<DashboardData> {
-    // Get all events for the date range
-    const events = await this.getFilteredEvents(startDate, endDate)
-    
-    // Filter for vote events for backward compatibility
-    const voteEvents = events.filter(e => e.event_type === EVENT_TYPES.VOTE_CAST)
-    const voteCastEvents = voteEvents.map(this.eventToVoteCast)
-    
-    return {
-      conversationStats: this.calculateConversationStats(events),
-      journeyStats: this.calculateJourneyStats(events),
-      feedbackStats: this.calculateFeedbackStats(voteCastEvents),
-      qualitySignals: this.calculateQualitySignals(voteCastEvents),
-      timeSeriesData: this.calculateTimeSeriesData(voteCastEvents),
-      recentActivity: this.calculateRecentActivity(events)
+    try {
+      // Get all events for the date range
+      const events = await this.getFilteredEvents(startDate, endDate)
+      
+      // Filter for vote events for backward compatibility
+      const voteEvents = events.filter(e => e.event_type === EVENT_TYPES.VOTE_CAST)
+      const voteCastEvents = voteEvents.map(this.eventToVoteCast)
+      
+      return {
+        conversationStats: this.calculateConversationStats(events),
+        journeyStats: this.calculateJourneyStats(events),
+        feedbackStats: this.calculateFeedbackStats(voteCastEvents),
+        qualitySignals: this.calculateQualitySignals(voteCastEvents),
+        timeSeriesData: this.calculateTimeSeriesData(voteCastEvents),
+        recentActivity: this.calculateRecentActivity(events)
+      }
+    } catch (error) {
+      console.error('Dashboard calculation error:', error)
+      throw error
     }
   }
 
@@ -90,6 +95,19 @@ export class BasicAnalyticsProcessor {
    * Convert unified Event to VoteCast format for backward compatibility
    */
   private eventToVoteCast(event: Event): VoteCastEvent {
+    // Convert string vote values to numbers for consistency
+    let numericValue = event.properties.value
+    if (typeof numericValue === 'string') {
+      if (numericValue === 'up' || numericValue === 'positive' || numericValue === '1') {
+        numericValue = 1
+      } else if (numericValue === 'down' || numericValue === 'negative' || numericValue === '-1') {
+        numericValue = -1
+      } else {
+        // Try to parse as number, default to 0 if invalid
+        numericValue = parseInt(numericValue, 10) || 0
+      }
+    }
+
     return {
       eventId: event.event_id,
       eventType: 'vote_cast',
@@ -97,7 +115,7 @@ export class BasicAnalyticsProcessor {
       userId: event.user_id,
       properties: {
         promptId: event.properties.turn_id || event.properties.prompt_id || event.properties.promptId, // Prioritize turn_id
-        value: event.properties.value,
+        value: numericValue,
         comment: event.properties.comment,
         ...event.properties
       },
@@ -207,10 +225,24 @@ export class BasicAnalyticsProcessor {
 
     // Get recent comments
     const topComments = voteCastEvents
-      .filter(e => e.properties.comment && e.properties.comment.trim().length > 0)
+      .filter(e => {
+        if (!e.properties.comment) return false
+        // Handle both string and object comments
+        if (typeof e.properties.comment === 'string') {
+          return e.properties.comment.trim().length > 0
+        } else {
+          // If it's an object, convert to string and check length
+          return JSON.stringify(e.properties.comment).length > 2 // More than just "{}"
+        }
+      })
       .sort((a, b) => b.timestamp - a.timestamp)
       .slice(0, 10)
-      .map(e => e.properties.comment!)
+      .map(e => {
+        // Convert comment to string if it's an object
+        return typeof e.properties.comment === 'string' 
+          ? e.properties.comment 
+          : JSON.stringify(e.properties.comment)
+      })
 
     return {
       totalFeedback,
@@ -358,7 +390,11 @@ export class BasicAnalyticsProcessor {
             type = 'vote'
             if (event.properties.comment) {
               type = 'comment'
-              summary = `User commented: "${event.properties.comment.substring(0, 50)}${event.properties.comment.length > 50 ? '...' : ''}"`
+              // Handle both string and object comments
+              const commentStr = typeof event.properties.comment === 'string' 
+                ? event.properties.comment 
+                : JSON.stringify(event.properties.comment)
+              summary = `User commented: "${commentStr.substring(0, 50)}${commentStr.length > 50 ? '...' : ''}"`
             } else {
               summary = `User ${event.properties.value > 0 ? 'upvoted' : 'downvoted'} a prompt`
             }

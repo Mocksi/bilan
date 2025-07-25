@@ -123,9 +123,11 @@ export const VoteDetailModal: React.FC<VoteDetailModalProps> = ({ vote, onClose 
                   <label className="form-label">Comment</label>
                   <div className="card">
                     <div className="card-body">
-                      <p className="mb-0">{vote.comment}</p>
+                      <p className="mb-0">
+                        {typeof vote.comment === 'string' ? vote.comment : JSON.stringify(vote.comment, null, 2)}
+                      </p>
                       <small className="text-muted">
-                        {vote.comment.length} characters
+                        {typeof vote.comment === 'string' ? vote.comment.length : JSON.stringify(vote.comment).length} characters
                       </small>
                     </div>
                   </div>

@@ -420,9 +420,11 @@ export class BilanServer {
 
       } catch (error) {
         this.fastify.log.error('Error in GET /api/dashboard:', error)
+        console.error('Dashboard endpoint error details:', error)
         return reply.status(500).send({
           error: 'Internal server error',
-          message: 'Failed to fetch dashboard data'
+          message: 'Failed to fetch dashboard data',
+          details: error instanceof Error ? error.message : String(error)
         })
       }
     })
