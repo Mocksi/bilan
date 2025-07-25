@@ -190,6 +190,7 @@ try {
 ### 📚 **Documentation Updates**
 
 #### **Complete Migration Guide**
+- **[MIGRATION-v0.4.2.md](./MIGRATION-v0.4.2.md)** - Critical v0.4.1 → v0.4.2 server mode fix guide
 - **[MIGRATION-v0.4.1.md](./MIGRATION-v0.4.1.md)** - Comprehensive v0.4.0 → v0.4.1 upgrade guide
 - Step-by-step code transformation examples
 - Common migration patterns and solutions
