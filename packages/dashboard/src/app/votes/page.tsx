@@ -171,8 +171,11 @@ const VotesContent: React.FC = () => {
                       </td>
                       <td className="text-muted">
                         {vote.comment ? (
-                          <span title={vote.comment}>
-                            {vote.comment.length > 30 ? `${vote.comment.substring(0, 30)}...` : vote.comment}
+                          <span title={typeof vote.comment === 'string' ? vote.comment : JSON.stringify(vote.comment)}>
+                            {(() => {
+                              const commentStr = typeof vote.comment === 'string' ? vote.comment : JSON.stringify(vote.comment);
+                              return commentStr.length > 30 ? `${commentStr.substring(0, 30)}...` : commentStr;
+                            })()}
                           </span>
                         ) : (
                           '-'
