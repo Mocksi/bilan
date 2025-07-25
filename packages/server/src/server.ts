@@ -140,14 +140,22 @@ interface DashboardQuery {
  * Convert VoteCastEvent from SDK to unified Event format
  */
 function voteCastEventToEvent(voteCastEvent: VoteCastEvent): Event {
+  // Extract relationship fields from properties for proper turn-vote correlation
+  const properties = voteCastEvent.properties || {}
+  
   return {
     event_id: voteCastEvent.eventId,
     user_id: voteCastEvent.userId,
     event_type: EVENT_TYPES.VOTE_CAST,
     timestamp: voteCastEvent.timestamp,
-    properties: voteCastEvent.properties,
+    properties: properties,
     prompt_text: voteCastEvent.promptText || null,
-    ai_response: voteCastEvent.aiResponse || null
+    ai_response: voteCastEvent.aiResponse || null,
+    // Extract relationship fields for proper correlation
+    turn_id: properties.turn_id || properties.turnId || null,
+    journey_id: properties.journey_id || null,
+    conversation_id: properties.conversation_id || properties.conversationId || null,
+    turn_sequence: properties.turn_sequence || null
   }
 }
 
@@ -199,14 +207,22 @@ function sdkEventToEvent(sdkEvent: SdkEvent): Event {
       serverEventType = EVENT_TYPES.USER_ACTION // fallback
   }
   
+  // Extract relationship fields from properties for proper correlation
+  const properties = sdkEvent.properties || {}
+  
   return {
     event_id: sdkEvent.eventId,
     user_id: sdkEvent.userId,
     event_type: serverEventType,
     timestamp: sdkEvent.timestamp,
-    properties: sdkEvent.properties || {},
+    properties: properties,
     prompt_text: sdkEvent.promptText || null,
-    ai_response: sdkEvent.aiResponse || null
+    ai_response: sdkEvent.aiResponse || null,
+    // Extract relationship fields for proper correlation and analytics
+    turn_id: properties.turn_id || properties.turnId || null,
+    journey_id: properties.journey_id || null,
+    conversation_id: properties.conversation_id || properties.conversationId || null,
+    turn_sequence: properties.turn_sequence || null
   }
 }
 
@@ -527,8 +543,101 @@ export class BilanServer {
           totalCount = this.db.getEventsCount(countFilters)
         }
 
+        // Enrich vote events with turn data for dashboard display
+        let enrichedEvents = paginatedEvents
+        if (eventType === 'vote_cast') {
+          enrichedEvents = paginatedEvents.map(voteEvent => {
+            // If this vote has a turn_id, fetch the associated turn data
+            if (voteEvent.turn_id || voteEvent.properties.turn_id) {
+              const turnId = voteEvent.turn_id || voteEvent.properties.turn_id
+              const turnEvents = this.db.getEventsByTurnId(turnId)
+              
+              // Find the best turn event for each piece of data
+              const turnCompleted = turnEvents.find((e: Event) => e.event_type === 'turn_completed')
+              const turnCreated = turnEvents.find((e: Event) => e.event_type === 'turn_created') 
+              const userActions = turnEvents.filter((e: Event) => e.event_type === 'user_action')
+              
+              // Use turn_completed for AI response and response time, fall back to turn_created for prompt
+              const primaryTurn = turnCompleted || turnCreated
+              
+              if (primaryTurn) {
+                // Extract session_id and conversation_id from user_action events
+                let sessionId = null
+                let conversationId = null
+                for (const action of userActions) {
+                  if (action.properties.session_id) {
+                    sessionId = action.properties.session_id
+                  }
+                  if (action.properties.conversation_id || action.properties.conversationId) {
+                    conversationId = action.properties.conversation_id || action.properties.conversationId
+                  }
+                }
+                
+                // Enrich vote with comprehensive turn metadata
+                return {
+                  ...voteEvent,
+                  // Prioritize turn_completed for AI response, fall back to turn_created for prompt
+                  prompt_text: primaryTurn.prompt_text || voteEvent.prompt_text,
+                  ai_response: turnCompleted?.ai_response || primaryTurn.ai_response || voteEvent.ai_response,
+                  // Also extract to top-level for consistency
+                  journey_id: primaryTurn.journey_id || primaryTurn.properties.journey_id,
+                  conversation_id: conversationId || primaryTurn.conversation_id || primaryTurn.properties.conversation_id,
+                  // Merge properties to include comprehensive turn metadata
+                  properties: {
+                    ...voteEvent.properties,
+                    // Model info
+                    model: primaryTurn.properties.model || primaryTurn.properties.modelUsed,
+                    provider: primaryTurn.properties.provider,
+                    // Performance metrics (from turn_completed preferably)
+                    responseTime: turnCompleted?.properties.responseTime || primaryTurn.properties.responseTime,
+                    responseLength: turnCompleted?.properties.responseLength || primaryTurn.properties.responseLength,
+                    // Context and journey info
+                    journey_id: primaryTurn.journey_id || primaryTurn.properties.journey_id,
+                    journey_step: primaryTurn.properties.journey_step,
+                    session_id: sessionId || primaryTurn.properties.session_id || primaryTurn.properties.sessionId,
+                    conversation_id: conversationId || primaryTurn.conversation_id || primaryTurn.properties.conversation_id,
+                    // Action context
+                    action_type: primaryTurn.properties.action_type,
+                    action_id: userActions[0]?.properties.action_id,
+                    action_label: userActions[0]?.properties.action_label
+                  }
+                }
+              }
+            }
+            return voteEvent
+          })
+        }
+
+        // Enrich turn events with vote data for dashboard display
+        if (eventType && (eventType.includes('turn_completed') || eventType.includes('turn_failed'))) {
+          enrichedEvents = paginatedEvents.map(turnEvent => {
+            // If this turn has a turn_id, look for associated vote events
+            const turnId = turnEvent.turn_id || turnEvent.properties.turn_id || turnEvent.properties.turnId
+            if (turnId) {
+              const turnEvents = this.db.getEventsByTurnId(turnId)
+              const voteEvent = turnEvents.find((e: Event) => e.event_type === 'vote_cast')
+              
+              if (voteEvent) {
+                // Add vote information to turn event
+                return {
+                  ...turnEvent,
+                  properties: {
+                    ...turnEvent.properties,
+                    // Add vote data
+                    voteValue: voteEvent.properties.value,
+                    voteId: voteEvent.event_id,
+                    voteTimestamp: voteEvent.timestamp,
+                    voteComment: voteEvent.properties.comment
+                  }
+                }
+              }
+            }
+            return turnEvent
+          })
+        }
+
         return reply.send({
-          events: paginatedEvents,
+          events: enrichedEvents,
           total: totalCount,
           limit: limitNum,
           offset: offsetNum,

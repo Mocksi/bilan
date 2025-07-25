@@ -402,6 +402,22 @@ export class BilanDatabase {
   }
 
   /**
+   * Get all events associated with a specific turn ID
+   */
+  getEventsByTurnId(turnId: string): Event[] {
+    const sql = `
+      SELECT * FROM events 
+      WHERE turn_id = ? 
+         OR JSON_EXTRACT(properties, '$.turn_id') = ?
+         OR JSON_EXTRACT(properties, '$.turnId') = ?
+      ORDER BY timestamp ASC
+    `
+    
+    const rows = this.query(sql, [turnId, turnId, turnId])
+    return rows.map(this.mapRowToEvent)
+  }
+
+  /**
    * Get vote events with optional filtering for backward compatibility
    * Supports both new turn_id and legacy promptId filtering
    */
