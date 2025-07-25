@@ -231,7 +231,11 @@ export class ApiClient {
       userId: event.user_id,
       value: event.properties.value,
       rating: event.properties.value > 0 ? 'positive' : 'negative',
-      comment: event.properties.comment || '',
+      comment: typeof event.properties.comment === 'string' 
+        ? event.properties.comment 
+        : event.properties.comment 
+          ? JSON.stringify(event.properties.comment) 
+          : '',
       timestamp: event.timestamp,
       date: new Date(event.timestamp).toISOString().split('T')[0],
       promptText: event.prompt_text || '',
