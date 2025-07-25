@@ -2,9 +2,9 @@
 
 This guide provides comprehensive instructions for deploying Bilan in various environments using Docker.
 
-## 🆕 v0.4.1 Authentication Requirements
+## 🆕 v0.4.2 Critical Server Mode Fix
 
-**IMPORTANT**: Bilan v0.4.1 introduces API key authentication for analytics endpoints. Before deploying, ensure you understand the authentication requirements:
+**CRITICAL**: Bilan v0.4.2 fixes broken server mode from v0.4.1. v0.4.1 introduced API key authentication but server mode events were never sent. Before deploying, ensure you understand the authentication requirements:
 
 ### Development Mode (Default in Docker Compose)
 ```env
@@ -26,7 +26,7 @@ openssl rand -hex 32
 
 ### Docker Secrets (Enhanced Security)
 
-For production deployments, Bilan v0.4.1 supports Docker secrets to avoid exposing credentials in container metadata:
+For production deployments, Bilan v0.4.2 supports Docker secrets to avoid exposing credentials in container metadata:
 
 #### **Environment Variables (Simple)**
 ```yaml
@@ -577,11 +577,11 @@ When reporting deployment issues, please include:
 
 Contributions to improve deployment documentation and scripts are welcome! Please see [CONTRIBUTING.md](../CONTRIBUTING.md) for guidelines. 
 
-## v0.4.1 Docker Secrets Setup
+## v0.4.2 Docker Secrets Setup
 
 ### Secure Credential Management
 
-Bilan v0.4.1 supports Docker secrets for enhanced security in production:
+Bilan v0.4.2 supports Docker secrets for enhanced security in production:
 
 #### **Environment Variables (Simple)**
 ```yaml
