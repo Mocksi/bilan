@@ -686,7 +686,7 @@ await init({
 **Compatibility Matrix:**
 | SDK Version | Server Version | Status |
 |-------------|----------------|--------|
-| 0.4.1 | 0.4.0+ | ✅ Recommended |
+| 0.4.2 | 0.4.0+ | ✅ Recommended |
 | 0.4.0 | 0.4.0+ | ✅ Supported |
 | 0.3.x | 0.3.x - 0.4.0 | ⚠️ Legacy support |
 | 0.2.x | 0.2.x - 0.3.x | ❌ Deprecated |

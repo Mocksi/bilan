@@ -55,7 +55,7 @@ export async function POST(req: Request) {
   const actualConversationId = conversationId || generateId()
   const model = 'gpt-4'
   
-  // ✅ v0.4.1: Use trackTurn for automatic correlation
+  // ✅ v0.4.2: Use trackTurn for automatic correlation
   const { result, turnId } = await trackTurn(
     messages[messages.length - 1]?.content || 'Vercel AI SDK completion',
     () => streamText({

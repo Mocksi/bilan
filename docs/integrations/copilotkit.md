@@ -60,7 +60,7 @@ function generateId(): string {
 export function useCopilotChatWithBilan(options: any) {
   const [messageTurnIds, setMessageTurnIds] = useState<Record<string, string>>({})
 
-  // ✅ v0.4.1: Initialize once - init() should be called at app level
+  // ✅ v0.4.2: Initialize once - init() should be called at app level
   // This pattern assumes init() was already called in _app.tsx or layout.tsx
 
   const chat = useCopilotChat({
@@ -68,7 +68,7 @@ export function useCopilotChatWithBilan(options: any) {
     onMessage: (message: any) => {
       // Auto-capture context when AI responds  
       if (message.role === 'assistant') {
-        // ✅ v0.4.1: Generate turnId for message correlation
+        // ✅ v0.4.2: Generate turnId for message correlation
         const turnId = generateId()
         
         // Store turnId for feedback correlation
@@ -108,7 +108,7 @@ export function useCopilotChatWithBilan(options: any) {
   return {
     ...chat,
     recordFeedback,
-    messageTurnIds // Use consistent naming for v0.4.1
+    messageTurnIds // Use consistent naming for v0.4.2
   }
 }
 ```
