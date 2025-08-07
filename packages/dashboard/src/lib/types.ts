@@ -128,6 +128,7 @@ export interface TurnData {
   timestamp: number
   conversationId?: string
   voteValue?: number // -1 for negative, 1 for positive
+  voteId?: string // ID of the associated vote event
   model?: string
   metadata?: {
     promptId?: string

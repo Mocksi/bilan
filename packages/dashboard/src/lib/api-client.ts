@@ -227,7 +227,8 @@ export class ApiClient {
     
     const votes: VoteData[] = voteEvents.map((event: any, index: number) => ({
       id: event.event_id || `vote-${event.timestamp}-${index}`,
-      promptId: event.properties.promptId || event.event_id,
+      promptId: event.turn_id || event.properties.turn_id || event.properties.promptId || event.event_id,
+      turn_id: event.turn_id || event.properties.turn_id, // Use database turn_id column first
       userId: event.user_id,
       value: event.properties.value,
       rating: event.properties.value > 0 ? 'positive' : 'negative',
@@ -241,8 +242,16 @@ export class ApiClient {
       promptText: event.prompt_text || '',
       aiOutput: event.ai_response || '',
       responseTime: event.properties.responseTime || 0,
-      model: event.properties.model || '',
-      metadata: event.properties
+      model: event.properties.model || event.properties.modelUsed || '',
+      metadata: {
+        // Extract key metadata fields for dashboard display
+        journey: event.journey_id || event.properties.journey_id,
+        step: event.properties.journey_step || event.properties.step,
+        sessionId: event.properties.session_id || event.properties.sessionId,
+        conversationId: event.conversation_id || event.properties.conversation_id || event.properties.conversationId,
+        // Include all original properties for comprehensive metadata
+        ...event.properties
+      }
     }))
 
     // API now returns filtered total count of vote events
@@ -764,17 +773,28 @@ async function fetchTurns(
   const turnEvents = data.events
   
   const turns: TurnData[] = turnEvents.map((event: any, index: number) => ({
-    id: `${event.user_id}-${event.event_id}-${index}`,
+    id: event.turn_id || `${event.user_id}-${event.event_id}-${index}`,
     userId: event.user_id,
     status: event.event_type === 'turn_completed' ? 'completed' : 'failed',
     promptText: event.properties.promptText || event.prompt_text || '',
     responseText: event.properties.responseText || event.ai_response || '',
     responseTime: event.properties.responseTime || event.properties.response_time || 0,
     timestamp: event.timestamp,
-    conversationId: event.conversation_id || event.properties.conversationId,
+    conversationId: event.conversation_id || event.properties.conversationId || event.properties.conversation_id,
     voteValue: event.properties.voteValue,
-    model: event.properties.model || '',
-    metadata: event.properties
+    voteId: event.properties.voteId, // Extract vote ID from enriched data
+    model: event.properties.model || event.properties.modelUsed || '',
+    metadata: {
+      // Extract key metadata fields for dashboard display
+      turnId: event.turn_id || event.properties.turn_id || event.properties.turnId,
+      journey: event.journey_id || event.properties.journey_id,
+      journeyStep: event.properties.journey_step,
+      sessionId: event.properties.session_id || event.properties.sessionId,
+      actionType: event.properties.action_type,
+      provider: event.properties.provider,
+      // Include all original properties for comprehensive metadata
+      ...event.properties
+    }
   }))
 
   return {
