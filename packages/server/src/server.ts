@@ -140,14 +140,22 @@ interface DashboardQuery {
  * Convert VoteCastEvent from SDK to unified Event format
  */
 function voteCastEventToEvent(voteCastEvent: VoteCastEvent): Event {
+  // Extract relationship fields from properties for proper turn-vote correlation
+  const properties = voteCastEvent.properties || {}
+  
   return {
     event_id: voteCastEvent.eventId,
     user_id: voteCastEvent.userId,
     event_type: EVENT_TYPES.VOTE_CAST,
     timestamp: voteCastEvent.timestamp,
-    properties: voteCastEvent.properties,
+    properties: properties,
     prompt_text: voteCastEvent.promptText || null,
-    ai_response: voteCastEvent.aiResponse || null
+    ai_response: voteCastEvent.aiResponse || null,
+    // Extract relationship fields for proper correlation
+    turn_id: properties.turn_id || properties.turnId || null,
+    journey_id: properties.journey_id || null,
+    conversation_id: properties.conversation_id || properties.conversationId || null,
+    turn_sequence: properties.turn_sequence || null
   }
 }
 
@@ -199,14 +207,22 @@ function sdkEventToEvent(sdkEvent: SdkEvent): Event {
       serverEventType = EVENT_TYPES.USER_ACTION // fallback
   }
   
+  // Extract relationship fields from properties for proper correlation
+  const properties = sdkEvent.properties || {}
+  
   return {
     event_id: sdkEvent.eventId,
     user_id: sdkEvent.userId,
     event_type: serverEventType,
     timestamp: sdkEvent.timestamp,
-    properties: sdkEvent.properties || {},
+    properties: properties,
     prompt_text: sdkEvent.promptText || null,
-    ai_response: sdkEvent.aiResponse || null
+    ai_response: sdkEvent.aiResponse || null,
+    // Extract relationship fields for proper correlation and analytics
+    turn_id: properties.turn_id || properties.turnId || null,
+    journey_id: properties.journey_id || null,
+    conversation_id: properties.conversation_id || properties.conversationId || null,
+    turn_sequence: properties.turn_sequence || null
   }
 }
 
@@ -527,8 +543,155 @@ export class BilanServer {
           totalCount = this.db.getEventsCount(countFilters)
         }
 
+        // Batch enrichment to avoid N+1 queries
+        let enrichedEvents = paginatedEvents
+        
+        // Collect all turn_ids that need enrichment
+        const collectTurnIds = (events: Event[]): Set<string> => {
+          const turnIds = new Set<string>()
+          for (const event of events) {
+            const turnId = event.turn_id || event.properties.turn_id || event.properties.turnId
+            if (turnId) {
+              turnIds.add(turnId)
+            }
+          }
+          return turnIds
+        }
+
+        // Build cache of turn events to avoid repeated database queries
+        const buildTurnCache = (turnIds: Set<string>): Map<string, Event[]> => {
+          const turnCache = new Map<string, Event[]>()
+          for (const turnId of turnIds) {
+            try {
+              const turnEvents = this.db.getEventsByTurnId(turnId)
+              turnCache.set(turnId, turnEvents)
+            } catch (error) {
+              console.warn(`Failed to fetch events for turn ${turnId}:`, error)
+              turnCache.set(turnId, [])
+            }
+          }
+          return turnCache
+        }
+
+        // Pure function to enrich vote event with turn metadata
+        const enrichVoteEvent = (voteEvent: Event, turnCache: Map<string, Event[]>): Event => {
+          const turnId = voteEvent.turn_id || voteEvent.properties.turn_id
+          if (!turnId) return voteEvent
+
+          const turnEvents = turnCache.get(turnId) || []
+          if (turnEvents.length === 0) return voteEvent
+
+          // Find the best turn event for each piece of data
+          const turnCompleted = turnEvents.find((e: Event) => e.event_type === 'turn_completed')
+          const turnCreated = turnEvents.find((e: Event) => e.event_type === 'turn_created') 
+          const userActions = turnEvents.filter((e: Event) => e.event_type === 'user_action')
+          
+          // Use turn_completed for AI response and response time, fall back to turn_created for prompt
+          const primaryTurn = turnCompleted || turnCreated
+          if (!primaryTurn) return voteEvent
+
+          // Extract session_id and conversation_id from user_action events
+          let sessionId = null
+          let conversationId = null
+          for (const action of userActions) {
+            if (action.properties.session_id) {
+              sessionId = action.properties.session_id
+            }
+            if (action.properties.conversation_id || action.properties.conversationId) {
+              conversationId = action.properties.conversation_id || action.properties.conversationId
+            }
+          }
+          
+          // Enrich vote with comprehensive turn metadata
+          return {
+            ...voteEvent,
+            // Prioritize turn_completed for AI response, fall back to turn_created for prompt
+            prompt_text: primaryTurn.prompt_text || voteEvent.prompt_text,
+            ai_response: turnCompleted?.ai_response || primaryTurn.ai_response || voteEvent.ai_response,
+            // Also extract to top-level for consistency
+            journey_id: primaryTurn.journey_id || primaryTurn.properties.journey_id,
+            conversation_id: conversationId || primaryTurn.conversation_id || primaryTurn.properties.conversation_id,
+            // Merge properties to include comprehensive turn metadata
+            properties: {
+              ...voteEvent.properties,
+              // Model info
+              model: primaryTurn.properties.model || primaryTurn.properties.modelUsed,
+              provider: primaryTurn.properties.provider,
+              // Performance metrics (from turn_completed preferably)
+              responseTime: turnCompleted?.properties.responseTime || primaryTurn.properties.responseTime,
+              responseLength: turnCompleted?.properties.responseLength || primaryTurn.properties.responseLength,
+              // Context and journey info
+              journey_id: primaryTurn.journey_id || primaryTurn.properties.journey_id,
+              journey_step: primaryTurn.properties.journey_step,
+              session_id: sessionId || primaryTurn.properties.session_id || primaryTurn.properties.sessionId,
+              conversation_id: conversationId || primaryTurn.conversation_id || primaryTurn.properties.conversation_id,
+              // Action context
+              action_type: primaryTurn.properties.action_type,
+              action_id: userActions[0]?.properties.action_id,
+              action_label: userActions[0]?.properties.action_label
+            }
+          }
+        }
+
+        // Pure function to enrich turn event with vote metadata
+        const enrichTurnEvent = (turnEvent: Event, turnCache: Map<string, Event[]>): Event => {
+          const turnId = turnEvent.turn_id || turnEvent.properties.turn_id || turnEvent.properties.turnId
+          if (!turnId) return turnEvent
+
+          const turnEvents = turnCache.get(turnId) || []
+          const voteEvent = turnEvents.find((e: Event) => e.event_type === 'vote_cast')
+          
+          if (!voteEvent) return turnEvent
+
+          // Add vote information to turn event
+          return {
+            ...turnEvent,
+            properties: {
+              ...turnEvent.properties,
+              // Add vote data
+              voteValue: voteEvent.properties.value,
+              voteId: voteEvent.event_id,
+              voteTimestamp: voteEvent.timestamp,
+              voteComment: voteEvent.properties.comment
+            }
+          }
+        }
+
+        // Safe enrichment wrapper with error handling
+        const safeEnrich = (
+          event: Event, 
+          enrichFunction: (event: Event, turnCache: Map<string, Event[]>) => Event,
+          turnCache: Map<string, Event[]>
+        ): Event => {
+          try {
+            return enrichFunction(event, turnCache)
+          } catch (error) {
+            console.warn(`Failed to enrich event ${event.event_id}:`, error)
+            return event
+          }
+        }
+
+        // Apply enrichment based on event type
+        if (eventType === 'vote_cast') {
+          const turnIds = collectTurnIds(paginatedEvents)
+          if (turnIds.size > 0) {
+            const turnCache = buildTurnCache(turnIds)
+            enrichedEvents = paginatedEvents.map(event => 
+              safeEnrich(event, enrichVoteEvent, turnCache)
+            )
+          }
+        } else if (eventType && (eventType.includes('turn_completed') || eventType.includes('turn_failed'))) {
+          const turnIds = collectTurnIds(paginatedEvents)
+          if (turnIds.size > 0) {
+            const turnCache = buildTurnCache(turnIds)
+            enrichedEvents = paginatedEvents.map(event => 
+              safeEnrich(event, enrichTurnEvent, turnCache)
+            )
+          }
+        }
+
         return reply.send({
-          events: paginatedEvents,
+          events: enrichedEvents,
           total: totalCount,
           limit: limitNum,
           offset: offsetNum,
