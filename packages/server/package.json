@@ -42,7 +42,7 @@
     "vitest": "^3.2.4"
   },
   "dependencies": {
-    "@fastify/cors": "11.0.1",
+    "@fastify/cors": "11.1.0",
     "@fastify/rate-limit": "10.3.0",
     "@mocksi/bilan-sdk": "file:../sdk",
     "better-sqlite3": "12.2.0",
